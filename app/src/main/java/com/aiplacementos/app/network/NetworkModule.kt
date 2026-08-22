@@ -3,11 +3,14 @@ package com.aiplacementos.app.network
 import android.content.Context
 import com.aiplacementos.app.BuildConfig
 import com.aiplacementos.app.data.remote.AuthApi
+import com.aiplacementos.app.data.remote.ResumesApi
 import com.aiplacementos.app.data.remote.UsersApi
 import com.aiplacementos.app.data.repository.AuthRepositoryImpl
 import com.aiplacementos.app.data.repository.ProfileRepositoryImpl
+import com.aiplacementos.app.data.repository.ResumeRepositoryImpl
 import com.aiplacementos.app.domain.repository.AuthRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
+import com.aiplacementos.app.domain.repository.ResumeRepository
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -34,7 +37,9 @@ class NetworkModule(context: Context) {
         .addInterceptor(AuthInterceptor(tokenStore))
         .addInterceptor(loggingInterceptor)
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
+        // Resume/JD parsing calls run real AI inference server-side and can take ~1-2 minutes.
+        .readTimeout(150, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
     private val retrofit = Retrofit.Builder()
@@ -45,7 +50,9 @@ class NetworkModule(context: Context) {
 
     private val authApi: AuthApi = retrofit.create()
     private val usersApi: UsersApi = retrofit.create()
+    private val resumesApi: ResumesApi = retrofit.create()
 
     val authRepository: AuthRepository = AuthRepositoryImpl(authApi, tokenStore)
     val profileRepository: ProfileRepository = ProfileRepositoryImpl(usersApi)
+    val resumeRepository: ResumeRepository = ResumeRepositoryImpl(resumesApi)
 }
