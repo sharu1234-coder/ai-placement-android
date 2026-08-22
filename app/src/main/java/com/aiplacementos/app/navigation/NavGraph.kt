@@ -75,11 +75,18 @@ fun NavGraph(navController: NavHostController) {
             val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
             JobMatchScreen(
                 jdId = jdId,
-                onContinue = { navController.navigate(Screen.PrepareMeSummary.route) },
+                onContinue = { navController.navigate(prepareMeSummaryRoute(jdId)) },
             )
         }
-        composable(Screen.PrepareMeSummary.route) {
-            PrepareMeSummaryScreen(onStartTests = { navController.navigate(Screen.TestFlow.route) })
+        composable(
+            Screen.PrepareMeSummary.route,
+            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
+            PrepareMeSummaryScreen(
+                jdId = jdId,
+                onStartTests = { navController.navigate(Screen.TestFlow.route) },
+            )
         }
         composable(Screen.TestFlow.route) {
             com.aiplacementos.app.ui.tests.TestListScreen(

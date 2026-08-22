@@ -19,7 +19,7 @@ sealed class Screen(val route: String) {
     data object RoleOrJdEntry : Screen("prepare-me/entry")
     data object ResumeUpload : Screen("prepare-me/resume-upload/{jdId}")
     data object AnalysisResult : Screen("prepare-me/analysis-result/{jdId}")
-    data object PrepareMeSummary : Screen("prepare-me/summary")
+    data object PrepareMeSummary : Screen("prepare-me/summary/{jdId}")
     data object TestFlow : Screen("prepare-me/test")
     data object TextInterview : Screen("prepare-me/text-interview")
     data object VoiceInterview : Screen("prepare-me/voice-interview")
@@ -32,3 +32,4 @@ sealed class Screen(val route: String) {
 
 fun resumeUploadRoute(jdId: Int): String = "prepare-me/resume-upload/$jdId"
 fun analysisResultRoute(jdId: Int): String = "prepare-me/analysis-result/$jdId"
+fun prepareMeSummaryRoute(jdId: Int): String = "prepare-me/summary/$jdId"
