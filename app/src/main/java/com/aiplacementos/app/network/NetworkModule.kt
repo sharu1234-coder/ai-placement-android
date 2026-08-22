@@ -4,16 +4,19 @@ import android.content.Context
 import com.aiplacementos.app.BuildConfig
 import com.aiplacementos.app.data.remote.AssessmentsApi
 import com.aiplacementos.app.data.remote.AuthApi
+import com.aiplacementos.app.data.remote.InterviewsApi
 import com.aiplacementos.app.data.remote.JobsApi
 import com.aiplacementos.app.data.remote.ResumesApi
 import com.aiplacementos.app.data.remote.UsersApi
 import com.aiplacementos.app.data.repository.AssessmentRepositoryImpl
 import com.aiplacementos.app.data.repository.AuthRepositoryImpl
+import com.aiplacementos.app.data.repository.InterviewRepositoryImpl
 import com.aiplacementos.app.data.repository.JobRepositoryImpl
 import com.aiplacementos.app.data.repository.ProfileRepositoryImpl
 import com.aiplacementos.app.data.repository.ResumeRepositoryImpl
 import com.aiplacementos.app.domain.repository.AssessmentRepository
 import com.aiplacementos.app.domain.repository.AuthRepository
+import com.aiplacementos.app.domain.repository.InterviewRepository
 import com.aiplacementos.app.domain.repository.JobRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.domain.repository.ResumeRepository
@@ -59,10 +62,12 @@ class NetworkModule(context: Context) {
     private val resumesApi: ResumesApi = retrofit.create()
     private val jobsApi: JobsApi = retrofit.create()
     private val assessmentsApi: AssessmentsApi = retrofit.create()
+    private val interviewsApi: InterviewsApi = retrofit.create()
 
     val authRepository: AuthRepository = AuthRepositoryImpl(authApi, tokenStore)
     val profileRepository: ProfileRepository = ProfileRepositoryImpl(usersApi)
     val resumeRepository: ResumeRepository = ResumeRepositoryImpl(resumesApi)
     val jobRepository: JobRepository = JobRepositoryImpl(jobsApi)
     val assessmentRepository: AssessmentRepository = AssessmentRepositoryImpl(assessmentsApi)
+    val interviewRepository: InterviewRepository = InterviewRepositoryImpl(interviewsApi)
 }

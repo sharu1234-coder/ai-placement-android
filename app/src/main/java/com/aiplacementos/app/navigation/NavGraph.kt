@@ -118,13 +118,23 @@ fun NavGraph(navController: NavHostController) {
             )
         }
         composable(Screen.TextInterview.route) {
-            TextInterviewScreen(onFinish = { navController.navigate(Screen.VoiceInterview.route) })
+            TextInterviewScreen(onFinish = { interviewId -> navController.navigate(voiceInterviewRoute(interviewId)) })
         }
-        composable(Screen.VoiceInterview.route) {
-            VoiceInterviewScreen(onFinish = { navController.navigate(Screen.InterviewEvaluation.route) })
+        composable(
+            Screen.VoiceInterview.route,
+            arguments = listOf(navArgument("interviewId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val interviewId = backStackEntry.arguments?.getInt("interviewId") ?: 0
+            VoiceInterviewScreen(onFinish = { navController.navigate(interviewEvaluationRoute(interviewId)) })
         }
-        composable(Screen.InterviewEvaluation.route) {
-            InterviewEvaluationScreen(onContinue = { navController.navigate(Screen.RoadmapUpdated.route) })
+        composable(
+            Screen.InterviewEvaluation.route,
+            arguments = listOf(navArgument("interviewId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            InterviewEvaluationScreen(
+                interviewId = backStackEntry.arguments?.getInt("interviewId") ?: 0,
+                onContinue = { navController.navigate(Screen.RoadmapUpdated.route) },
+            )
         }
         composable(Screen.RoadmapUpdated.route) {
             RoadmapScreen(onOpenTask = { navController.navigate(Screen.RoadmapTaskDetail.route) })

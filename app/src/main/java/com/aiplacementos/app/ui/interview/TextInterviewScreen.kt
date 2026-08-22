@@ -1,9 +1,92 @@
 package com.aiplacementos.app.ui.interview
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import com.aiplacementos.app.ui.common.PlaceholderScreen
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aiplacementos.app.data.remote.InterviewQuestionDto
+import com.aiplacementos.app.ui.common.ErrorState
+import com.aiplacementos.app.ui.common.LoadingState
+import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.networkModule
+import com.aiplacementos.app.ui.theme.Spacing
+
+// Matches the backend's fixed _QUESTIONS_PER_INTERVIEW (app/services/interview_service.py).
+private const val QUESTIONS_PER_INTERVIEW = 5
 
 @Composable
-fun TextInterviewScreen(onFinish: () -> Unit) {
-    PlaceholderScreen(title = "Text Interview")
+fun TextInterviewScreen(onFinish: (interviewId: Int) -> Unit) {
+    val network = networkModule()
+    val viewModel: TextInterviewViewModel = viewModel(
+        factory = viewModelFactory { initializer { TextInterviewViewModel(network.interviewRepository) } },
+    )
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(state) {
+        val current = state
+        if (current is TextInterviewUiState.Completed) onFinish(current.interviewId)
+    }
+
+    when (val current = state) {
+        is TextInterviewUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
+        is TextInterviewUiState.Completed -> LoadingState(modifier = Modifier.fillMaxSize())
+        is TextInterviewUiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is TextInterviewUiState.Question -> QuestionCard(
+            question = current.question,
+            submitting = current.submitting,
+            onSubmit = { answer -> viewModel.submitAnswer(answer) },
+        )
+    }
+}
+
+@Composable
+private fun QuestionCard(question: InterviewQuestionDto, submitting: Boolean, onSubmit: (String) -> Unit) {
+    var answerText by remember(question.id) { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Text(
+            text = "Question ${question.orderIndex} of $QUESTIONS_PER_INTERVIEW · ${question.basedOn}",
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Text(text = question.questionText, style = MaterialTheme.typography.bodyLarge)
+
+        OutlinedTextField(
+            value = answerText,
+            onValueChange = { answerText = it },
+            label = { Text("Your answer") },
+            enabled = !submitting,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+        )
+
+        PrimaryButton(
+            text = if (submitting) "Submitting..." else "Submit answer",
+            onClick = { onSubmit(answerText) },
+            enabled = !submitting && answerText.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }

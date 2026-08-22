@@ -24,8 +24,8 @@ sealed class Screen(val route: String) {
     data object TestTaking : Screen("prepare-me/test-taking/{assessmentId}")
     data object TestResult : Screen("prepare-me/test-result/{assessmentId}")
     data object TextInterview : Screen("prepare-me/text-interview")
-    data object VoiceInterview : Screen("prepare-me/voice-interview")
-    data object InterviewEvaluation : Screen("prepare-me/interview-evaluation")
+    data object VoiceInterview : Screen("prepare-me/voice-interview/{interviewId}")
+    data object InterviewEvaluation : Screen("prepare-me/interview-evaluation/{interviewId}")
     data object RoadmapUpdated : Screen("prepare-me/roadmap-updated")
 
     data object Settings : Screen("settings")
@@ -38,3 +38,5 @@ fun prepareMeSummaryRoute(jdId: Int): String = "prepare-me/summary/$jdId"
 fun testFlowRoute(blueprintId: Int): String = "prepare-me/test/$blueprintId"
 fun testTakingRoute(assessmentId: Int): String = "prepare-me/test-taking/$assessmentId"
 fun testResultRoute(assessmentId: Int): String = "prepare-me/test-result/$assessmentId"
+fun voiceInterviewRoute(interviewId: Int): String = "prepare-me/voice-interview/$interviewId"
+fun interviewEvaluationRoute(interviewId: Int): String = "prepare-me/interview-evaluation/$interviewId"
