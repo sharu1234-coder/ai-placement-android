@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -22,6 +23,8 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -53,10 +56,35 @@ private fun ResultSummary(result: AssessmentResultDto, onContinue: () -> Unit) {
             .padding(Spacing.md),
     ) {
         Text(text = "Test results", style = MaterialTheme.typography.headlineSmall)
+
+        AppCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = Spacing.md),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(
+                    text = "Overall score",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                ScoreRing(
+                    percent = (result.overallScore * 100).roundToInt(),
+                    ringColor = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                )
+            }
+        }
+
         Text(
-            text = "Overall score: ${(result.overallScore * 100).roundToInt()}%",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.md),
+            text = "By skill",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.sm),
         )
 
         LazyColumn(
@@ -83,10 +111,10 @@ private fun ResultSummary(result: AssessmentResultDto, onContinue: () -> Unit) {
 @Composable
 private fun SkillScoreCard(skill: SkillScoreDto, isWeakness: Boolean) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
-        Text(text = skill.skillTag, style = MaterialTheme.typography.titleMedium)
-        Text(
-            text = "${(skill.score * 100).roundToInt()}%" + if (isWeakness) " · priority weakness" else "",
-            style = MaterialTheme.typography.bodyMedium,
+        SkillBar(
+            label = skill.skillTag + if (isWeakness) " · priority weakness" else "",
+            percent = (skill.score * 100).roundToInt(),
+            isGap = isWeakness,
         )
     }
 }

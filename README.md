@@ -20,9 +20,72 @@ Open in Android Studio, or build from the command line:
 
 ## Status
 
-Stage 10 complete. The flow now runs Login/Signup → JD paste → resume upload → skill gap
-analysis → Prepare Me blueprint → test-taking → results → text interview → **voice
-interview** → results end to end against the real backend.
+**Whole-codebase audit + premium visual pass (2026-08-23)** — a full review of `ui/`,
+`data/`, `domain/`, `network/`, `voice/`, `navigation/` against `PROJECT_HANDOFF.md`
+surfaced and fixed several real issues, most severe first:
+- `voice/AudioRecorder.kt`'s `prepare()`/`start()` were never wrapped in try/catch --
+  a busy mic, hardware failure, or a permission revoked between the app's own check and
+  the call crashed the app outright. Now throws a typed `AudioRecordingException`,
+  caught by `VoiceInterviewViewModel` and surfaced as a normal error state. Added a
+  `MediaRecorder.OnErrorListener` and a 2-minute `setMaxDuration` (an interrupted/stuck
+  recording could otherwise grow unbounded on-device). `voice/AudioPlayer.kt` had the
+  same gap for `prepare()`/`start()`, fixed the same way (falls back to "skip this
+  question's audio" rather than crashing).
+- The mic-permission check in `VoiceInterviewScreen` only ran once on first composition.
+  Backgrounding the app mid-interview, revoking the permission in system settings, and
+  returning left the UI still showing record controls that would throw
+  `SecurityException`. Now re-checked on `ON_RESUME` via a lifecycle observer.
+- **Navigation back-stack loop**: `TestTakingScreen`, `TextInterviewScreen`, and
+  `VoiceInterviewScreen` each auto-navigate forward when their ViewModel reaches a
+  terminal `Completed` state. None of the forward `navigate()` calls used `popUpTo`, so
+  pressing Back re-entered the completed screen, whose `LaunchedEffect` immediately
+  re-fired on the still-`Completed` state and pushed a duplicate copy of the next screen
+  -- Back became effectively broken on those three transitions. Fixed with
+  `popUpTo(...) { inclusive = true }` on each.
+- **`jdId` was silently dropped before the interview stage** -- both interview
+  ViewModels hardcoded `jdId = null`, and the `TextInterview`/`VoiceInterview` routes
+  took no arguments at all, even though the backend fully supports JD-specific interview
+  questions. This broke PROJECT_HANDOFF.md's stated "Critical requirement": a pasted JD
+  should customize tests *and* interview questions, not just tests. `jdId` now threads
+  through the entire route chain (`TestFlow → TestTaking → TestResult → TextInterview →
+  VoiceInterview`) -- see the `*Route()` helpers in `navigation/Screen.kt`.
+- Resume upload read the entire picked file into a `ByteArray` before checking its size
+  against the 10MB limit -- a very large PDF risked `OutOfMemoryError` on a
+  memory-constrained device before the network call was even attempted.
+  `ResumeUploadViewModel` now queries the file's declared size via `ContentResolver`
+  first and rejects oversized files without ever reading them.
+- **No session restore or token refresh** -- every cold start went to `LoginScreen`
+  regardless of a still-valid stored token (`AuthRepository.isLoggedIn()` existed but had
+  no call site), and an expired access token had no recovery path even though a valid
+  refresh token sat unused in `TokenStore`. Fixed both: `NavGraph` now resolves its real
+  start destination from `isLoggedIn()` before rendering, and a new
+  `network/TokenAuthenticator.kt` transparently refreshes on a 401 and retries once.
+- `HttpLoggingInterceptor`'s `Level.BODY` (debug builds) logged the `Authorization`
+  header in full, including the bearer token, to Logcat on every request. Added
+  `redactHeader("Authorization")`.
+- **No logout UI existed anywhere in the app** -- `SettingsScreen` was still a Stage 2
+  placeholder. Built a real one with a working "Log out" action.
+- Deleted `ui/resume/ResumeAnalysisScreen.kt`, confirmed orphaned (no call site anywhere
+  -- `JobMatchScreen` and `ResumeUploadScreen`'s own inline result view cover that
+  ground).
+
+**Premium visual pass**, guided by `UI_UX_REFERENCES.md`/`UI_DESIGN_REFERENCES.md`
+(original identity built on a Material 3 foundation, not a clone of any reference app):
+- Replaced the stock Material Baseline blue palette with an original indigo/violet
+  identity (`ui/theme/Color.kt`) plus app-specific semantic tokens (`SemanticColors.kt`)
+  for "matched skill" vs. "skill gap" that don't force those concepts onto MD3's
+  alarm-coded `error` role.
+- New reusable design-system components named to match the doc's own vocabulary
+  (section 9): `ScoreRing` (animated circular score, used for readiness/match/result
+  scores) and `SkillBar` (animated labeled progress bar, gap-aware coloring). `AppCard`
+  gained an optional tinted `containerColor` for hero cards.
+- Applied across the "hero"/results screens: `JobMatchScreen` (skill gap analysis),
+  `PrepareMeSummaryScreen`, `TestResultScreen`, `InterviewEvaluationScreen` (which also
+  gained display of `speaking_pace`/`filler_word_rate` for voice-mode evaluations --
+  previously computed server-side in Stage 10 but never shown), and `HomeScreen`
+  (rebuilt from its Stage 2 placeholder state with a real time-of-day greeting and an
+  honest "get started" prompt -- no fabricated readiness score, since that data doesn't
+  exist until Stage 11's weakness engine is built).
 
 - New `voice/` package (per `PROJECT_HANDOFF.md` section 8.1): `AudioRecorder.kt` wraps
   `MediaRecorder` (records AAC/M4A), `AudioPlayer.kt` wraps `MediaPlayer`, and
@@ -62,5 +125,11 @@ interview** → results end to end against the real backend.
 - Route arguments thread a created resource id through each linear flow (`jdId` through
   Prepare Me, `blueprintId` → `assessmentId` through test-taking, `interviewId` through the
   interview flow) — see the `*Route()` helpers in `navigation/Screen.kt`.
+- **Audit findings intentionally not fixed**, lower severity: cache files
+  (`question_*.wav`/`answer_*.m4a`) are now deleted right after use (fixed), but nothing
+  sweeps any left behind by a killed process; `AuthInterceptor`'s per-request
+  `runBlocking` read of the token store (the audit itself rated this low-risk in
+  practice); no R8/ProGuard shrinking or an explicit release `signingConfig` yet (pre-
+  release concern, consistent with everything else marked "before real deployment").
 - Not yet built: roadmap update screen, Hilt/Koin DI, encrypted token storage, HTTPS before
   release.

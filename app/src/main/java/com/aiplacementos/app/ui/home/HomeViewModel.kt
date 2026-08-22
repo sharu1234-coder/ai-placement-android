@@ -3,16 +3,24 @@ package com.aiplacementos.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.ui.common.UiState
-import kotlinx.coroutines.delay
+import java.time.LocalTime
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-data class HomeData(val greeting: String = "Good morning")
+data class HomeData(val greeting: String)
+
+private fun timeOfDayGreeting(): String = when (LocalTime.now().hour) {
+    in 0..11 -> "Good morning"
+    in 12..16 -> "Good afternoon"
+    else -> "Good evening"
+}
 
 /**
  * Establishes the ViewModel -> UiState -> Compose pattern that every feature screen follows
- * from Stage 4 onward. Loads simulated data since no repository/backend integration exists yet.
+ * from Stage 4 onward. The greeting is real (device time), not simulated -- there's no
+ * readiness-score dashboard data yet (that's Stage 11's weakness/roadmap engine), so
+ * HomeScreen shows an honest "get started" prompt instead of a placeholder number.
  */
 class HomeViewModel : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<HomeData>>(UiState.Loading)
@@ -24,9 +32,7 @@ class HomeViewModel : ViewModel() {
 
     fun load() {
         viewModelScope.launch {
-            _uiState.value = UiState.Loading
-            delay(400)
-            _uiState.value = UiState.Success(HomeData())
+            _uiState.value = UiState.Success(HomeData(greeting = timeOfDayGreeting()))
         }
     }
 }

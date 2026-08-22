@@ -40,11 +40,16 @@ class NetworkModule(context: Context) {
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+        // Level.BODY logs headers too -- without this, the bearer token lands in Logcat on
+        // every authenticated request in debug builds, readable by anything with logcat
+        // access on the device.
+        redactHeader("Authorization")
     }
 
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(AuthInterceptor(tokenStore))
         .addInterceptor(loggingInterceptor)
+        .authenticator(TokenAuthenticator(tokenStore))
         .connectTimeout(15, TimeUnit.SECONDS)
         // Resume/JD parsing calls run real AI inference server-side and can take ~1-2 minutes.
         .readTimeout(150, TimeUnit.SECONDS)

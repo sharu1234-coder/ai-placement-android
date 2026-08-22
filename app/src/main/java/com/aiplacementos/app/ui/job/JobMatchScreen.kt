@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -19,6 +20,8 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -49,24 +52,61 @@ private fun MatchResult(match: JobMatchDto, onContinue: () -> Unit) {
     ) {
         Text(text = "Skill Gap Analysis", style = MaterialTheme.typography.headlineSmall)
 
-        AppCard(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "Match score: ${match.matchScore.toInt()}%",
-                style = MaterialTheme.typography.titleMedium,
-            )
+        AppCard(
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(
+                    text = "Match score",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                ScoreRing(
+                    percent = match.matchScore.toInt(),
+                    ringColor = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                )
+            }
         }
 
         if (match.matchingSkills.isNotEmpty()) {
             AppCard(modifier = Modifier.fillMaxWidth()) {
-                Text(text = "You have", style = MaterialTheme.typography.titleSmall)
-                Text(text = match.matchingSkills.joinToString(), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "You have (${match.matchingSkills.size})",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(bottom = Spacing.sm),
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    match.matchingSkills.forEach { skill ->
+                        SkillBar(label = skill, percent = 100, isGap = false)
+                    }
+                }
             }
         }
 
         if (match.missingSkills.isNotEmpty()) {
             AppCard(modifier = Modifier.fillMaxWidth()) {
-                Text(text = "Missing skills", style = MaterialTheme.typography.titleSmall)
-                Text(text = match.missingSkills.joinToString(), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "Skill gaps (${match.missingSkills.size})",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(bottom = Spacing.sm),
+                )
+                Text(
+                    text = "These aren't in your resume yet -- Prepare Me will focus practice here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = Spacing.sm),
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    match.missingSkills.forEach { skill ->
+                        SkillBar(label = skill, percent = 0, isGap = true)
+                    }
+                }
             }
         }
 

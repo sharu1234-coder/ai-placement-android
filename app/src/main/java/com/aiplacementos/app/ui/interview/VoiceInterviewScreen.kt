@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -29,18 +33,19 @@ import com.aiplacementos.app.data.remote.InterviewQuestionDto
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 import com.aiplacementos.app.voice.VoiceInterviewManager
 
 @Composable
-fun VoiceInterviewScreen(onFinish: (interviewId: Int) -> Unit) {
+fun VoiceInterviewScreen(jdId: Int, onFinish: (interviewId: Int) -> Unit) {
     val context = LocalContext.current
     val network = networkModule()
     val manager = remember { VoiceInterviewManager(context.applicationContext, network.interviewRepository) }
     val viewModel: VoiceInterviewViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { VoiceInterviewViewModel(manager, network.interviewRepository) }
+            initializer { VoiceInterviewViewModel(jdId, manager, network.interviewRepository) }
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -57,6 +62,22 @@ fun VoiceInterviewScreen(onFinish: (interviewId: Int) -> Unit) {
 
     LaunchedEffect(Unit) {
         if (!hasRecordPermission) requestPermission.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    // The one-shot check above can go stale: the student can background the app mid-turn,
+    // revoke mic access in system settings, and return -- without this, the UI would keep
+    // showing record controls that throw SecurityException the moment they're used.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasRecordPermission = ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(state) {
@@ -78,6 +99,7 @@ fun VoiceInterviewScreen(onFinish: (interviewId: Int) -> Unit) {
             phase = current.phase,
             onStartRecording = { viewModel.startRecording() },
             onStopRecording = { viewModel.stopRecordingAndSubmit() },
+            onCancelRecording = { viewModel.cancelRecording() },
         )
     }
 }
@@ -107,6 +129,7 @@ private fun TurnContent(
     phase: VoiceTurnPhase,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
+    onCancelRecording: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -138,6 +161,9 @@ private fun TurnContent(
             enabled = buttonEnabled,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (phase == VoiceTurnPhase.RECORDING) {
+            SecondaryButton(text = "Cancel", onClick = onCancelRecording, modifier = Modifier.fillMaxWidth())
+        }
     }
 }
 

@@ -21,7 +21,10 @@ sealed interface TextInterviewUiState {
     data class Completed(val interviewId: Int) : TextInterviewUiState
 }
 
-class TextInterviewViewModel(private val interviewRepository: InterviewRepository) : ViewModel() {
+class TextInterviewViewModel(
+    private val jdId: Int,
+    private val interviewRepository: InterviewRepository,
+) : ViewModel() {
     private var interviewId: Int? = null
 
     private val _uiState = MutableStateFlow<TextInterviewUiState>(TextInterviewUiState.Loading)
@@ -35,7 +38,11 @@ class TextInterviewViewModel(private val interviewRepository: InterviewRepositor
         viewModelScope.launch {
             _uiState.value = TextInterviewUiState.Loading
             try {
-                val interview = interviewRepository.startInterview(type = "technical", mode = "text", jdId = null)
+                val interview = interviewRepository.startInterview(
+                    type = "technical",
+                    mode = "text",
+                    jdId = jdId.takeIf { it != 0 },
+                )
                 interviewId = interview.id
                 loadNext()
             } catch (e: Exception) {

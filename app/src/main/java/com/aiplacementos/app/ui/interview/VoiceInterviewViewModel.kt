@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.InterviewQuestionDto
 import com.aiplacementos.app.domain.repository.InterviewRepository
+import com.aiplacementos.app.voice.AudioRecordingException
 import com.aiplacementos.app.voice.VoiceInterviewManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ sealed interface VoiceInterviewUiState {
 }
 
 class VoiceInterviewViewModel(
+    private val jdId: Int,
     private val manager: VoiceInterviewManager,
     private val interviewRepository: InterviewRepository,
 ) : ViewModel() {
@@ -36,7 +38,11 @@ class VoiceInterviewViewModel(
         viewModelScope.launch {
             _uiState.value = VoiceInterviewUiState.Starting
             try {
-                val interview = interviewRepository.startInterview(type = "technical", mode = "voice", jdId = null)
+                val interview = interviewRepository.startInterview(
+                    type = "technical",
+                    mode = "voice",
+                    jdId = jdId.takeIf { it != 0 },
+                )
                 interviewId = interview.id
                 loadNextTurn()
             } catch (e: Exception) {
@@ -74,8 +80,21 @@ class VoiceInterviewViewModel(
     fun startRecording() {
         val current = _uiState.value
         if (current !is VoiceInterviewUiState.Turn || current.phase != VoiceTurnPhase.READY_TO_RECORD) return
-        manager.startRecording(current.question.id)
-        _uiState.value = current.copy(phase = VoiceTurnPhase.RECORDING)
+        try {
+            manager.startRecording(current.question.id)
+            _uiState.value = current.copy(phase = VoiceTurnPhase.RECORDING)
+        } catch (e: AudioRecordingException) {
+            _uiState.value = VoiceInterviewUiState.Error(
+                "Couldn't access the microphone. Make sure no other app is using it and try again."
+            )
+        }
+    }
+
+    fun cancelRecording() {
+        val current = _uiState.value
+        if (current !is VoiceInterviewUiState.Turn || current.phase != VoiceTurnPhase.RECORDING) return
+        manager.cancelRecording()
+        _uiState.value = current.copy(phase = VoiceTurnPhase.READY_TO_RECORD)
     }
 
     fun stopRecordingAndSubmit() {
@@ -88,6 +107,10 @@ class VoiceInterviewViewModel(
             try {
                 manager.stopAndSubmitRecording(id, current.question.id)
                 loadNextTurn()
+            } catch (e: AudioRecordingException) {
+                _uiState.value = VoiceInterviewUiState.Error(
+                    "The recording failed partway through -- please try that question again."
+                )
             } catch (e: Exception) {
                 _uiState.value = VoiceInterviewUiState.Error(
                     "Couldn't submit your answer. Check your connection and try again."

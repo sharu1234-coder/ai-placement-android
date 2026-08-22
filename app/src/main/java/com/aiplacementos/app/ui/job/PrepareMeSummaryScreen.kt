@@ -22,9 +22,11 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
+import kotlin.math.roundToInt
 
 @Composable
 fun PrepareMeSummaryScreen(jdId: Int, onStartTests: (blueprintId: Int) -> Unit) {
@@ -49,15 +51,41 @@ fun PrepareMeSummaryScreen(jdId: Int, onStartTests: (blueprintId: Int) -> Unit) 
 
 @Composable
 private fun BlueprintSummary(blueprint: AssessmentBlueprintDto, onStartTests: (blueprintId: Int) -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().padding(Spacing.md)) {
+    val gapCount = blueprint.sections.count { it.isGap }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(Spacing.md),
+    ) {
         Text(text = "Your preparation plan", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = "${blueprint.sections.size} skills to focus on, prioritized by what you're missing.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
+
+        AppCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = Spacing.md),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Text(
+                text = "${blueprint.sections.size} skills to focus on",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Text(
+                text = if (gapCount > 0) {
+                    "$gapCount prioritized as gaps -- these get more questions and come first."
+                } else {
+                    "You're already covering the skills this role needs -- great starting point."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+        }
 
         LazyColumn(
             modifier = Modifier
+                .weight(1f)
                 .fillMaxWidth()
                 .padding(top = Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -80,11 +108,17 @@ private fun BlueprintSummary(blueprint: AssessmentBlueprintDto, onStartTests: (b
 @Composable
 private fun SectionCard(section: BlueprintSectionDto) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
-        Text(text = section.skill, style = MaterialTheme.typography.titleMedium)
+        SkillBar(
+            label = section.skill,
+            percent = (section.weight * 100).roundToInt(),
+            isGap = section.isGap,
+        )
         Text(
             text = "${section.assessmentType} · ${section.questionCount} questions" +
                 if (section.isGap) " · needs work" else " · you've got this",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.xs),
         )
     }
 }

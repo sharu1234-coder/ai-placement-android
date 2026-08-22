@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.resume
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.ResumeUploadResponseDto
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
+private const val MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // matches the backend's own cap
+
 class ResumeUploadViewModel(private val resumeRepository: ResumeRepository) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<ResumeUploadResponseDto>>(UiState.Empty)
     val uiState: StateFlow<UiState<ResumeUploadResponseDto>> = _uiState.asStateFlow()
@@ -21,6 +24,16 @@ class ResumeUploadViewModel(private val resumeRepository: ResumeRepository) : Vi
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             try {
+                // Check the picked file's size before reading it into memory -- the file
+                // picker only restricts MIME type, not size, so without this a very large
+                // PDF gets fully read into a ByteArray (risking OutOfMemoryError) before
+                // the server's own 10MB limit is ever consulted.
+                val declaredSize = querySize(contentResolver, uri)
+                if (declaredSize != null && declaredSize > MAX_UPLOAD_BYTES) {
+                    _uiState.value = UiState.Error("File is too large (max 10MB)")
+                    return@launch
+                }
+
                 val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     ?: throw IllegalStateException("Could not read the selected file")
                 _uiState.value = UiState.Success(resumeRepository.uploadResume(fileName, bytes))
@@ -38,4 +51,16 @@ class ResumeUploadViewModel(private val resumeRepository: ResumeRepository) : Vi
             }
         }
     }
+}
+
+/** Null if the content provider doesn't report a size (some don't) -- callers fall back to
+ * the server-side check in that case rather than blocking a legitimate upload. */
+private fun querySize(contentResolver: ContentResolver, uri: Uri): Long? {
+    contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+        if (sizeIndex >= 0 && cursor.moveToFirst() && !cursor.isNull(sizeIndex)) {
+            return cursor.getLong(sizeIndex)
+        }
+    }
+    return null
 }

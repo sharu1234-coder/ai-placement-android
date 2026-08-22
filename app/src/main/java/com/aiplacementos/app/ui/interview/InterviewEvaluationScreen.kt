@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,6 +21,8 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -51,30 +54,71 @@ private fun EvaluationSummary(evaluation: InterviewEvaluationDto, onContinue: ()
             .padding(Spacing.md),
     ) {
         Text(text = "Interview evaluation", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = "Overall score: ${(evaluation.overallScore * 100).roundToInt()}%",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.md),
-        )
+
+        AppCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = Spacing.md),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(
+                    text = "Overall score",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                ScoreRing(
+                    percent = (evaluation.overallScore * 100).roundToInt(),
+                    ringColor = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                )
+            }
+        }
 
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(top = Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            item { DimensionCard("Technical correctness", evaluation.technicalCorrectness) }
-            item { DimensionCard("Relevance", evaluation.relevance) }
-            item { DimensionCard("Completeness", evaluation.completeness) }
-            item { DimensionCard("Reasoning", evaluation.reasoning) }
-            item { DimensionCard("Structure", evaluation.structure) }
-            item { DimensionCard("Clarity", evaluation.clarity) }
-            evaluation.grammar?.let { grammar -> item { DimensionCard("Grammar", grammar) } }
-            item { DimensionCard("Role/JD coverage", evaluation.roleJdCoverage) }
+            item {
+                AppCard(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Breakdown",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(bottom = Spacing.sm),
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        DimensionBar("Technical correctness", evaluation.technicalCorrectness)
+                        DimensionBar("Relevance", evaluation.relevance)
+                        DimensionBar("Completeness", evaluation.completeness)
+                        DimensionBar("Reasoning", evaluation.reasoning)
+                        DimensionBar("Structure", evaluation.structure)
+                        DimensionBar("Clarity", evaluation.clarity)
+                        evaluation.grammar?.let { DimensionBar("Grammar", it) }
+                        evaluation.speakingPace?.let { DimensionBar("Speaking pace", it) }
+                        evaluation.fillerWordRate?.let {
+                            // Lower is better for filler words -- invert so the bar still
+                            // reads "more fill = worse, less fill = better" at a glance.
+                            DimensionBar("Filler-word control", (1.0 - it).coerceIn(0.0, 1.0))
+                        }
+                        DimensionBar("Role/JD coverage", evaluation.roleJdCoverage)
+                    }
+                }
+            }
             item {
                 AppCard(modifier = Modifier.fillMaxWidth()) {
                     Text(text = "Feedback", style = MaterialTheme.typography.titleMedium)
-                    Text(text = evaluation.feedback, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = evaluation.feedback,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = Spacing.sm),
+                    )
                 }
             }
         }
@@ -90,9 +134,6 @@ private fun EvaluationSummary(evaluation: InterviewEvaluationDto, onContinue: ()
 }
 
 @Composable
-private fun DimensionCard(label: String, score: Double) {
-    AppCard(modifier = Modifier.fillMaxWidth()) {
-        Text(text = label, style = MaterialTheme.typography.titleMedium)
-        Text(text = "${(score * 100).roundToInt()}%", style = MaterialTheme.typography.bodyMedium)
-    }
+private fun DimensionBar(label: String, score: Double) {
+    SkillBar(label = label, percent = (score * 100).roundToInt())
 }
