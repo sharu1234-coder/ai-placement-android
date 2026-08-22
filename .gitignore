@@ -10,3 +10,9 @@
 *.apk
 *.aab
 /app/build
+
+# Per-environment Firebase config (not a secret per se, but environment-specific like
+# local.properties/.env -- each dev sets up their own Firebase project's file locally).
+# See README "Firebase setup" for where these go once Firebase is wired in.
+/app/src/dev/google-services.json
+/app/src/prod/google-services.json

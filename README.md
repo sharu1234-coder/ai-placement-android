@@ -7,10 +7,49 @@ Kotlin + Jetpack Compose Android app. See `../PROJECT_HANDOFF.md` for full archi
 Open in Android Studio, or build from the command line:
 
 ```bash
-./gradlew assembleDebug
+./gradlew assembleDevDebug     # day-to-day dev build, points at your local backend
+./gradlew assembleProdDebug    # sanity-checks the prod flavor compiles; API_BASE_URL is a
+                                # placeholder until a production backend is deployed
 ```
 
 `local.properties` (not committed) must point `sdk.dir` at your Android SDK install.
+
+## Environments (dev / prod flavors)
+
+Two Gradle product flavors, `dev` and `prod` (flavor dimension `"environment"`), so
+publishing can point at a production backend and a production Firebase project without
+restructuring the app -- see `app/build.gradle.kts`.
+
+- `dev` — `applicationIdSuffix = ".dev"` (installs side-by-side with a `prod` build on the
+  same device), `API_BASE_URL` from `local.properties`' `API_BASE_URL` key (falls back to
+  the emulator loopback address).
+- `prod` — no suffix (this is the applicationId that ships to the Play Store),
+  `API_BASE_URL` from `local.properties`' `PROD_API_BASE_URL` key. Defaults to an
+  intentionally-invalid placeholder host until a real production backend exists (M17 in the
+  production report) -- a misconfigured prod build should fail loudly (DNS error), not
+  silently talk to a dev server.
+- Both flavors expose `BuildConfig.ENVIRONMENT` (`"development"`/`"production"`) for any
+  future code that needs to branch on it (e.g. gating verbose logging or analytics).
+
+### Firebase setup (not yet wired in)
+
+Per the confirmed architecture: **Firebase is for auxiliary services only** — FCM push
+notifications, Crashlytics, Analytics, and App Check. It is **not** a replacement for the
+FastAPI + SQLAlchemy + PostgreSQL backend, which remains the system of record for all app
+data (users, resumes, jobs, assessments, interviews, roadmaps). No Firebase SDK is in the
+project yet; when it's added, the flavor split above is what makes it dev/prod-safe:
+
+1. Create two Firebase projects (e.g. `ai-placement-os-dev`, `ai-placement-os-prod`).
+2. In each, register an Android app with the matching applicationId --
+   `com.aiplacementos.app.dev` for the dev project, `com.aiplacementos.app` for the prod
+   project -- and the debug/release signing SHA-1 fingerprints you'll actually build with.
+3. Download each project's `google-services.json` into `app/src/dev/` and `app/src/prod/`
+   respectively (gitignored -- see `.gitignore`; these are environment-specific config, kept
+   local the same way `local.properties`/`.env` are, not committed).
+4. Only then add the Google Services Gradle plugin + Firebase BoM + the specific SDKs
+   (Messaging, Crashlytics, Analytics, App Check) to `app/build.gradle.kts` -- applying the
+   plugin before a `google-services.json` exists for every flavor being built fails the
+   build outright, so this is deliberately left undone until step 3 is complete.
 
 ## Stack
 
@@ -19,6 +58,15 @@ Open in Android Studio, or build from the command line:
 - minSdk 26, compileSdk/targetSdk 35
 
 ## Status
+
+**Architecture confirmation + dev/prod flavors (2026-08-23)** — the user explicitly locked
+in: FastAPI + SQLAlchemy + PostgreSQL stays the primary backend/database (no Firestore
+migration of existing data/models), Firebase is for auxiliary services only (FCM,
+Crashlytics, Analytics, App Check), and existing JWT auth stays unless a specific technical
+reason emerges to change it. Added the `dev`/`prod` Gradle product flavors described above
+so this and the backend's already-existing `AI_PROVIDER` env switch are both real,
+buildable "no rebuild needed at publishing" paths, not just stated intent. No Firebase SDK
+added yet -- see "Firebase setup" above for exactly what's needed before that's possible.
 
 **Stage 11 — Roadmap screens (2026-08-23)**, wired to the backend's new Weakness
 Engine + Roadmap endpoints (`PROJECT_HANDOFF.md` M11), replacing the last two Stage 2
