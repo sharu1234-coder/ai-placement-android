@@ -59,7 +59,9 @@ fun MainScreen(navController: NavHostController) {
                     onOpenTask = { navController.navigate(Screen.RoadmapTaskDetail.route) },
                 )
                 Screen.Progress.route -> ProgressDashboardScreen()
-                Screen.Profile.route -> ProfileScreen()
+                Screen.Profile.route -> ProfileScreen(
+                    onSelectRole = { navController.navigate(Screen.RoleSelection.route) },
+                )
             }
         }
     }

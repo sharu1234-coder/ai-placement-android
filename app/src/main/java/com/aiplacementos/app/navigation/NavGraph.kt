@@ -33,6 +33,7 @@ fun NavGraph(navController: NavHostController) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
+                onNavigateToSignup = { navController.navigate(Screen.Signup.route) },
             )
         }
         composable(Screen.Signup.route) {
@@ -42,6 +43,7 @@ fun NavGraph(navController: NavHostController) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
+                onNavigateToLogin = { navController.popBackStack() },
             )
         }
 
@@ -49,7 +51,9 @@ fun NavGraph(navController: NavHostController) {
             MainScreen(navController = navController)
         }
 
-        composable(Screen.RoleSelection.route) { RoleSelectionScreen() }
+        composable(Screen.RoleSelection.route) {
+            RoleSelectionScreen(onRoleSelected = { navController.popBackStack() })
+        }
 
         // Prepare Me flow
         composable(Screen.RoleOrJdEntry.route) {
