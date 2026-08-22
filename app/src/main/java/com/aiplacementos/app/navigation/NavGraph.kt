@@ -2,8 +2,10 @@ package com.aiplacementos.app.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.aiplacementos.app.ui.auth.LoginScreen
 import com.aiplacementos.app.ui.auth.SignupScreen
 import com.aiplacementos.app.ui.interview.InterviewEvaluationScreen
@@ -55,15 +57,26 @@ fun NavGraph(navController: NavHostController) {
             RoleSelectionScreen(onRoleSelected = { navController.popBackStack() })
         }
 
-        // Prepare Me flow
+        // Prepare Me flow -- jdId (created by JDPasteScreen) flows through as a route arg.
         composable(Screen.RoleOrJdEntry.route) {
-            JDPasteScreen(onContinue = { navController.navigate(Screen.ResumeUpload.route) })
+            JDPasteScreen(onContinue = { jdId -> navController.navigate(resumeUploadRoute(jdId)) })
         }
-        composable(Screen.ResumeUpload.route) {
-            ResumeUploadScreen(onUploaded = { navController.navigate(Screen.AnalysisResult.route) })
+        composable(
+            Screen.ResumeUpload.route,
+            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
+            ResumeUploadScreen(onUploaded = { navController.navigate(analysisResultRoute(jdId)) })
         }
-        composable(Screen.AnalysisResult.route) {
-            JobMatchScreen(onContinue = { navController.navigate(Screen.PrepareMeSummary.route) })
+        composable(
+            Screen.AnalysisResult.route,
+            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
+            JobMatchScreen(
+                jdId = jdId,
+                onContinue = { navController.navigate(Screen.PrepareMeSummary.route) },
+            )
         }
         composable(Screen.PrepareMeSummary.route) {
             PrepareMeSummaryScreen(onStartTests = { navController.navigate(Screen.TestFlow.route) })
