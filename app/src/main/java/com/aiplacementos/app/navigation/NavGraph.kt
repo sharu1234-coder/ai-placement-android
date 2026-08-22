@@ -85,12 +85,36 @@ fun NavGraph(navController: NavHostController) {
             val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
             PrepareMeSummaryScreen(
                 jdId = jdId,
-                onStartTests = { navController.navigate(Screen.TestFlow.route) },
+                onStartTests = { blueprintId -> navController.navigate(testFlowRoute(blueprintId)) },
             )
         }
-        composable(Screen.TestFlow.route) {
+        composable(
+            Screen.TestFlow.route,
+            arguments = listOf(navArgument("blueprintId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val blueprintId = backStackEntry.arguments?.getInt("blueprintId") ?: 0
             com.aiplacementos.app.ui.tests.TestListScreen(
-                onStartTest = { navController.navigate(Screen.TextInterview.route) },
+                blueprintId = blueprintId,
+                onStartTest = { assessmentId -> navController.navigate(testTakingRoute(assessmentId)) },
+            )
+        }
+        composable(
+            Screen.TestTaking.route,
+            arguments = listOf(navArgument("assessmentId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val assessmentId = backStackEntry.arguments?.getInt("assessmentId") ?: 0
+            com.aiplacementos.app.ui.tests.TestTakingScreen(
+                assessmentId = assessmentId,
+                onFinish = { navController.navigate(testResultRoute(assessmentId)) },
+            )
+        }
+        composable(
+            Screen.TestResult.route,
+            arguments = listOf(navArgument("assessmentId") { type = NavType.IntType }),
+        ) {
+            com.aiplacementos.app.ui.tests.TestResultScreen(
+                assessmentId = it.arguments?.getInt("assessmentId") ?: 0,
+                onContinue = { navController.navigate(Screen.TextInterview.route) },
             )
         }
         composable(Screen.TextInterview.route) {

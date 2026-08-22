@@ -27,7 +27,7 @@ import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 
 @Composable
-fun PrepareMeSummaryScreen(jdId: Int, onStartTests: () -> Unit) {
+fun PrepareMeSummaryScreen(jdId: Int, onStartTests: (blueprintId: Int) -> Unit) {
     val network = networkModule()
     val viewModel: PrepareMeSummaryViewModel = viewModel(
         factory = viewModelFactory {
@@ -48,7 +48,7 @@ fun PrepareMeSummaryScreen(jdId: Int, onStartTests: () -> Unit) {
 }
 
 @Composable
-private fun BlueprintSummary(blueprint: AssessmentBlueprintDto, onStartTests: () -> Unit) {
+private fun BlueprintSummary(blueprint: AssessmentBlueprintDto, onStartTests: (blueprintId: Int) -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(Spacing.md)) {
         Text(text = "Your preparation plan", style = MaterialTheme.typography.headlineSmall)
         Text(
@@ -69,7 +69,7 @@ private fun BlueprintSummary(blueprint: AssessmentBlueprintDto, onStartTests: ()
 
         PrimaryButton(
             text = "Start Tests",
-            onClick = onStartTests,
+            onClick = { onStartTests(blueprint.id) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = Spacing.md),
