@@ -7,6 +7,7 @@ import com.aiplacementos.app.data.remote.AuthApi
 import com.aiplacementos.app.data.remote.InterviewsApi
 import com.aiplacementos.app.data.remote.JobsApi
 import com.aiplacementos.app.data.remote.ResumesApi
+import com.aiplacementos.app.data.remote.RoadmapApi
 import com.aiplacementos.app.data.remote.UsersApi
 import com.aiplacementos.app.data.repository.AssessmentRepositoryImpl
 import com.aiplacementos.app.data.repository.AuthRepositoryImpl
@@ -14,12 +15,14 @@ import com.aiplacementos.app.data.repository.InterviewRepositoryImpl
 import com.aiplacementos.app.data.repository.JobRepositoryImpl
 import com.aiplacementos.app.data.repository.ProfileRepositoryImpl
 import com.aiplacementos.app.data.repository.ResumeRepositoryImpl
+import com.aiplacementos.app.data.repository.RoadmapRepositoryImpl
 import com.aiplacementos.app.domain.repository.AssessmentRepository
 import com.aiplacementos.app.domain.repository.AuthRepository
 import com.aiplacementos.app.domain.repository.InterviewRepository
 import com.aiplacementos.app.domain.repository.JobRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.domain.repository.ResumeRepository
+import com.aiplacementos.app.domain.repository.RoadmapRepository
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -68,6 +71,7 @@ class NetworkModule(context: Context) {
     private val jobsApi: JobsApi = retrofit.create()
     private val assessmentsApi: AssessmentsApi = retrofit.create()
     private val interviewsApi: InterviewsApi = retrofit.create()
+    private val roadmapApi: RoadmapApi = retrofit.create()
 
     val authRepository: AuthRepository = AuthRepositoryImpl(authApi, tokenStore)
     val profileRepository: ProfileRepository = ProfileRepositoryImpl(usersApi)
@@ -75,4 +79,5 @@ class NetworkModule(context: Context) {
     val jobRepository: JobRepository = JobRepositoryImpl(jobsApi)
     val assessmentRepository: AssessmentRepository = AssessmentRepositoryImpl(assessmentsApi)
     val interviewRepository: InterviewRepository = InterviewRepositoryImpl(interviewsApi)
+    val roadmapRepository: RoadmapRepository = RoadmapRepositoryImpl(roadmapApi)
 }

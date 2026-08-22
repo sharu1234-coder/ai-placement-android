@@ -188,7 +188,7 @@ fun NavGraph(navController: NavHostController) {
             VoiceInterviewScreen(
                 jdId = jdId,
                 onFinish = { interviewId ->
-                    navController.navigate(interviewEvaluationRoute(interviewId)) {
+                    navController.navigate(interviewEvaluationRoute(interviewId, jdId)) {
                         popUpTo(Screen.VoiceInterview.route) { inclusive = true }
                     }
                 },
@@ -196,18 +196,45 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(
             Screen.InterviewEvaluation.route,
-            arguments = listOf(navArgument("interviewId") { type = NavType.IntType }),
+            arguments = listOf(
+                navArgument("interviewId") { type = NavType.IntType },
+                navArgument("jdId") { type = NavType.IntType },
+            ),
         ) { backStackEntry ->
+            val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
             InterviewEvaluationScreen(
                 interviewId = backStackEntry.arguments?.getInt("interviewId") ?: 0,
-                onContinue = { navController.navigate(Screen.RoadmapUpdated.route) },
+                onContinue = {
+                    navController.navigate(roadmapUpdatedRoute(jdId)) {
+                        popUpTo(Screen.RoleOrJdEntry.route) { inclusive = true }
+                    }
+                },
             )
         }
-        composable(Screen.RoadmapUpdated.route) {
-            RoadmapScreen(onOpenTask = { navController.navigate(Screen.RoadmapTaskDetail.route) })
+        composable(
+            Screen.RoadmapUpdated.route,
+            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
+            RoadmapScreen(
+                jdId = jdId,
+                autoGenerateIfMissing = true,
+                onOpenTask = { taskId -> navController.navigate(roadmapTaskDetailRoute(taskId, jdId)) },
+            )
         }
 
-        composable(Screen.RoadmapTaskDetail.route) { RoadmapTaskDetailScreen() }
+        composable(
+            Screen.RoadmapTaskDetail.route,
+            arguments = listOf(
+                navArgument("taskId") { type = NavType.IntType },
+                navArgument("jdId") { type = NavType.IntType },
+            ),
+        ) { backStackEntry ->
+            RoadmapTaskDetailScreen(
+                taskId = backStackEntry.arguments?.getInt("taskId") ?: 0,
+                jdId = backStackEntry.arguments?.getInt("jdId") ?: 0,
+            )
+        }
 
         composable(Screen.Settings.route) {
             SettingsScreen(

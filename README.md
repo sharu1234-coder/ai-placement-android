@@ -20,6 +20,41 @@ Open in Android Studio, or build from the command line:
 
 ## Status
 
+**Stage 11 — Roadmap screens (2026-08-23)**, wired to the backend's new Weakness
+Engine + Roadmap endpoints (`PROJECT_HANDOFF.md` M11), replacing the last two Stage 2
+placeholders (`RoadmapScreen`, `RoadmapTaskDetailScreen`):
+- `ui/roadmap/RoadmapViewModel.kt` introduces `RoadmapUiState` (a fourth deliberate
+  exception to `UiState<T>`, alongside `TestTakingUiState`/`TextInterviewUiState`/
+  `VoiceInterviewUiState`): `NoRoadmap` is a real, user-facing state (nothing generated
+  yet -- show a "Generate my roadmap" button) distinct from a network `Error`, and
+  `Success(roadmap, isBusy)` keeps showing the current roadmap while a reassess is in
+  flight instead of flashing a blank loading screen.
+- **The bottom-nav "Roadmap" tab never auto-generates.** It calls `GET /roadmap/current`
+  scoped to no JD (role-based) and shows a `NoRoadmap` prompt if nothing exists --
+  spending an AI call on a blind tab visit isn't the right default. The Prepare Me flow's
+  final step (renamed route `prepare-me/roadmap-updated/{jdId}`, previously argument-less)
+  *does* auto-generate on load, since that screen's entire purpose is showing the roadmap
+  that just got built from the weaknesses the flow produced.
+- **`jdId` now threads one step further than before**: `InterviewEvaluationScreen`'s route
+  gained `{jdId}` (previously dropped after `VoiceInterviewScreen`) so the roadmap
+  generated at the end of the flow is scoped to the same JD the tests and interviews were.
+  Reaching the roadmap step now also collapses the whole completed Prepare Me flow off the
+  back stack (`popUpTo(Screen.RoleOrJdEntry.route) { inclusive = true }`) -- pressing Back
+  from the roadmap goes to Home, not backward through five completed screens.
+- **`RoadmapTaskDetailScreen` gained real arguments** (`{taskId}/{jdId}`, previously
+  zero-argument dead code that couldn't distinguish one task from another). There's no
+  per-task `GET` endpoint on the backend; the detail screen re-fetches the current roadmap
+  for the same jd scope and picks the matching task out of it, avoiding a redundant
+  endpoint for what's already in the roadmap payload.
+- Task status ("pending"/"done"/"skipped") is editable two ways: a checkbox directly in
+  `RoadmapScreen`'s list (quick toggle, done/pending only) and full buttons in the detail
+  screen (including "Skip"). A failed toggle is swallowed rather than shown as a full-screen
+  error -- consistent with treating it as a low-stakes, easily-retried action, not a flow-
+  blocking one.
+- Not yet built: `ProgressDashboardScreen` remains the Stage 2 placeholder -- the backend's
+  `GET /progress/dashboard` (PROJECT_HANDOFF.md section 8.5) wasn't built this pass either;
+  both are the next natural piece of scope, not attempted here to keep this change focused.
+
 **Whole-codebase audit + premium visual pass (2026-08-23)** — a full review of `ui/`,
 `data/`, `domain/`, `network/`, `voice/`, `navigation/` against `PROJECT_HANDOFF.md`
 surfaced and fixed several real issues, most severe first:

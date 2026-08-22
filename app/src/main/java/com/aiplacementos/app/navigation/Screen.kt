@@ -12,7 +12,7 @@ sealed class Screen(val route: String) {
     data object RoleSelection : Screen("profile/role-selection")
 
     data object Main : Screen("main")
-    data object RoadmapTaskDetail : Screen("roadmap/task-detail")
+    data object RoadmapTaskDetail : Screen("roadmap/task-detail/{taskId}/{jdId}")
 
     // Prepare Me flow (nested graph pushed from Home). jdId is threaded through the whole
     // flow, all the way to the interview screens -- PROJECT_HANDOFF.md section 1: "If the
@@ -28,8 +28,8 @@ sealed class Screen(val route: String) {
     data object TestResult : Screen("prepare-me/test-result/{assessmentId}/{jdId}")
     data object TextInterview : Screen("prepare-me/text-interview/{jdId}")
     data object VoiceInterview : Screen("prepare-me/voice-interview/{jdId}")
-    data object InterviewEvaluation : Screen("prepare-me/interview-evaluation/{interviewId}")
-    data object RoadmapUpdated : Screen("prepare-me/roadmap-updated")
+    data object InterviewEvaluation : Screen("prepare-me/interview-evaluation/{interviewId}/{jdId}")
+    data object RoadmapUpdated : Screen("prepare-me/roadmap-updated/{jdId}")
 
     data object Settings : Screen("settings")
     data object Privacy : Screen("settings/privacy")
@@ -43,4 +43,7 @@ fun testTakingRoute(assessmentId: Int, jdId: Int): String = "prepare-me/test-tak
 fun testResultRoute(assessmentId: Int, jdId: Int): String = "prepare-me/test-result/$assessmentId/$jdId"
 fun textInterviewRoute(jdId: Int): String = "prepare-me/text-interview/$jdId"
 fun voiceInterviewRoute(jdId: Int): String = "prepare-me/voice-interview/$jdId"
-fun interviewEvaluationRoute(interviewId: Int): String = "prepare-me/interview-evaluation/$interviewId"
+fun interviewEvaluationRoute(interviewId: Int, jdId: Int): String =
+    "prepare-me/interview-evaluation/$interviewId/$jdId"
+fun roadmapUpdatedRoute(jdId: Int): String = "prepare-me/roadmap-updated/$jdId"
+fun roadmapTaskDetailRoute(taskId: Int, jdId: Int): String = "roadmap/task-detail/$taskId/$jdId"

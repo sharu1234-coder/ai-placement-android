@@ -56,7 +56,8 @@ fun MainScreen(navController: NavHostController) {
                     onStartPrepareMe = { navController.navigate(Screen.RoleOrJdEntry.route) },
                 )
                 Screen.Roadmap.route -> RoadmapScreen(
-                    onOpenTask = { navController.navigate(Screen.RoadmapTaskDetail.route) },
+                    jdId = 0,
+                    onOpenTask = { taskId -> navController.navigate(roadmapTaskDetailRoute(taskId, jdId = 0)) },
                 )
                 Screen.Progress.route -> ProgressDashboardScreen()
                 Screen.Profile.route -> ProfileScreen(
