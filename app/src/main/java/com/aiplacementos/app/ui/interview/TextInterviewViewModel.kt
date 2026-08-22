@@ -35,7 +35,7 @@ class TextInterviewViewModel(private val interviewRepository: InterviewRepositor
         viewModelScope.launch {
             _uiState.value = TextInterviewUiState.Loading
             try {
-                val interview = interviewRepository.startInterview(type = "technical", jdId = null)
+                val interview = interviewRepository.startInterview(type = "technical", mode = "text", jdId = null)
                 interviewId = interview.id
                 loadNext()
             } catch (e: Exception) {
