@@ -148,6 +148,14 @@ docs in this file's "Firebase setup" section above; this entry covers what was v
 - No unrelated code changed — every file touched is either new (the FCM service, the two
   gitignored config files) or was touched specifically for Firebase wiring, Gradle version
   additions, or the one Lint fix those additions caused.
+- **CI needed a follow-up fix**: `.github/workflows/ci.yml` checks out the repo fresh, so the
+  gitignored `google-services.json` files were never there — the very first CI run after this
+  item's initial push failed for exactly that reason (confirmed by watching the real run, not
+  assumed). Fixed by adding two repo secrets, `GOOGLE_SERVICES_JSON_DEV` and
+  `GOOGLE_SERVICES_JSON_PROD` (kept separate rather than one shared secret, since the two
+  files aren't guaranteed to stay identical), written to their respective flavor source sets
+  by a new CI step before any Gradle task runs. **Watched the corrected run on GitHub's real
+  runners**: green, 11m24s, all steps including both flavor builds and the R8 release build.
 
 **Production readiness item 14/20 — GitHub Actions CI/CD (2026-08-24).** Backend side is in
 `ai-placement-backend/README.md`. Android side: `.github/workflows/ci.yml` — runs on every
