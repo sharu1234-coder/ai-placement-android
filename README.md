@@ -59,6 +59,49 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 13/20 — Release optimization / R8 (2026-08-23).**
+`app/build.gradle.kts`'s `buildTypes.release` now sets `isMinifyEnabled = true` and
+`isShrinkResources = true` (both were `false`/absent). `app/proguard-rules.pro` gained a
+comment documenting what was checked, not any functional rule — no custom keep rules turned
+out to be necessary for this codebase.
+- **Verified empirically, not assumed.** Built a real `assembleProdRelease` (and separately
+  `assembleDevRelease`) with minification on, then inspected the actual R8 output
+  (`app/build/outputs/mapping/{prodRelease,devRelease}/mapping.txt`) for the three patterns
+  most likely to break under shrinking/obfuscation in this codebase:
+  - Retrofit API interfaces (e.g. `AuthApi`) — methods, parameter types, and generic
+    signatures all present in the mapping (covered by Retrofit's own bundled
+    `consumer-rules.pro`).
+  - `kotlinx.serialization` `@Serializable` DTOs (e.g. `ResumeAnalysisDto`) — every field and
+    the generated `$serializer`/`Companion` classes all present (covered by
+    `kotlinx-serialization-json`'s own bundled `consumer-rules.pro`).
+  - `HomeViewModel` — the one screen that calls the plain `viewModel()` composable with no
+    explicit factory (every other screen passes `viewModelFactory { initializer { ... } }`
+    for constructor-injected dependencies), meaning it's the one class actually instantiated
+    via reflection (`Class.getDeclaredConstructor().newInstance()` inside
+    `ViewModelProvider.NewInstanceFactory`). Its `<init>()` is present in the mapping in both
+    flavors — R8 traces the `HomeViewModel::class.java` literal into that reflective call and
+    keeps the constructor automatically, without needing a custom rule.
+  - Confirmed no dynamic resource lookups exist in the codebase (`getIdentifier` etc. —
+    none found), so `isShrinkResources` is safe; checked the resource shrinker's own report
+    (`app/build/outputs/mapping/prodRelease/resources.txt`) and everything it removed was
+    unused androidx-core notification/call-answer resources pulled in transitively, not
+    anything the app itself defines or references.
+  - Re-ran `testDevDebugUnitTest` after the change — still green (JVM unit tests run against
+    unminified debug bytecode, so this doesn't exercise R8 itself, but confirms the
+    `build.gradle.kts` edit didn't break anything else).
+- **Size impact measured, not estimated**: a same-commit unminified `assembleProdRelease`
+  built to 12.09 MB (unsigned APK); with minify+shrink on, 1.62 MB — most of that gap is
+  `material-icons-extended` and unused Compose/AndroidX classes that shrinking strips.
+- Deliberately did not add speculative keep rules "just in case" — every rule that would be
+  needed is already verified present via the checks above; adding unused ones would only
+  make future shrinking less effective for no real safety gain. If a new DTO, Retrofit
+  interface, or reflectively-constructed class (another bare `viewModel()` call, for example)
+  is added later, re-check `mapping.txt` for it after a release build rather than assuming
+  this coverage still holds.
+- **Not done**: no instrumented/on-device test of the actual release APK (per item 10, no
+  working device or emulator is available in this environment) — the verification above is
+  static (R8's own mapping output) and build/test-level, not a live run of the shrunk app.
+
 **Production readiness item 12/20 — Secrets + release signing (2026-08-23).** Backend
 secrets hardening (a fail-fast JWT-secret check) is in `ai-placement-backend/README.md`.
 Android side: wires `app/build.gradle.kts` to read real release-signing credentials from a
