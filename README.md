@@ -59,6 +59,37 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 12/20 — Secrets + release signing (2026-08-23).** Backend
+secrets hardening (a fail-fast JWT-secret check) is in `ai-placement-backend/README.md`.
+Android side: wires `app/build.gradle.kts` to read real release-signing credentials from a
+gitignored `keystore.properties` — this session cannot generate a real production keystore
+(that's yours to create and hold; losing it means you can never publish an update to an app
+already live under the old key), so this makes the *wiring* correct and ready for one.
+- `keystore.properties.example` (tracked) documents the expected keys and includes the
+  exact `keytool -genkeypair` command to generate a real keystore. `.gitignore` now also
+  excludes `keystore.properties`, `*.jks`, `*.keystore`, and `release.keystore` as a
+  backstop in case a keystore file itself ever ends up in the project directory.
+- Deliberately optional and additive: if `keystore.properties` doesn't exist (true for this
+  checkout and every other one that hasn't generated a real keystore yet),
+  `hasReleaseSigningConfig` is false and `buildTypes.release` is left exactly as before —
+  no `signingConfig` assigned, same unsigned-APK behavior as prior to this change.
+- **Verified the wiring actually signs an APK, not just that the Gradle config reads
+  without error.** Confirmed the baseline first: `assembleProdRelease` with no
+  `keystore.properties` present produces `app-prod-release-unsigned.apk`, matching
+  pre-existing behavior exactly (no regression). Then generated a real throwaway test
+  keystore (`keytool -genkeypair`), pointed a temporary `keystore.properties` at it,
+  rebuilt — the output was `app-prod-release.apk` (no `-unsigned` suffix), and
+  `apksigner verify --print-certs` on it showed the exact test certificate's DN
+  (`CN=Test, OU=Test, O=Test, L=Test, ST=Test, C=US`) — genuine cryptographic proof the
+  signing config is wired correctly end-to-end. Deleted the throwaway keystore and
+  `keystore.properties` immediately after (neither was ever committed — `git status` was
+  clean throughout, confirmed before and after).
+- **Not done, and cannot be done from this session**: no real release keystore exists for
+  this app. You'll need to generate one (command in `keystore.properties.example`), store
+  it somewhere safe outside version control (a password manager, not just your disk), and
+  create your own local `keystore.properties` before `assembleProdRelease` produces a
+  signed, Play-Store-installable artifact.
+
 **Production readiness item 11/20 — HTTPS / network security (2026-08-23).** Backend side
 (TrustedHostMiddleware, HSTS, proxy requirements) is in
 `ai-placement-backend/README.md`. Android side: `usesCleartextTraffic` is now split by

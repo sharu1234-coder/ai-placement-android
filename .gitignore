@@ -16,3 +16,10 @@
 # See README "Firebase setup" for where these go once Firebase is wired in.
 /app/src/dev/google-services.json
 /app/src/prod/google-services.json
+
+# Release signing -- never commit the real keystore or its credentials. See
+# keystore.properties.example for the template and how to generate a keystore.
+/keystore.properties
+*.jks
+*.keystore
+release.keystore

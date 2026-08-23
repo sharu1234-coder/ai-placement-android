@@ -24,6 +24,20 @@ val devApiBaseUrl = localProperties.getProperty("API_BASE_URL") ?: "http://10.0.
 val prodApiBaseUrl = localProperties.getProperty("PROD_API_BASE_URL")
     ?: "https://api.aiplacementos.example.invalid/"
 
+// Release signing credentials, read from a gitignored keystore.properties (see
+// keystore.properties.example) -- never hardcoded, never committed. Deliberately optional:
+// if the file isn't present (true for every checkout that hasn't generated a real release
+// keystore yet, including this one), `hasReleaseSigningConfig` is false and the release
+// build type is left exactly as it was before this change (unsigned) -- nothing regresses
+// for anyone who hasn't set this up.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+val hasReleaseSigningConfig = keystoreProperties.getProperty("storeFile") != null
+
 android {
     namespace = "com.aiplacementos.app"
     compileSdk = 35
@@ -60,10 +74,24 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
