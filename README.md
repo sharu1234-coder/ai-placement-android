@@ -59,6 +59,20 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 6/20 — Real Privacy Policy (2026-08-23).** Backend added a
+public `GET /legal/privacy-policy` (see `ai-placement-backend/README.md` for what the
+policy actually says and its caveats). `PrivacyScreen` was a Stage-2 `PlaceholderScreen`
+stub since it was first scaffolded — this replaces it with the real thing.
+- New `LegalApi`/`LegalRepository`/`LegalRepositoryImpl`/`PrivacyViewModel`, following the
+  exact same fetch-and-render pattern as `ProfileViewModel` (Loading/Error/Success via the
+  shared `UiState`, `LoadingState`/`ErrorState` composables).
+- `PrivacyScreen` now renders the fetched policy text in a scrollable `Text`, no markdown
+  renderer added — the backend content is plain text, so no new dependency was needed for
+  this.
+- Verified: `./gradlew compileDevDebugKotlin` BUILD SUCCESSFUL. No on-device run (plain
+  network fetch + `Text` render, same shape as every other data screen already covered by
+  existing manual QA passes).
+
 **Production readiness item 5/20 — Complete account deletion (2026-08-23).** Backend added
 `DELETE /users/me` (see `ai-placement-backend/README.md`); this adds the Android surface for
 it in Settings, since a backend-only capability isn't "complete" if there's no way to reach
