@@ -59,6 +59,42 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 9/20 — Android automated testing (2026-08-23).** The project
+had zero automated tests before this item (`testImplementation(libs.junit)` was present in
+`build.gradle.kts` from the initial template, but nothing used it). Sets up real JVM unit
+test infrastructure and covers the ViewModels behind the most safety-critical / most
+recently-added flows.
+- Added `kotlinx-coroutines-test` (`app/build.gradle.kts` + `libs.versions.toml`). New
+  `MainDispatcherRule` (`app/src/test/.../MainDispatcherRule.kt`) swaps `Dispatchers.Main`
+  for an `UnconfinedTestDispatcher` per test, since `viewModelScope` needs a Main dispatcher
+  that doesn't exist on a plain JVM (no Android Looper) without it.
+- New fakes (`app/src/test/.../fakes/`): `FakeAuthRepository`, `FakeProfileRepository` --
+  configurable `Result<T>` fields per method, following the same "depend on the interface,
+  inject a fake in tests" pattern the backend already uses for `AIProvider`/
+  `StorageProvider`/`EmailProvider`. `httpException(code)` builds a real
+  `retrofit2.HttpException` so tests can exercise a ViewModel's `e.code()`-branching error
+  handling without a real network call.
+- 25 new tests across 7 files, all passing: `LoginViewModelTest` (success, 401, other HTTP
+  error, network failure), `SignupViewModelTest` (success chains to login, 409, 422, network
+  failure), `ForgotPasswordViewModelTest` (step transitions, request failure stays on step
+  1, valid-code success calls `onDone`, invalid code doesn't), `SettingsViewModelTest`
+  (logout, delete-account success/wrong-password/network-failure, state reset),
+  `ProfileViewModelTest` (load/save success and failure), `LegalDocumentViewModelTest`
+  (generic loader success/failure/retry), `HomeViewModelTest` (real time-of-day greeting,
+  not a placeholder).
+- Verified: `./gradlew testDevDebugUnitTest` -- BUILD SUCCESSFUL, 25/25 passing, 0 failures,
+  0 warnings.
+- **Not done, scoped honestly rather than claimed**: the remaining ~14 ViewModels
+  (interview flow, job matching/JD paste, resume upload, tests/assessments, roadmap,
+  role selection) have no unit tests yet -- this item covers auth + settings + profile +
+  home as the highest-value/most-recently-changed slice, not full ViewModel coverage.
+  Compose UI tests (`androidx.compose.ui.test`) and instrumented (`androidTest`) tests are
+  also not covered here -- the `androidTest`/Espresso scaffolding already in
+  `build.gradle.kts` from the initial template still has no actual test files. A follow-up
+  pass extending this same fake-repository pattern to the rest of the ViewModels, plus
+  Compose UI tests for the two or three most critical screens (login, resume upload,
+  interview), would be the natural next step if deeper coverage is wanted later.
+
 **Production readiness item 8/20 — Forgot password / account recovery (2026-08-23).**
 Backend added `POST /auth/forgot-password` / `/auth/reset-password` (see
 `ai-placement-backend/README.md`). Adds the Android surface: a two-step "Forgot password"
