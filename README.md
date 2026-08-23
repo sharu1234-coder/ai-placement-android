@@ -59,6 +59,32 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 10/20 — Real-device voice readiness (2026-08-23).** The master
+prompt scopes this item explicitly as "a checklist, not fabricated hardware claims" — see
+`VOICE_READINESS_CHECKLIST.md` for the full writeup. Summary:
+- This environment has neither a physical Android device nor a working emulator (the one
+  configured AVD failed to boot — missing system image). Confirmed by actually trying:
+  `adb devices` (empty) and booting `UE_pixel_6_API_35` (`FATAL | Cannot find AVD system
+  path`). `./gradlew assembleDevDebug` does build successfully, which is as far as this
+  environment can verify.
+- Code review confirms the recording/playback pipeline is sound: runtime `RECORD_AUDIO`
+  permission requested (not just declared) with a resume-time re-check, recorded (AAC/M4A)
+  and synthesized (WAV) formats agree end-to-end with zero client-side transcoding, upload
+  size and network timeouts have realistic margin, common recorder failures (mic busy,
+  permission revoked mid-session) are caught rather than crashing, and cached audio is
+  deleted immediately after use.
+- Two concrete gaps found and documented (not fixed in this pass, to keep the change
+  minimal and the checklist accurate about what's actually done vs. recommended): no audio
+  focus handling (a call/notification during recording isn't managed), and no protection
+  against a config change or process death mid-recording (rotation would orphan an
+  in-progress `MediaRecorder`).
+- Also flags (cross-referencing, not re-solving) that the backend's TTS
+  (`pyttsx3`/Windows SAPI5) is effectively Windows-only as currently configured — a
+  deployment-portability finding for item 2's eventual resolution, not this item's.
+- **Nothing here claims voice mode has been tested on real hardware** — it hasn't been,
+  because none was available. That verification still needs to happen (on the user's own
+  device) before voice mode ships to real users.
+
 **Production readiness item 9/20 — Android automated testing (2026-08-23).** The project
 had zero automated tests before this item (`testImplementation(libs.junit)` was present in
 `build.gradle.kts` from the initial template, but nothing used it). Sets up real JVM unit
