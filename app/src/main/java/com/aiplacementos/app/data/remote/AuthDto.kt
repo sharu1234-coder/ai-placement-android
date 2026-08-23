@@ -23,3 +23,16 @@ data class UserDto(
     @SerialName("is_active") val isActive: Boolean,
     @SerialName("created_at") val createdAt: String,
 )
+
+@Serializable
+data class ForgotPasswordRequestDto(val email: String)
+
+@Serializable
+data class ResetPasswordRequestDto(
+    val email: String,
+    val code: String,
+    @SerialName("new_password") val newPassword: String,
+)
+
+@Serializable
+data class MessageResponseDto(val message: String)

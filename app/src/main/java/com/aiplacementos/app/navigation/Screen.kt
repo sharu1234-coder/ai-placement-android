@@ -3,6 +3,7 @@ package com.aiplacementos.app.navigation
 sealed class Screen(val route: String) {
     data object Login : Screen("auth/login")
     data object Signup : Screen("auth/signup")
+    data object ForgotPassword : Screen("auth/forgot-password")
 
     data object Home : Screen("home")
     data object Roadmap : Screen("roadmap")

@@ -9,4 +9,10 @@ interface AuthApi {
 
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequestDto): TokenResponseDto
+
+    @POST("auth/forgot-password")
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequestDto): MessageResponseDto
+
+    @POST("auth/reset-password")
+    suspend fun resetPassword(@Body request: ResetPasswordRequestDto): MessageResponseDto
 }

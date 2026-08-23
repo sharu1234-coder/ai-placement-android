@@ -29,7 +29,11 @@ import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit, onNavigateToSignup: () -> Unit) {
+fun LoginScreen(
+    onLoginSuccess: () -> Unit,
+    onNavigateToSignup: () -> Unit,
+    onNavigateToForgotPassword: () -> Unit,
+) {
     val network = networkModule()
     val viewModel: LoginViewModel = viewModel(
         factory = viewModelFactory { initializer { LoginViewModel(network.authRepository) } },
@@ -86,6 +90,9 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onNavigateToSignup: () -> Unit) {
 
         TextButton(onClick = onNavigateToSignup) {
             Text("Don't have an account? Sign up")
+        }
+        TextButton(onClick = onNavigateToForgotPassword) {
+            Text("Forgot password?")
         }
     }
 }

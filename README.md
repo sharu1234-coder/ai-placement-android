@@ -59,6 +59,24 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 8/20 — Forgot password / account recovery (2026-08-23).**
+Backend added `POST /auth/forgot-password` / `/auth/reset-password` (see
+`ai-placement-backend/README.md`). Adds the Android surface: a two-step "Forgot password"
+flow reachable from Login.
+- New `Screen.ForgotPassword` route + a "Forgot password?" link on `LoginScreen`.
+- `ForgotPasswordScreen` is one composable with two internal steps (not two nav
+  destinations — there's no need for back-stack semantics between them, and it keeps the
+  in-flight email/step state in one place): step 1 collects the email and calls
+  `forgot-password`; step 2 collects the emailed code + a new password and calls
+  `reset-password`. `ForgotPasswordViewModel` drives both steps and exposes which one is
+  active via a small `ForgotPasswordStep` enum.
+- On success, `NavGraph` pops back to `Login` — the user logs in fresh with their new
+  password rather than being auto-logged-in, since password reset doesn't return tokens
+  (it's a REST action, not an auth grant).
+- `AuthApi`/`AuthRepository` gained `forgotPassword`/`resetPassword`, following the exact
+  same shape as every other repository method already in the app.
+- Verified: `./gradlew compileDevDebugKotlin` BUILD SUCCESSFUL.
+
 **Production readiness item 7/20 — Terms of Service (2026-08-23).** Backend added a public
 `GET /legal/terms-of-service` (see `ai-placement-backend/README.md`). Adds the Android
 surface, and refactors item 6's Privacy screen to share code with it rather than

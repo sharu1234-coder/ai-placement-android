@@ -13,6 +13,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.aiplacementos.app.ui.auth.ForgotPasswordScreen
 import com.aiplacementos.app.ui.auth.LoginScreen
 import com.aiplacementos.app.ui.auth.SignupScreen
 import com.aiplacementos.app.ui.common.LoadingState
@@ -68,6 +69,7 @@ fun NavGraph(navController: NavHostController) {
                     }
                 },
                 onNavigateToSignup = { navController.navigate(Screen.Signup.route) },
+                onNavigateToForgotPassword = { navController.navigate(Screen.ForgotPassword.route) },
             )
         }
         composable(Screen.Signup.route) {
@@ -78,6 +80,12 @@ fun NavGraph(navController: NavHostController) {
                     }
                 },
                 onNavigateToLogin = { navController.popBackStack() },
+            )
+        }
+        composable(Screen.ForgotPassword.route) {
+            ForgotPasswordScreen(
+                onResetSuccess = { navController.popBackStack() },
+                onBackToLogin = { navController.popBackStack() },
             )
         }
 
