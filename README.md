@@ -31,25 +31,45 @@ restructuring the app -- see `app/build.gradle.kts`.
 - Both flavors expose `BuildConfig.ENVIRONMENT` (`"development"`/`"production"`) for any
   future code that needs to branch on it (e.g. gating verbose logging or analytics).
 
-### Firebase setup (not yet wired in)
+### Firebase setup (wired in — production readiness item 17)
 
 Per the confirmed architecture: **Firebase is for auxiliary services only** — FCM push
 notifications, Crashlytics, Analytics, and App Check. It is **not** a replacement for the
 FastAPI + SQLAlchemy + PostgreSQL backend, which remains the system of record for all app
-data (users, resumes, jobs, assessments, interviews, roadmaps). No Firebase SDK is in the
-project yet; when it's added, the flavor split above is what makes it dev/prod-safe:
+data (users, resumes, jobs, assessments, interviews, roadmaps). **Firestore, Firebase Auth,
+and Firebase Storage are deliberately not included anywhere.**
 
-1. Create two Firebase projects (e.g. `ai-placement-os-dev`, `ai-placement-os-prod`).
-2. In each, register an Android app with the matching applicationId --
-   `com.aiplacementos.app.dev` for the dev project, `com.aiplacementos.app` for the prod
-   project -- and the debug/release signing SHA-1 fingerprints you'll actually build with.
-3. Download each project's `google-services.json` into `app/src/dev/` and `app/src/prod/`
-   respectively (gitignored -- see `.gitignore`; these are environment-specific config, kept
-   local the same way `local.properties`/`.env` are, not committed).
-4. Only then add the Google Services Gradle plugin + Firebase BoM + the specific SDKs
-   (Messaging, Crashlytics, Analytics, App Check) to `app/build.gradle.kts` -- applying the
-   plugin before a `google-services.json` exists for every flavor being built fails the
-   build outright, so this is deliberately left undone until step 3 is complete.
+One Firebase project (`ai-placement-os`), two registered Android apps within it --
+`com.aiplacementos.app` (prod) and `com.aiplacementos.app.dev` (dev). Each flavor's
+`google-services.json` goes in its own source set:
+
+```
+app/src/dev/google-services.json
+app/src/prod/google-services.json
+```
+
+**Both are gitignored** (`.gitignore`) and required to build — unlike `keystore.properties`
+(optional, release signing silently no-ops without it), the Google Services Gradle plugin
+fails the build outright for any flavor missing its file. If you're setting up a fresh
+checkout: ask whoever administers the `ai-placement-os` Firebase project (Project Settings →
+General) for both files, or register your own two Android apps there with the exact package
+names above and download them yourself.
+
+**One manual step App Check needs**: the Debug provider (used automatically in debug builds
+— see `AiPlacementApp.kt`) generates a random per-install debug token, logged to Logcat on
+first run (`D/... : Enter this debug secret into the allow list...`). Paste it into Firebase
+Console → App Check → the app → "Manage debug tokens", or App Check will reject that
+install's requests once server-side enforcement exists. Release builds use Play Integrity
+instead, which needs no manual step but does need the app's real release-signing SHA-256
+registered in Firebase (Project Settings → your app → SHA certificate fingerprints) once a
+real release keystore exists (item 12) — not done yet, since one doesn't.
+
+**App Check is not enforced end-to-end yet.** Installing the provider on Android only makes
+the app *generate* App Check tokens — nothing currently verifies them, since the FastAPI
+backend has no Firebase Admin SDK integration (and none is planned; the backend stays
+Firebase-independent per the architecture above). Real enforcement would mean the backend
+verifying the token on relevant requests, which is a backend change, not part of this item's
+(Android-only) scope.
 
 ## Stack
 
@@ -58,6 +78,76 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 - minSdk 26, compileSdk/targetSdk 35
 
 ## Status
+
+**Production readiness item 17/20 — Firebase auxiliary integration (2026-08-24).**
+Android-only (no backend equivalent — the FastAPI backend has no Firebase Admin SDK
+integration and none is planned; see the "not enforced end-to-end" note below). Full setup
+docs in this file's "Firebase setup" section above; this entry covers what was verified.
+- **Caught a real config error before it could break anything, twice.** The first
+  `google-services.json` provided registered `com.aiplacements.app` (missing "os") instead
+  of this project's real `com.aiplacementos.app` — checked against `app/build.gradle.kts`
+  directly rather than assumed, twice (the second file fixed the prod entry's typo but the
+  newly-added dev entry repeated it as `com.aiplacements.app.dev`). Held off on writing
+  anything or touching Gradle until a third, correctly-matching file arrived, confirmed by
+  the same direct check.
+- Google Services plugin `4.5.0`, Crashlytics Gradle plugin `3.0.8`, `firebase-bom` pinned to
+  `34.1.0` — versions confirmed against Google's actual Maven metadata (not a search-engine
+  summary, and not copied from Firebase's own quickstart docs, per the explicit instruction
+  not to). **The BoM version is deliberately not the latest (34.18.0 at integration time)**:
+  tried it first, and its transitive `play-services-measurement` was compiled with Kotlin
+  2.2.0 metadata, which this project's Kotlin `2.0.21` compiler can't read (`compileDevDebugKotlin`
+  failed with "Module was compiled with an incompatible version of Kotlin"). Bumping the
+  project's Kotlin version to match would have been a much bigger, riskier change than
+  pinning the BoM to `34.1.0` (the first 34.x release, right after Firebase dropped the -ktx
+  modules) — confirmed that version's transitive dependencies compile cleanly against
+  Kotlin 2.0.21 instead.
+- Since BoM 34.x, `-ktx` artifacts are gone (merged into the main modules mid-2025) — used
+  `firebase-messaging`/`firebase-crashlytics`/`firebase-analytics`/`firebase-appcheck-*`
+  directly, not the old `-ktx` suffixed names.
+- `app/src/dev/google-services.json` / `app/src/prod/google-services.json` — one Firebase
+  project (`ai-placement-os`), two registered Android apps within it. Both gitignored
+  already (confirmed via `git check-ignore -v` before writing either file, and via
+  `git status` after — neither ever appeared).
+- **FCM**: `AppFirebaseMessagingService` (new) receives messages and shows a system
+  notification; `POST_NOTIFICATIONS` requested once at launch (non-blocking — unlike the
+  microphone permission gating the voice-interview screen, nothing here is gated on it).
+  `onNewToken` logs the token but doesn't send it anywhere yet — **the backend has no
+  device-token-registration endpoint**, so nothing can actually trigger a push to a specific
+  user until that's built (a backend change, out of scope for this Android-only item).
+- **Crashlytics**: plugin + dependency only — auto-initializes, no code needed. Confirmed the
+  mapping-upload step genuinely runs: `uploadCrashlyticsMappingFileProdRelease` executed
+  (not skipped) during the verification release build below.
+- **Analytics**: dependency only — auto-initializes (default events like `session_start`);
+  no custom event-logging calls added anywhere, since none were requested and that's
+  app-specific product decisions, not "wiring the SDK in."
+- **App Check**: `AiPlacementApp.onCreate()` installs the Debug provider for debug builds
+  (`BuildConfig.DEBUG`, not the dev/prod flavor — a prod-flavor debug build still needs it)
+  and Play Integrity for release builds. **Not enforced anywhere yet** — installing the
+  provider only makes the app generate tokens; nothing server-side verifies them, since the
+  backend has no Firebase Admin SDK integration (deliberately — Firebase stays
+  auxiliary-only, per the architecture). Flagged clearly rather than implied as active
+  protection. The Debug provider's per-install debug token needs a one-time manual paste
+  into Firebase Console (documented above) before that install's App Check calls succeed.
+- Fixed a real, unrelated-looking but caused-by-this-change Lint error along the way:
+  transitive `androidx.fragment:fragment:1.1.0` (pulled in by `play-services-basement`/
+  `play-services-base`, Firebase's own dependencies) failed Lint's
+  `InvalidFragmentVersionForActivityResult` check (needs ≥1.3.0 for the `ActivityResult`
+  APIs `MainActivity`/`VoiceInterviewScreen` already use). Fixed by adding a direct
+  `androidx.fragment:fragment:1.9.0` dependency to force that floor — current stable,
+  confirmed via Google's Maven metadata.
+- **Verified for real, not just "it compiled"**: ran `testDevDebugUnitTest`,
+  `testProdDebugUnitTest`, `assembleDevDebug`, `assembleProdDebug`, and `lintDevDebug`
+  together — all green. Then `assembleProdRelease` (unsigned) separately to re-check R8/
+  shrinking (item 13) still works with the new dependencies — it does, and inspecting
+  `mapping.txt` confirms `AiPlacementApp`/`AppFirebaseMessagingService` and every Firebase
+  API call inside them survive shrinking intact, no custom keep rules needed (Firebase's own
+  SDKs ship their own consumer rules, same pattern item 13 found for Retrofit/
+  kotlinx.serialization). No device/emulator available in this environment (per item 10), so
+  none of this was verified by actually receiving a push or triggering a crash on a running
+  app — only by build/lint/unit-test success and static inspection of the shrunk output.
+- No unrelated code changed — every file touched is either new (the FCM service, the two
+  gitignored config files) or was touched specifically for Firebase wiring, Gradle version
+  additions, or the one Lint fix those additions caused.
 
 **Production readiness item 14/20 — GitHub Actions CI/CD (2026-08-24).** Backend side is in
 `ai-placement-backend/README.md`. Android side: `.github/workflows/ci.yml` — runs on every

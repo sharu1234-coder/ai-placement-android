@@ -5,6 +5,16 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Reads app/src/<flavor>/google-services.json (gitignored -- see .gitignore and this
+    // file's own comment further down) and generates the resources/BuildConfig entries the
+    // Firebase SDKs below need. Requires that file to exist for every flavor being built --
+    // there's no "optional, falls back to unsigned" story here the way keystore.properties
+    // has for release signing; see README's Firebase section for how to get one.
+    alias(libs.plugins.google.services)
+    // Separate from google-services: uploads mapping/symbol files for deobfuscated crash
+    // reports and needs to run on every build, including release (where isMinifyEnabled
+    // means Crashlytics would otherwise only see obfuscated stack traces).
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 val localProperties = Properties().apply {
@@ -52,12 +62,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // Separates "development" and "production" as a real build axis (backend URL today;
-    // this is also where each environment's Firebase project plugs in later -- a
-    // `google-services.json` dropped into app/src/dev/ vs app/src/prod/ is picked up
-    // automatically by the Google Services Gradle plugin once it's added, no other wiring
-    // needed). This is what lets publishing switch dev -> prod Firebase and Ollama -> a
-    // paid AI API (backend-side, via AIProvider/AI_PROVIDER) without restructuring the app.
+    // Separates "development" and "production" as a real build axis (backend URL; Firebase
+    // config -- app/src/dev/google-services.json vs app/src/prod/google-services.json,
+    // picked up automatically by the Google Services Gradle plugin, one registered Android
+    // app per flavor in the same "ai-placement-os" Firebase project). This is what lets
+    // publishing switch dev -> prod Firebase and Ollama -> a paid AI API (backend-side, via
+    // AIProvider/AI_PROVIDER) without restructuring the app.
     flavorDimensions += "environment"
     productFlavors {
         create("dev") {
@@ -131,6 +141,23 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
+
+    // Firebase: auxiliary services only (FCM, Crashlytics, Analytics, App Check) -- never a
+    // replacement for the FastAPI + PostgreSQL backend, which stays the system of record for
+    // all app data. Deliberately NOT included: firebase-firestore, firebase-auth,
+    // firebase-storage.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
+    // Both App Check provider artifacts are needed for every flavor: AiPlacementApp.kt
+    // references both factory classes unconditionally (the choice between them is a
+    // BuildConfig.DEBUG runtime branch, not a compile-time flavor split -- a prod-flavor
+    // debug build like assembleProdDebug still needs the Debug provider available, since
+    // Play Integrity doesn't work on emulators/unregistered installs).
+    implementation(libs.firebase.appcheck.debug)
+    implementation(libs.firebase.appcheck.playintegrity)
+    implementation(libs.androidx.fragment)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.android)

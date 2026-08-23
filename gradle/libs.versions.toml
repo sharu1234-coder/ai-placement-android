@@ -13,8 +13,26 @@ retrofitKotlinxSerializationConverter = "1.0.0"
 kotlinxCoroutinesAndroid = "1.9.0"
 kotlinxCoroutinesTest = "1.9.0"
 datastorePreferences = "1.1.1"
+googleServices = "4.5.0"
+firebaseCrashlyticsPlugin = "3.0.8"
+firebaseBom = "34.1.0"
+fragment = "1.9.0"
 
 [libraries]
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+# Versions come from the BoM above -- none pinned here. Since firebase-bom 34.0.0 (Jul 2025)
+# the -ktx artifacts are gone; their APIs live in these main modules now (drop the -ktx
+# suffix), so these ARE already the Kotlin-idiomatic artifacts, not the old Java-only ones.
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-appcheck-playintegrity = { group = "com.google.firebase", name = "firebase-appcheck-playintegrity" }
+firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug" }
+# Not used directly -- forces a floor on the transitive androidx.fragment version pulled in
+# by play-services-basement/play-services-base (Firebase's own dependencies), which otherwise
+# resolve to 1.1.0 and fail Lint's InvalidFragmentVersionForActivityResult check (needs
+# >=1.3.0 for the ActivityResult APIs MainActivity/VoiceInterviewScreen already use).
+androidx-fragment = { group = "androidx.fragment", name = "fragment", version.ref = "fragment" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
@@ -47,3 +65,5 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
