@@ -38,11 +38,26 @@ jobs:
       # ever regresses (e.g. Windows tooling with core.fileMode=false re-committing gradlew).
       - run: chmod +x gradlew
 
+      # google-services.json is gitignored (item 17) -- the Google Services Gradle plugin
+      # requires one per flavor to exist before ANY Gradle task can run (even unit tests),
+      # so this has to happen before every step below. Written from repo secrets, never
+      # committed -- separate secrets per flavor since the two files aren't guaranteed to
+      # stay identical (e.g. if dev and prod ever move to separate Firebase projects).
+      # GitHub masks secret values in logs automatically.
+      - name: Write Firebase config (google-services.json)
+        env:
+          GOOGLE_SERVICES_JSON_DEV: ${{ secrets.GOOGLE_SERVICES_JSON_DEV }}
+          GOOGLE_SERVICES_JSON_PROD: ${{ secrets.GOOGLE_SERVICES_JSON_PROD }}
+        run: |
+          printf '%s' "$GOOGLE_SERVICES_JSON_DEV" > app/src/dev/google-services.json
+          printf '%s' "$GOOGLE_SERVICES_JSON_PROD" > app/src/prod/google-services.json
+
       # No local.properties / keystore.properties in CI, and none are needed: API_BASE_URL
       # falls back to its built-in default, and an absent keystore.properties just leaves the
       # release build type unsigned (see app/build.gradle.kts) -- exactly the existing local
-      # dev behavior, not a special CI path. Deliberately no signing secrets are configured
-      # here: this workflow builds and verifies, it never produces a publishable artifact.
+      # dev behavior, not a special CI path. No release-signing secrets are configured here
+      # (separate from the Firebase config above): this workflow builds and verifies, it
+      # never produces a publishable artifact.
       - name: Unit tests
         run: ./gradlew testDevDebugUnitTest testProdDebugUnitTest
 
