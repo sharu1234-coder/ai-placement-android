@@ -1,0 +1,59 @@
+name: Android CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      # Verifies gradle-wrapper.jar's checksum against Gradle's own published list before
+      # anything in this job executes it -- catches a tampered wrapper (supply-chain risk),
+      # not just a broken one.
+      - uses: gradle/actions/wrapper-validation@v4
+
+      # Also sets up Gradle's dependency/build cache via the GitHub Actions cache backend
+      # (free for both public and private repos), so repeat runs are much faster.
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Belt-and-suspenders: the executable bit is now set in the git index (verified via
+      # `git ls-files -s gradlew`), but this costs nothing and removes any fragility if that
+      # ever regresses (e.g. Windows tooling with core.fileMode=false re-committing gradlew).
+      - run: chmod +x gradlew
+
+      # No local.properties / keystore.properties in CI, and none are needed: API_BASE_URL
+      # falls back to its built-in default, and an absent keystore.properties just leaves the
+      # release build type unsigned (see app/build.gradle.kts) -- exactly the existing local
+      # dev behavior, not a special CI path. Deliberately no signing secrets are configured
+      # here: this workflow builds and verifies, it never produces a publishable artifact.
+      - name: Unit tests
+        run: ./gradlew testDevDebugUnitTest testProdDebugUnitTest
+
+      - name: Lint
+        run: ./gradlew lintDevDebug
+
+      - name: Build debug APKs (both flavors)
+        run: ./gradlew assembleDevDebug assembleProdDebug
+
+      # Unsigned, not uploaded anywhere -- this only re-validates that R8/shrinking (item 13)
+      # still produces a working build on every change, the same check performed manually
+      # when minification was first turned on.
+      - name: Build release APK (unsigned, exercises R8/shrinking)
+        run: ./gradlew assembleProdRelease

@@ -59,6 +59,39 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 14/20 — GitHub Actions CI/CD (2026-08-24).** Backend side is in
+`ai-placement-backend/README.md`. Android side: `.github/workflows/ci.yml` — runs on every
+push/PR to `master`, no publish/signing step (deliberately: no signing secrets are configured
+in CI, so it can never produce a distributable artifact — matches "keep production
+deployment/publishing disabled").
+- Steps: `gradle/actions/wrapper-validation@v4` (checks `gradle-wrapper.jar`'s checksum before
+  anything executes it — catches a tampered wrapper, not just a broken one) →
+  `testDevDebugUnitTest testProdDebugUnitTest` (both flavors' unit tests) → `lintDevDebug`
+  (Android Lint — already built into AGP, no new tool needed) → `assembleDevDebug
+  assembleProdDebug` (both flavors compile) → `assembleProdRelease` (unsigned; re-exercises
+  R8/shrinking — item 13 — on every change going forward, the same check that was done
+  manually when minification was first turned on).
+- No emulator/instrumented-test job. This isn't a shortcut: item 9 already established there
+  are zero `androidTest` files in this project (only JVM unit tests), so an emulator job would
+  cost real CI minutes (software-emulated Android on a GitHub-hosted runner is slow, no
+  hardware acceleration available) to run nothing. Not added, consistent with "don't add
+  unnecessary cloud services or paid infrastructure."
+- Fixed a real, pre-existing problem this work surfaced: `gradlew` was tracked in git as mode
+  `100644` (not executable) — harmless on Windows (where this repo has been developed so far,
+  and where `core.fileMode=false` means git ignores the executable bit locally) but would have
+  made `./gradlew` fail outright on the Linux CI runner with "Permission denied." Fixed via
+  `git update-index --chmod=+x gradlew` (confirmed `100755` in the index before committing);
+  the workflow also runs a defensive `chmod +x gradlew` step regardless, at zero cost.
+- Both repos are private, so Actions minutes count against the free-tier monthly quota (not
+  unlimited like public repos): added a `concurrency` group with `cancel-in-progress: true`
+  (a superseded push cancels the in-flight run for the same branch instead of both running to
+  completion) and rely on `gradle/actions/setup-gradle@v4`'s built-in dependency/build caching
+  to keep repeat-run time down. `permissions: contents: read` is set explicitly (least
+  privilege — this workflow never writes back to the repo).
+- **Verified the workflow actually runs on GitHub's real runners**, not just that the YAML
+  parses — pushed and watched the run via `gh run watch` (see commit below for the result);
+  no Docker/Linux environment exists locally to dry-run it first.
+
 **Production readiness item 13/20 — Release optimization / R8 (2026-08-23).**
 `app/build.gradle.kts`'s `buildTypes.release` now sets `isMinifyEnabled = true` and
 `isShrinkResources = true` (both were `false`/absent). `app/proguard-rules.pro` gained a
