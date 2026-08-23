@@ -59,6 +59,19 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 7/20 — Terms of Service (2026-08-23).** Backend added a public
+`GET /legal/terms-of-service` (see `ai-placement-backend/README.md`). Adds the Android
+surface, and refactors item 6's Privacy screen to share code with it rather than
+duplicating fetch/Loading/Error/Success logic a second time.
+- New `LegalDocumentViewModel` (generic: takes a `documentLoader` lambda + error message)
+  and `LegalDocumentContent` composable replace the item-6 `PrivacyViewModel` — `PrivacyScreen`
+  now just supplies `network.legalRepository::getPrivacyPolicy`, and the new `TermsScreen`
+  supplies `::getTermsOfService`. Same rendered behavior as before, less duplicated code.
+- New `Screen.Terms` route (`settings/terms`), wired into `NavGraph.kt`. `SettingsScreen`
+  gets an `onOpenTerms` callback and a "Terms of Service" card next to the existing Privacy
+  one.
+- Verified: `./gradlew compileDevDebugKotlin` BUILD SUCCESSFUL.
+
 **Production readiness item 6/20 — Real Privacy Policy (2026-08-23).** Backend added a
 public `GET /legal/privacy-policy` (see `ai-placement-backend/README.md` for what the
 policy actually says and its caveats). `PrivacyScreen` was a Stage-2 `PlaceholderScreen`

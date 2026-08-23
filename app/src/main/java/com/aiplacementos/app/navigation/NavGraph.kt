@@ -29,6 +29,7 @@ import com.aiplacementos.app.ui.roadmap.RoadmapScreen
 import com.aiplacementos.app.ui.roadmap.RoadmapTaskDetailScreen
 import com.aiplacementos.app.ui.settings.PrivacyScreen
 import com.aiplacementos.app.ui.settings.SettingsScreen
+import com.aiplacementos.app.ui.settings.TermsScreen
 
 /**
  * Root graph: Auth -> Main (bottom-nav shell). The "Prepare Me" flow is a guided
@@ -239,6 +240,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onOpenPrivacy = { navController.navigate(Screen.Privacy.route) },
+                onOpenTerms = { navController.navigate(Screen.Terms.route) },
                 onLoggedOut = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -247,5 +249,6 @@ fun NavGraph(navController: NavHostController) {
             )
         }
         composable(Screen.Privacy.route) { PrivacyScreen() }
+        composable(Screen.Terms.route) { TermsScreen() }
     }
 }

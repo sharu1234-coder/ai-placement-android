@@ -6,4 +6,5 @@ import com.aiplacementos.app.domain.repository.LegalRepository
 
 class LegalRepositoryImpl(private val legalApi: LegalApi) : LegalRepository {
     override suspend fun getPrivacyPolicy(): LegalDocumentDto = legalApi.getPrivacyPolicy()
+    override suspend fun getTermsOfService(): LegalDocumentDto = legalApi.getTermsOfService()
 }

@@ -31,7 +31,7 @@ import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 
 @Composable
-fun SettingsScreen(onOpenPrivacy: () -> Unit, onLoggedOut: () -> Unit) {
+fun SettingsScreen(onOpenPrivacy: () -> Unit, onOpenTerms: () -> Unit, onLoggedOut: () -> Unit) {
     val network = networkModule()
     val viewModel: SettingsViewModel = viewModel(
         factory = viewModelFactory {
@@ -59,6 +59,16 @@ fun SettingsScreen(onOpenPrivacy: () -> Unit, onLoggedOut: () -> Unit) {
                 modifier = Modifier.padding(top = Spacing.xs, bottom = Spacing.sm),
             )
             SecondaryButton(text = "View privacy policy", onClick = onOpenPrivacy, modifier = Modifier.fillMaxWidth())
+        }
+
+        AppCard(modifier = Modifier.fillMaxWidth()) {
+            Text(text = "Terms of Service", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "What you're agreeing to by using the app.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = Spacing.xs, bottom = Spacing.sm),
+            )
+            SecondaryButton(text = "View terms of service", onClick = onOpenTerms, modifier = Modifier.fillMaxWidth())
         }
 
         PrimaryButton(

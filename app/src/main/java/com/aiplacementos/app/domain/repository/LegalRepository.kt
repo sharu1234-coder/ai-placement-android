@@ -4,4 +4,5 @@ import com.aiplacementos.app.data.remote.LegalDocumentDto
 
 interface LegalRepository {
     suspend fun getPrivacyPolicy(): LegalDocumentDto
+    suspend fun getTermsOfService(): LegalDocumentDto
 }

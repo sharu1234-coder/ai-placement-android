@@ -33,6 +33,7 @@ sealed class Screen(val route: String) {
 
     data object Settings : Screen("settings")
     data object Privacy : Screen("settings/privacy")
+    data object Terms : Screen("settings/terms")
 }
 
 fun resumeUploadRoute(jdId: Int): String = "prepare-me/resume-upload/$jdId"
