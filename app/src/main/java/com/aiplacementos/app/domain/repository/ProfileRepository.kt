@@ -11,4 +11,5 @@ interface ProfileRepository {
     suspend fun selectRole(roleId: Int): ProfileDto
     suspend fun addSkill(name: String, proficiency: String?): SkillDto
     suspend fun listSkills(): List<SkillDto>
+    suspend fun deleteMyAccount(password: String)
 }

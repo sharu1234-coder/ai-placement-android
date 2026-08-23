@@ -35,3 +35,6 @@ data class SkillCreateDto(val name: String, val proficiency: String? = null)
 
 @Serializable
 data class SkillDto(val id: Int, val name: String, val proficiency: String? = null)
+
+@Serializable
+data class AccountDeleteRequestDto(val password: String)

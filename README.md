@@ -59,6 +59,29 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 5/20 — Complete account deletion (2026-08-23).** Backend added
+`DELETE /users/me` (see `ai-placement-backend/README.md`); this adds the Android surface for
+it in Settings, since a backend-only capability isn't "complete" if there's no way to reach
+it from the app.
+- `UsersApi.deleteMyAccount` uses `@HTTP(method = "DELETE", path = "users/me", hasBody =
+  true)` — Retrofit's `@DELETE` annotation doesn't support a request body, and the backend
+  requires the current password to guard against a stolen/leaked access token alone
+  triggering an irreversible wipe.
+- `SettingsScreen` gets a "Delete account" card (styled with `colorScheme.error`) that opens
+  a confirmation `AlertDialog` requiring password entry. A wrong password surfaces "Incorrect
+  password" inline and leaves the dialog open; success clears local tokens
+  (`authRepository.logout()`, redundant with the server already invalidating the token, but
+  keeps the client state in sync) and reuses the existing `onLoggedOut` nav callback — same
+  "pop to Login, clear backstack" behavior as the Log out button.
+- No new dependency, no new nav route — reuses `AlertDialog`/`OutlinedTextField` and the
+  existing `Screen.Settings` → `Screen.Login` transition already wired for logout.
+- Verified: `./gradlew compileDevDebugKotlin` BUILD SUCCESSFUL. **Not done**: no on-device/
+  emulator run of the delete flow — the backend endpoint itself was live-verified end-to-end
+  against real PostgreSQL (see backend README); this is standard Retrofit/Compose wiring,
+  not new client logic worth a device-specific check on its own.
+- No automated Android tests added — the project has no test suite yet at all (that's item
+  9, "Android automated testing," not yet reached).
+
 **Stage 12 — Progress dashboard (2026-08-23)** — replaces the last remaining Stage 2
 placeholder (`ProgressDashboardScreen`), wired to the backend's new
 `GET /progress/dashboard`:

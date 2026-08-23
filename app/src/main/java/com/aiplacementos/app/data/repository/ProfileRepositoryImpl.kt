@@ -1,5 +1,6 @@
 package com.aiplacementos.app.data.repository
 
+import com.aiplacementos.app.data.remote.AccountDeleteRequestDto
 import com.aiplacementos.app.data.remote.ProfileDto
 import com.aiplacementos.app.data.remote.RoleDto
 import com.aiplacementos.app.data.remote.RoleSelectRequestDto
@@ -29,4 +30,8 @@ class ProfileRepositoryImpl(private val usersApi: UsersApi) : ProfileRepository 
         usersApi.addSkill(SkillCreateDto(name = name, proficiency = proficiency))
 
     override suspend fun listSkills(): List<SkillDto> = usersApi.listSkills()
+
+    override suspend fun deleteMyAccount(password: String) {
+        usersApi.deleteMyAccount(AccountDeleteRequestDto(password = password))
+    }
 }
