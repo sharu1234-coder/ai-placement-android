@@ -59,6 +59,24 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Stage 12 — Progress dashboard (2026-08-23)** — replaces the last remaining Stage 2
+placeholder (`ProgressDashboardScreen`), wired to the backend's new
+`GET /progress/dashboard`:
+- Hero card shows the readiness score as a `ScoreRing`, or an honest "complete a test or
+  interview" prompt when there's no data yet (`readiness_score: null`) rather than showing
+  a fabricated 0%.
+- Three `StatTile`s (tests taken / interviews done / roadmap tasks) reuse `AppCard` rather
+  than introducing a new component, matching the doc's existing design-system vocabulary.
+  `AssistChip`s (top 3) surface the current focus-area skills from `top_weaknesses`.
+  "Recent activity" lists every trend point newest-first, reusing the same
+  `Icons.AutoMirrored.Filled.Assignment`/`Icons.Filled.RecordVoiceOver` split as elsewhere.
+- No new date-parsing dependency: `createdAt` stays a raw ISO string from the backend,
+  displayed by truncating at `"T"` -- consistent with `RoadmapTaskDto.dueDate`'s existing
+  treatment.
+- Verified: `./gradlew assembleDevDebug assembleProdDebug` both BUILD SUCCESSFUL. Backend
+  counterpart additionally verified live end-to-end against real Ollama (see
+  `ai-placement-backend/README.md`).
+
 **Architecture confirmation + dev/prod flavors (2026-08-23)** — the user explicitly locked
 in: FastAPI + SQLAlchemy + PostgreSQL stays the primary backend/database (no Firestore
 migration of existing data/models), Firebase is for auxiliary services only (FCM,
