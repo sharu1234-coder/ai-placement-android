@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Explicit (matches the platform default on API 28+ anyway) so this can never
+         silently regress: the production build must never send auth tokens, resumes, or
+         interview answers over plain HTTP. -->
+    <application android:usesCleartextTraffic="false" />
+</manifest>

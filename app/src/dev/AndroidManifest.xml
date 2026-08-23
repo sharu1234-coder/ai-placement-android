@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The dev backend (10.0.2.2 for the emulator, or a LAN IP for a physical device,
+         see API_BASE_URL in app/build.gradle.kts) runs over plain HTTP; this flavor is
+         never distributed to real users, so cleartext is fine here. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

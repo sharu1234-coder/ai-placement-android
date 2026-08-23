@@ -59,6 +59,27 @@ project yet; when it's added, the flavor split above is what makes it dev/prod-s
 
 ## Status
 
+**Production readiness item 11/20 — HTTPS / network security (2026-08-23).** Backend side
+(TrustedHostMiddleware, HSTS, proxy requirements) is in
+`ai-placement-backend/README.md`. Android side: `usesCleartextTraffic` is now split by
+build flavor instead of being unconditionally `true`.
+- `app/src/main/AndroidManifest.xml` no longer sets `usesCleartextTraffic` at all; it's
+  overridden per flavor via manifest merging: `app/src/dev/AndroidManifest.xml` sets it
+  `true` (the dev backend at `10.0.2.2`/a LAN IP runs over plain HTTP, and this flavor is
+  never distributed to real users), `app/src/prod/AndroidManifest.xml` sets it explicit
+  `false` (matches the platform default on API 28+ anyway, but explicit means it can never
+  silently regress if that default ever changes).
+- **Verified the split actually works**, not just that it compiles: built both
+  `assembleDevDebug` and `assembleProdDebug`, then inspected each flavor's *merged* manifest
+  output directly — `devDebug`'s shows `usesCleartextTraffic="true"`, `prodDebug`'s shows
+  `usesCleartextTraffic="false"`. This matters because manifest merging across flavor source
+  sets is exactly the kind of thing that looks right in source but silently doesn't apply —
+  checking the merged output, not just the source files, is what actually confirms it.
+- No code changes beyond the manifests — `NetworkModule`'s `API_BASE_URL` per flavor
+  (already HTTPS by default for `prod`, per `app/build.gradle.kts`) was already correct;
+  this closes the actual enforcement gap (the app previously could technically still be
+  told to talk to a plain-HTTP endpoint even in a prod-flavored build).
+
 **Production readiness item 10/20 — Real-device voice readiness (2026-08-23).** The master
 prompt scopes this item explicitly as "a checklist, not fabricated hardware claims" — see
 `VOICE_READINESS_CHECKLIST.md` for the full writeup. Summary:
