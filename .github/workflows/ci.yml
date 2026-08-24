@@ -27,11 +27,11 @@ jobs:
       # Verifies gradle-wrapper.jar's checksum against Gradle's own published list before
       # anything in this job executes it -- catches a tampered wrapper (supply-chain risk),
       # not just a broken one.
-      - uses: gradle/actions/wrapper-validation@v4
+      - uses: gradle/actions/wrapper-validation@v6
 
       # Also sets up Gradle's dependency/build cache via the GitHub Actions cache backend
       # (free for both public and private repos), so repeat runs are much faster.
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # Belt-and-suspenders: the executable bit is now set in the git index (verified via
       # `git ls-files -s gradlew`), but this costs nothing and removes any fragility if that
