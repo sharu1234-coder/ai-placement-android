@@ -79,6 +79,46 @@ verifying the token on relevant requests, which is a backend change, not part of
 
 ## Status
 
+**Production readiness item 18/20 — Error/performance observability (2026-08-24).**
+Android-only for this repo (backend side: `RequestObservabilityMiddleware` in
+`ai-placement-backend`, see that repo's README). `ObservabilityInterceptor`
+(`app/src/main/java/.../network/ObservabilityInterceptor.kt`) is a single OkHttp interceptor
+added to `NetworkModule`'s client, so it covers every Retrofit call across every repository
+without touching any of the ~20 ViewModels individually.
+- **Performance**: logs method/path/status/duration for every network call; escalates to a
+  warning log if a call takes 3+ seconds (generous on purpose — resume/JD parsing calls run
+  real AI inference server-side and can legitimately take well over a second, matching this
+  same client's 150s read timeout).
+- **Error reporting to Crashlytics** (the first real use of Crashlytics beyond its automatic
+  fatal-crash handling — wired in but never called from app code until this item): HTTP 5xx
+  responses and IOExceptions other than `UnknownHostException` (no network path at all — not
+  an app bug, and the single most common "failure" a mobile client sees) are recorded as
+  Crashlytics non-fatals. HTTP 4xx responses are deliberately *not* recorded — most (401
+  during token refresh, 404, 422 validation) are expected app-level flows the calling
+  ViewModel's own catch block already surfaces to the user, and recording all of them would
+  flood the Crashlytics dashboard with non-actionable noise.
+- Never lets an observability failure break the actual request: every Crashlytics call is
+  wrapped in its own `try/catch(Throwable)`, so if Crashlytics itself isn't reachable (as in
+  this class's own unit tests, where Firebase is never initialized), the response/exception
+  still flows through to the caller exactly as before.
+- 5 new unit tests (`ObservabilityInterceptorTest`, real `MockWebServer` instance — new
+  `okhttp-mockwebserver` test dependency, same version as the app's existing `okhttp`) proving
+  pass-through correctness under success/4xx/5xx/slow/connection-failure conditions; the
+  actual Crashlytics escalation policy (5xx vs 4xx vs `UnknownHostException`) isn't
+  independently asserted at the unit level since that needs a reachable Firebase instance a
+  plain JVM test can't provide (same honesty as this file's App Check note above). Also added
+  `testOptions.unitTests.isReturnDefaultValues = true` (`app/build.gradle.kts`) — without it,
+  this interceptor's real `Log.d`/`Log.w` calls crash any plain JVM unit test that exercises
+  them.
+- **Not implemented (deliberately)**: no Firebase Performance Monitoring SDK — that would be
+  a new Firebase product beyond the FCM/Crashlytics/Analytics/App Check scope item 17 locked
+  in; flagged as a possible future addition, not added unprompted. No per-ViewModel
+  Crashlytics breadcrumbs — the network-layer interceptor already covers the overwhelming
+  majority of real failure paths in this app (nearly everything a ViewModel catches
+  originates from a Retrofit call).
+- `testDevDebugUnitTest`, `testProdDebugUnitTest`, `lintDevDebug`, `assembleDevDebug`,
+  `assembleProdDebug` all green.
+
 **Production readiness item 17/20 — Firebase auxiliary integration (2026-08-24).**
 Android-only (no backend equivalent — the FastAPI backend has no Firebase Admin SDK
 integration and none is planned; see the "not enforced end-to-end" note below). Full setup

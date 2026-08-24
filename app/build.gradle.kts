@@ -119,6 +119,15 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            // Plain JVM unit tests (no Robolectric) would otherwise crash on any
+            // android.util.Log call ("Method d in android.util.Log not mocked") -- needed for
+            // ObservabilityInterceptor's tests, which exercise real Log.d/Log.w calls.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -162,6 +171,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -56,6 +56,7 @@ class NetworkModule(context: Context) {
     }
 
     private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor(ObservabilityInterceptor())
         .addInterceptor(AuthInterceptor(tokenStore))
         .addInterceptor(loggingInterceptor)
         .authenticator(TokenAuthenticator(tokenStore))
