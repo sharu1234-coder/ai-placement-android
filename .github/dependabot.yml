@@ -1,0 +1,17 @@
+version: 2
+updates:
+  # Gradle dependencies (gradle/libs.versions.toml, build.gradle.kts) -- catches known-CVE
+  # versions (e.g. a vulnerable transitive Firebase/AndroidX artifact) automatically instead
+  # of relying on someone remembering to check.
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Keeps the CI workflow's own actions (actions/checkout, actions/setup-java, gradle/actions/*)
+  # current -- same reasoning that already caught actions/setup-java@v4 being deprecated
+  # during item 14, just automated instead of only noticed from a build annotation.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

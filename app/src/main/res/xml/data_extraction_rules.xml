@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (API 31+) backup/transfer rules. auth_tokens is TokenStore's DataStore file
+  (network/TokenStore.kt): it holds the access/refresh JWTs unencrypted (a known,
+  already-flagged gap, see that file's own doc comment), so it must not travel in a cloud
+  backup or a device-to-device transfer, where it could land on another device or in a
+  compromised Google account backup. This does not fix the unencrypted-at-rest issue itself;
+  it only stops the tokens from leaving the original device via Android's backup mechanisms.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/auth_tokens.preferences_pb" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/auth_tokens.preferences_pb" />
+    </device-transfer>
+</data-extraction-rules>

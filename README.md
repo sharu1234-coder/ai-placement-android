@@ -79,6 +79,38 @@ verifying the token on relevant requests, which is a backend change, not part of
 
 ## Status
 
+**Production readiness item 20/20 — Final production deployment readiness audit
+(2026-08-24).** Full cross-repo audit and classification (READY/BLOCKER/NEEDS MANUAL
+ACTION/FUTURE ENHANCEMENT) lives in `ai-placement-backend`'s `PRODUCTION_READINESS_FINAL.md`
+— this entry covers only what changed in *this* repo during that audit. No deployment or
+publishing was performed; item 19 (File + AI abuse controls) was backend-only, no Android
+changes.
+- **Fixed a real gap**: `android:allowBackup="true"` had no `dataExtractionRules`/
+  `fullBackupContent` restricting Android's Auto Backup, so `TokenStore`'s DataStore file
+  (holds the access/refresh JWTs **unencrypted** — a known, separately-flagged gap in that
+  file's own comment) could have been swept into a cloud backup or device-to-device transfer,
+  extending the tokens' exposure beyond the original device. Added
+  `res/xml/data_extraction_rules.xml` (API 31+) and `res/xml/backup_rules.xml` (API < 31,
+  minSdk is 26) excluding that one file from both; wired into the manifest.
+  **Re-verified by inspecting the actual merged/packaged manifest output** (not just the
+  source XML) that both attributes survive manifest merging.
+- Added `.github/dependabot.yml` (gradle + github-actions ecosystems, weekly) — neither repo
+  had any automated dependency-vulnerability scanning before this audit.
+- Re-ran the full verification suite after these changes: `testDevDebugUnitTest`
+  `testProdDebugUnitTest` `lintDevDebug` `lintProdDebug` `assembleDevDebug` `assembleProdDebug`
+  `assembleProdRelease` — all green, 30 unit tests passing, R8/shrinking still clean.
+- **Still open (flagged, not fixed here)**: the token store itself remains unencrypted at
+  rest on-device (readable given root or physical device access, independent of the backup
+  fix above). Migrating to `androidx.security.crypto` or DataStore+manual crypto is a real,
+  moderately-sized change (new dependency, a migration path for already-installed users) —
+  judged out of scope for an audit item, called out explicitly in
+  `PRODUCTION_READINESS_FINAL.md` as a real gap rather than silently deferred.
+- Also re-confirmed (not re-assumed): permissions are minimal and each maps to a real shipped
+  feature (`INTERNET`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`); no `google-services.json`/
+  `keystore.properties`/`*.jks` was ever committed at any point in git history (checked three
+  independent ways); the repo is private; its only GitHub secrets are the two Firebase config
+  secrets from item 17, nothing else.
+
 **Production readiness item 18/20 — Error/performance observability (2026-08-24).**
 Android-only for this repo (backend side: `RequestObservabilityMiddleware` in
 `ai-placement-backend`, see that repo's README). `ObservabilityInterceptor`

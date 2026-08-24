@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Legacy Auto Backup rules for API below 31 (minSdk is 26): same exclusion as
+  data_extraction_rules.xml, which only takes effect on API 31+. Keep both in sync.
+-->
+<full-backup-content>
+    <exclude domain="file" path="datastore/auth_tokens.preferences_pb" />
+</full-backup-content>
