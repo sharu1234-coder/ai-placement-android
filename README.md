@@ -117,7 +117,7 @@ without touching any of the ~20 ViewModels individually.
   majority of real failure paths in this app (nearly everything a ViewModel catches
   originates from a Retrofit call).
 - `testDevDebugUnitTest`, `testProdDebugUnitTest`, `lintDevDebug`, `assembleDevDebug`,
-  `assembleProdDebug` all green.
+  `assembleProdDebug` all green. Committed `ab6a4b3`, pushed.
 
 **Production readiness item 17/20 — Firebase auxiliary integration (2026-08-24).**
 Android-only (no backend equivalent — the FastAPI backend has no Firebase Admin SDK
