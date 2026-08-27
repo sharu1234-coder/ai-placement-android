@@ -23,4 +23,7 @@ interface AssessmentsApi {
 
     @GET("assessments/{assessmentId}/result")
     suspend fun getResult(@Path("assessmentId") assessmentId: Int): AssessmentResultDto
+
+    @GET("assessments/history")
+    suspend fun getHistory(): List<AssessmentHistoryItemDto>
 }

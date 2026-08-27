@@ -7,6 +7,27 @@
          notifications don't need explicit user consent. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Placement Accountability Alarm. SCHEDULE_EXACT_ALARM (not USE_EXACT_ALARM): the
+         latter is reserved by Play policy for apps whose core function IS alarms/calendaring,
+         which this app is not (it is a placement-prep app with an alarm feature). This one is
+         user-grantable via Settings and revokable at any time; AlarmScheduler checks
+         canScheduleExactAlarms() before every schedule call, never assumes it stays granted. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- AlarmManager registrations do not survive reboot; BootRescheduleReceiver re-arms
+         every enabled alarm once the app can run again after boot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- PlacementAlarmService's actual technical work is looping an alarm tone via
+         MediaPlayer, matching this type's own definition. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Android 14+ treats this as a special-access permission auto-granted only to apps
+         whose core function is alarms/calling, which this app's is not. PlacementAlarmService
+         checks NotificationManagerCompat.canUseFullScreenIntent() and degrades to a
+         heads-up notification if it is not granted: lock-screen wake is best-effort here,
+         not guaranteed, consistent with the rest of this feature's stated caveats. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
     <!-- android:usesCleartextTraffic is set per product flavor (app/src/dev and
          app/src/prod), not here: dev talks to a plain-HTTP local/LAN backend
          (10.0.2.2 or a LAN IP), production must never allow cleartext. See
@@ -37,6 +58,32 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Placement Accountability Alarm: standalone cold-start entry point, deliberately
+             not part of MainActivity's nav graph (see PlacementAlarmChallengeActivity's own
+             doc comment). showWhenLocked/turnScreenOn pair with the notification's
+             setFullScreenIntent for lock-screen wake; both best-effort, not guaranteed on
+             every OEM/Android version. -->
+        <activity
+            android:name=".alarm.PlacementAlarmChallengeActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.AiPlacementOs" />
+
+        <service
+            android:name=".alarm.PlacementAlarmService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <receiver android:name=".alarm.AlarmFiredReceiver" android:exported="false" />
+
+        <receiver android:name=".alarm.BootRescheduleReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

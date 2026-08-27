@@ -46,6 +46,16 @@ data class InterviewAnswerDto(
 )
 
 @Serializable
+data class InterviewHistoryItemDto(
+    val id: Int,
+    val type: String,
+    val mode: String,
+    val status: String,
+    @SerialName("overall_score") val overallScore: Double?,
+    @SerialName("created_at") val createdAt: String,
+)
+
+@Serializable
 data class InterviewEvaluationDto(
     @SerialName("technical_correctness") val technicalCorrectness: Double,
     val relevance: Double,

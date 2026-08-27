@@ -35,6 +35,10 @@ fun ScoreRing(
     size: androidx.compose.ui.unit.Dp = 120.dp,
     ringColor: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    // Overrides the default "N%" center text -- e.g. "82/100" for the ATS Check score
+    // ring. Last param, appended rather than inserted, so no existing positional call
+    // site is at risk.
+    displayText: String? = null,
 ) {
     val animatedFraction = remember { Animatable(0f) }
     LaunchedEffect(percent) {
@@ -64,7 +68,7 @@ fun ScoreRing(
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "${(animatedFraction.value * 100).roundToInt()}%",
+                text = displayText ?: "${(animatedFraction.value * 100).roundToInt()}%",
                 style = MaterialTheme.typography.headlineSmall,
             )
             if (label != null) {

@@ -39,13 +39,13 @@ import com.aiplacementos.app.ui.theme.Spacing
 import com.aiplacementos.app.voice.VoiceInterviewManager
 
 @Composable
-fun VoiceInterviewScreen(jdId: Int, onFinish: (interviewId: Int) -> Unit) {
+fun VoiceInterviewScreen(jdId: Int, type: String = "technical", onFinish: (interviewId: Int) -> Unit) {
     val context = LocalContext.current
     val network = networkModule()
     val manager = remember { VoiceInterviewManager(context.applicationContext, network.interviewRepository) }
     val viewModel: VoiceInterviewViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { VoiceInterviewViewModel(jdId, manager, network.interviewRepository) }
+            initializer { VoiceInterviewViewModel(jdId, type, manager, network.interviewRepository) }
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()

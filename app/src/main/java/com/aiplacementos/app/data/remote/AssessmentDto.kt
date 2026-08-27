@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 data class PrepareMeRequestDto(
     @SerialName("role_id") val roleId: Int? = null,
     @SerialName("jd_id") val jdId: Int? = null,
+    val category: String? = null,
 )
 
 @Serializable
@@ -82,4 +83,15 @@ data class AssessmentResultDto(
     @SerialName("overall_score") val overallScore: Double,
     @SerialName("skill_scores") val skillScores: List<SkillScoreDto>,
     @SerialName("priority_weaknesses") val priorityWeaknesses: List<String>,
+)
+
+@Serializable
+data class AssessmentHistoryItemDto(
+    @SerialName("assessment_id") val assessmentId: Int,
+    @SerialName("blueprint_id") val blueprintId: Int,
+    val category: String,
+    @SerialName("overall_score") val overallScore: Double,
+    val accuracy: Double,
+    @SerialName("question_count") val questionCount: Int,
+    @SerialName("completed_at") val completedAt: String,
 )

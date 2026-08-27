@@ -1,6 +1,7 @@
 package com.aiplacementos.app.data.remote
 
 import okhttp3.MultipartBody
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -14,4 +15,10 @@ interface ResumesApi {
 
     @GET("resumes/{id}/analysis")
     suspend fun getResumeAnalysis(@Path("id") id: Int): ResumeAnalysisDto
+
+    @GET("resumes/me/latest")
+    suspend fun getMyLatestResume(): ResumeSummaryDto?
+
+    @DELETE("resumes/{id}")
+    suspend fun deleteResume(@Path("id") id: Int)
 }

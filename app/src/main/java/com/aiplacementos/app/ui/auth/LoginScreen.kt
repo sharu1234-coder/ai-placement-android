@@ -30,7 +30,7 @@ import com.aiplacementos.app.ui.theme.Spacing
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: suspend () -> Unit,
     onNavigateToSignup: () -> Unit,
     onNavigateToForgotPassword: () -> Unit,
 ) {

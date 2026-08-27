@@ -11,10 +11,14 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.aiplacementos.app.AiPlacementApp
 import com.aiplacementos.app.MainActivity
 import com.aiplacementos.app.R
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 private const val TAG = "AppFCM"
 private const val CHANNEL_ID = "general"
@@ -38,7 +42,21 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
         // backend integration uses isn't decided yet.
         val title = message.notification?.title ?: message.data["title"] ?: return
         val body = message.notification?.body ?: message.data["body"]
-        showNotification(title, body)
+        // Muting (Settings > Preferences > Notifications) only suppresses the system banner/
+        // sound -- the push is always recorded below regardless, so muting can never cause a
+        // real notification to silently vanish from the in-app Notification Center.
+        if (NotificationPreferences.isEnabled(applicationContext)) {
+            showNotification(title, body)
+        }
+
+        // Persisted locally so it's browsable in the in-app Notification Center -- there is
+        // no backend notification feed to sync against, so this on-device copy is the only
+        // record of it.
+        val receivedAt = message.sentTime.takeIf { it > 0 } ?: System.currentTimeMillis()
+        val networkModule = (applicationContext as AiPlacementApp).networkModule
+        CoroutineScope(Dispatchers.IO).launch {
+            networkModule.notificationRepository.record(title, body, receivedAt)
+        }
     }
 
     private fun showNotification(title: String, body: String?) {

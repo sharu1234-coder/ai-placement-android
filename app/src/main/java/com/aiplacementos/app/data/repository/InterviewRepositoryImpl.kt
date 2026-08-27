@@ -3,6 +3,7 @@ package com.aiplacementos.app.data.repository
 import com.aiplacementos.app.data.remote.InterviewAnswerDto
 import com.aiplacementos.app.data.remote.InterviewDto
 import com.aiplacementos.app.data.remote.InterviewEvaluationDto
+import com.aiplacementos.app.data.remote.InterviewHistoryItemDto
 import com.aiplacementos.app.data.remote.InterviewsApi
 import com.aiplacementos.app.data.remote.NextInterviewQuestionResponseDto
 import com.aiplacementos.app.data.remote.StartInterviewRequestDto
@@ -15,6 +16,8 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class InterviewRepositoryImpl(private val interviewsApi: InterviewsApi) : InterviewRepository {
+    override suspend fun listInterviews(): List<InterviewHistoryItemDto> = interviewsApi.listInterviews()
+
     override suspend fun startInterview(type: String, mode: String, jdId: Int?): InterviewDto =
         interviewsApi.startInterview(StartInterviewRequestDto(type = type, mode = mode, jdId = jdId))
 

@@ -1,10 +1,12 @@
 package com.aiplacementos.app.data.remote
 
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.HTTP
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Path
 
 interface UsersApi {
     @GET("roles")
@@ -19,11 +21,20 @@ interface UsersApi {
     @POST("users/me/role")
     suspend fun selectRole(@Body request: RoleSelectRequestDto): ProfileDto
 
+    @POST("users/me/role/secondary")
+    suspend fun selectSecondaryRole(@Body request: SecondaryRoleSelectRequestDto): ProfileDto
+
+    @POST("users/me/onboarding/complete")
+    suspend fun completeOnboarding(): ProfileDto
+
     @POST("users/me/skills")
     suspend fun addSkill(@Body request: SkillCreateDto): SkillDto
 
     @GET("users/me/skills")
     suspend fun listSkills(): List<SkillDto>
+
+    @DELETE("users/me/skills/{id}")
+    suspend fun deleteSkill(@Path("id") id: Int)
 
     // Retrofit's @DELETE doesn't support a @Body -- HTTP DELETE with a body is uncommon but
     // the backend requires the current password here, so @HTTP(hasBody = true) is needed.

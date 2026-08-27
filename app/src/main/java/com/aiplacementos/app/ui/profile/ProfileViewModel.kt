@@ -3,16 +3,48 @@ package com.aiplacementos.app.ui.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.ProfileDto
+import com.aiplacementos.app.data.remote.ResumeSummaryDto
+import com.aiplacementos.app.data.remote.RoleDto
+import com.aiplacementos.app.data.remote.SkillDto
 import com.aiplacementos.app.domain.repository.ProfileRepository
+import com.aiplacementos.app.domain.repository.ResumeRepository
 import com.aiplacementos.app.ui.common.UiState
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class ProfileViewModel(private val profileRepository: ProfileRepository) : ViewModel() {
+/** Which section is currently mid-save -- only one Save button is ever busy/disabled at a
+ * time in practice, so a single nullable field (rather than N booleans) is enough. */
+enum class ProfileSection { PERSONAL, GOALS, EXPERIENCE_LEVEL, SKILLS }
+
+class ProfileViewModel(
+    private val profileRepository: ProfileRepository,
+    private val resumeRepository: ResumeRepository,
+) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<ProfileDto>>(UiState.Loading)
     val uiState: StateFlow<UiState<ProfileDto>> = _uiState.asStateFlow()
+
+    private val _skills = MutableStateFlow<List<SkillDto>>(emptyList())
+    val skills: StateFlow<List<SkillDto>> = _skills.asStateFlow()
+
+    private val _resume = MutableStateFlow<ResumeSummaryDto?>(null)
+    val resume: StateFlow<ResumeSummaryDto?> = _resume.asStateFlow()
+
+    private val _roles = MutableStateFlow<List<RoleDto>>(emptyList())
+    val roles: StateFlow<List<RoleDto>> = _roles.asStateFlow()
+
+    private val _savingSection = MutableStateFlow<ProfileSection?>(null)
+    val savingSection: StateFlow<ProfileSection?> = _savingSection.asStateFlow()
+
+    // Transient save-failure banner -- deliberately NOT UiState.Error: a save failure must
+    // never blank the screen and discard whatever the student was mid-editing in every other
+    // section (the exact "profile save doesn't persist" bug this pass fixes -- see the plan's
+    // Phase F1). The loaded profile/skills/resume stay exactly as they were before the save.
+    private val _saveError = MutableStateFlow<String?>(null)
+    val saveError: StateFlow<String?> = _saveError.asStateFlow()
 
     init {
         load()
@@ -22,21 +54,109 @@ class ProfileViewModel(private val profileRepository: ProfileRepository) : ViewM
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             try {
-                _uiState.value = UiState.Success(profileRepository.getMyProfile())
+                coroutineScope {
+                    val profileDeferred = async { profileRepository.getMyProfile() }
+                    val skillsDeferred = async { runCatching { profileRepository.listSkills() }.getOrDefault(emptyList()) }
+                    val resumeDeferred = async { runCatching { resumeRepository.getLatestResume() }.getOrNull() }
+                    val rolesDeferred = async { runCatching { profileRepository.getRoles() }.getOrDefault(emptyList()) }
+                    _uiState.value = UiState.Success(profileDeferred.await())
+                    _skills.value = skillsDeferred.await()
+                    _resume.value = resumeDeferred.await()
+                    _roles.value = rolesDeferred.await()
+                }
             } catch (e: Exception) {
                 _uiState.value = UiState.Error("Couldn't load your profile. Check your connection.")
             }
         }
     }
 
-    fun save(fullName: String?, college: String?, graduationYear: Int?) {
+    fun savePersonalAndEducation(
+        fullName: String?,
+        mobileNumber: String?,
+        college: String?,
+        degree: String?,
+        branch: String?,
+        graduationYear: Int?,
+    ) {
+        saveSection(ProfileSection.PERSONAL) {
+            profileRepository.updateMyProfile(
+                fullName = fullName,
+                mobileNumber = mobileNumber,
+                college = college,
+                graduationYear = graduationYear,
+                degree = degree,
+                branch = branch,
+            )
+        }
+    }
+
+    fun savePreparationGoals(goals: List<String>) {
+        saveSection(ProfileSection.GOALS) {
+            profileRepository.updateMyProfile(
+                fullName = null, college = null, graduationYear = null, preparationGoals = goals,
+            )
+        }
+    }
+
+    fun saveExperienceLevel(level: String) {
+        saveSection(ProfileSection.EXPERIENCE_LEVEL) {
+            profileRepository.updateMyProfile(
+                fullName = null, college = null, graduationYear = null, experienceLevel = level,
+            )
+        }
+    }
+
+    private fun saveSection(section: ProfileSection, block: suspend () -> ProfileDto) {
+        viewModelScope.launch {
+            _savingSection.value = section
+            _saveError.value = null
+            try {
+                _uiState.value = UiState.Success(block())
+            } catch (e: Exception) {
+                _saveError.value = "Couldn't save your changes. Check your connection and try again."
+            } finally {
+                _savingSection.value = null
+            }
+        }
+    }
+
+    /** Toggling a suggested or custom skill by name -- adds it if not already present,
+     * removes it (by id) if it is. Mirrors OnboardingSkillsViewModel.toggleSkill exactly;
+     * kept local here (rather than sharing that ViewModel instance) since Profile already
+     * owns a broader load()/uiState of its own that skills are just one slice of. */
+    fun toggleSkill(name: String) {
+        val existing = _skills.value.find { it.name.equals(name, ignoreCase = true) }
+        viewModelScope.launch {
+            _savingSection.value = ProfileSection.SKILLS
+            _saveError.value = null
+            try {
+                if (existing != null) {
+                    profileRepository.deleteSkill(existing.id)
+                } else {
+                    profileRepository.addSkill(name, proficiency = null)
+                }
+                _skills.value = profileRepository.listSkills()
+            } catch (e: Exception) {
+                _saveError.value = "Couldn't update your skills. Check your connection and try again."
+            } finally {
+                _savingSection.value = null
+            }
+        }
+    }
+
+    fun reloadResume() {
+        viewModelScope.launch {
+            _resume.value = runCatching { resumeRepository.getLatestResume() }.getOrNull()
+        }
+    }
+
+    fun removeResume(resumeId: Int) {
         viewModelScope.launch {
             try {
-                _uiState.value = UiState.Success(
-                    profileRepository.updateMyProfile(fullName, college, graduationYear)
-                )
+                resumeRepository.deleteResume(resumeId)
+                _resume.value = null
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't save your profile. Check your connection.")
+                _saveError.value = "Couldn't remove your resume. Check your connection and try again."
             }
         }
     }

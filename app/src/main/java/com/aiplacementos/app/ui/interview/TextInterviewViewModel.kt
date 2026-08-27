@@ -23,6 +23,7 @@ sealed interface TextInterviewUiState {
 
 class TextInterviewViewModel(
     private val jdId: Int,
+    private val type: String,
     private val interviewRepository: InterviewRepository,
 ) : ViewModel() {
     private var interviewId: Int? = null
@@ -39,7 +40,7 @@ class TextInterviewViewModel(
             _uiState.value = TextInterviewUiState.Loading
             try {
                 val interview = interviewRepository.startInterview(
-                    type = "technical",
+                    type = type,
                     mode = "text",
                     jdId = jdId.takeIf { it != 0 },
                 )

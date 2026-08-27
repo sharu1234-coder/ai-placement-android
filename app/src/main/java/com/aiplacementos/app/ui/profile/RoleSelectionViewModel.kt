@@ -10,12 +10,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class RoleSelectionViewModel(private val profileRepository: ProfileRepository) : ViewModel() {
+/** [isSecondary] routes selection to the secondary-role endpoint instead of primary, and
+ * (per the backend's design -- secondary is catalog-only) disables custom-role entry. */
+class RoleSelectionViewModel(
+    private val profileRepository: ProfileRepository,
+    private val isSecondary: Boolean = false,
+) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<List<RoleDto>>>(UiState.Loading)
     val uiState: StateFlow<UiState<List<RoleDto>>> = _uiState.asStateFlow()
 
     private val _selecting = MutableStateFlow(false)
     val selecting: StateFlow<Boolean> = _selecting.asStateFlow()
+
+    val allowCustomRole: Boolean = !isSecondary
 
     init {
         load()
@@ -37,7 +44,22 @@ class RoleSelectionViewModel(private val profileRepository: ProfileRepository) :
         viewModelScope.launch {
             _selecting.value = true
             try {
-                profileRepository.selectRole(roleId)
+                if (isSecondary) profileRepository.selectSecondaryRole(roleId) else profileRepository.selectRole(roleId)
+                onSelected()
+            } catch (e: Exception) {
+                _uiState.value = UiState.Error("Couldn't select that role. Check your connection.")
+            } finally {
+                _selecting.value = false
+            }
+        }
+    }
+
+    fun selectCustomRole(customRole: String, onSelected: () -> Unit) {
+        if (isSecondary || customRole.isBlank()) return
+        viewModelScope.launch {
+            _selecting.value = true
+            try {
+                profileRepository.selectRole(roleId = null, customRole = customRole)
                 onSelected()
             } catch (e: Exception) {
                 _uiState.value = UiState.Error("Couldn't select that role. Check your connection.")

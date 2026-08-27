@@ -22,6 +22,7 @@ sealed interface VoiceInterviewUiState {
 
 class VoiceInterviewViewModel(
     private val jdId: Int,
+    private val type: String,
     private val manager: VoiceInterviewManager,
     private val interviewRepository: InterviewRepository,
 ) : ViewModel() {
@@ -39,7 +40,7 @@ class VoiceInterviewViewModel(
             _uiState.value = VoiceInterviewUiState.Starting
             try {
                 val interview = interviewRepository.startInterview(
-                    type = "technical",
+                    type = type,
                     mode = "voice",
                     jdId = jdId.takeIf { it != 0 },
                 )

@@ -11,6 +11,9 @@ import retrofit2.http.Part
 import retrofit2.http.Path
 
 interface InterviewsApi {
+    @GET("interviews")
+    suspend fun listInterviews(): List<InterviewHistoryItemDto>
+
     @POST("interviews")
     suspend fun startInterview(@Body request: StartInterviewRequestDto): InterviewDto
 

@@ -5,6 +5,10 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Room's annotation processor. KSP's version string is tied to the exact Kotlin
+    // compiler version (see gradle/libs.versions.toml's ksp comment) -- not a normal
+    // library bump if the Kotlin version ever moves.
+    alias(libs.plugins.ksp)
     // Reads app/src/<flavor>/google-services.json (gitignored -- see .gitignore and this
     // file's own comment further down) and generates the resources/BuildConfig entries the
     // Firebase SDKs below need. Requires that file to exist for every flavor being built --
@@ -150,6 +154,13 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
+    // Local persistence for the Placement Accountability Alarm (scheduled alarm configs +
+    // resumable challenge state) -- the only local DB in the app; everything else stays
+    // backend-fetched-on-demand per the existing architecture. WorkManager is deliberately
+    // not used anywhere in this app -- its granularity is wrong for an exact-time alarm.
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // Firebase: auxiliary services only (FCM, Crashlytics, Analytics, App Check) -- never a
     // replacement for the FastAPI + PostgreSQL backend, which stays the system of record for

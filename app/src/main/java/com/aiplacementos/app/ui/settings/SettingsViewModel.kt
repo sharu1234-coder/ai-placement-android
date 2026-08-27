@@ -1,14 +1,18 @@
 package com.aiplacementos.app.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.domain.repository.AuthRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
+import com.aiplacementos.app.push.NotificationPreferences
 import com.aiplacementos.app.ui.common.UiState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 
 class SettingsViewModel(
@@ -17,6 +21,24 @@ class SettingsViewModel(
 ) : ViewModel() {
     private val _deleteAccountState = MutableStateFlow<UiState<Unit>>(UiState.Empty)
     val deleteAccountState: StateFlow<UiState<Unit>> = _deleteAccountState.asStateFlow()
+
+    private val _cacheCleared = MutableStateFlow(false)
+    val cacheCleared: StateFlow<Boolean> = _cacheCleared.asStateFlow()
+
+    fun clearCache(context: Context) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { context.cacheDir?.deleteRecursively() }
+            _cacheCleared.value = true
+        }
+    }
+
+    fun dismissCacheClearedMessage() {
+        _cacheCleared.value = false
+    }
+
+    fun setNotificationsEnabled(context: Context, enabled: Boolean) {
+        NotificationPreferences.setEnabled(context, enabled)
+    }
 
     fun logout(onLoggedOut: () -> Unit) {
         viewModelScope.launch {

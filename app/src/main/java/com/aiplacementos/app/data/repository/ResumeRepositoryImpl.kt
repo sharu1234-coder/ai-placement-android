@@ -1,6 +1,7 @@
 package com.aiplacementos.app.data.repository
 
 import com.aiplacementos.app.data.remote.ResumeAnalysisDto
+import com.aiplacementos.app.data.remote.ResumeSummaryDto
 import com.aiplacementos.app.data.remote.ResumeUploadResponseDto
 import com.aiplacementos.app.data.remote.ResumesApi
 import com.aiplacementos.app.domain.repository.ResumeRepository
@@ -17,4 +18,10 @@ class ResumeRepositoryImpl(private val resumesApi: ResumesApi) : ResumeRepositor
 
     override suspend fun getAnalysis(resumeId: Int): ResumeAnalysisDto =
         resumesApi.getResumeAnalysis(resumeId)
+
+    override suspend fun getLatestResume(): ResumeSummaryDto? = resumesApi.getMyLatestResume()
+
+    override suspend fun deleteResume(resumeId: Int) {
+        resumesApi.deleteResume(resumeId)
+    }
 }

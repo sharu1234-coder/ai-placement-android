@@ -29,7 +29,7 @@ import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 
 @Composable
-fun SignupScreen(onSignupSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
+fun SignupScreen(onSignupSuccess: suspend () -> Unit, onNavigateToLogin: () -> Unit) {
     val network = networkModule()
     val viewModel: SignupViewModel = viewModel(
         factory = viewModelFactory { initializer { SignupViewModel(network.authRepository) } },

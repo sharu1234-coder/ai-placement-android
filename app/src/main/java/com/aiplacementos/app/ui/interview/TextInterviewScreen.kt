@@ -32,10 +32,10 @@ import com.aiplacementos.app.ui.theme.Spacing
 private const val QUESTIONS_PER_INTERVIEW = 5
 
 @Composable
-fun TextInterviewScreen(jdId: Int, onFinish: () -> Unit) {
+fun TextInterviewScreen(jdId: Int, type: String = "technical", onFinish: () -> Unit) {
     val network = networkModule()
     val viewModel: TextInterviewViewModel = viewModel(
-        factory = viewModelFactory { initializer { TextInterviewViewModel(jdId, network.interviewRepository) } },
+        factory = viewModelFactory { initializer { TextInterviewViewModel(jdId, type, network.interviewRepository) } },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 

@@ -1,13 +1,19 @@
 package com.aiplacementos.app.data.repository
 
+import com.aiplacementos.app.data.remote.GeneratePreparationPlanRequestDto
+import com.aiplacementos.app.data.remote.JobDescriptionListItemDto
 import com.aiplacementos.app.data.remote.JobDescriptionParseResponseDto
 import com.aiplacementos.app.data.remote.JobMatchDto
+import com.aiplacementos.app.data.remote.JobPreparationPlanDto
 import com.aiplacementos.app.data.remote.JobsApi
 import com.aiplacementos.app.data.remote.ParseJdRequestDto
 import com.aiplacementos.app.data.remote.RequirementDto
 import com.aiplacementos.app.domain.repository.JobRepository
 
 class JobRepositoryImpl(private val jobsApi: JobsApi) : JobRepository {
+    override suspend fun listJobDescriptions(): List<JobDescriptionListItemDto> =
+        jobsApi.listJobDescriptions()
+
     override suspend fun parseJobDescription(rawText: String): JobDescriptionParseResponseDto =
         jobsApi.createJobDescription(ParseJdRequestDto(rawText = rawText))
 
@@ -15,4 +21,20 @@ class JobRepositoryImpl(private val jobsApi: JobsApi) : JobRepository {
         jobsApi.getRequirements(jdId)
 
     override suspend fun matchJob(jdId: Int): JobMatchDto = jobsApi.matchJob(jdId)
+
+    override suspend fun generatePreparationPlan(
+        jdId: Int,
+        companyName: String?,
+        jobTitle: String?,
+    ): JobPreparationPlanDto = jobsApi.generatePreparationPlan(
+        jdId,
+        GeneratePreparationPlanRequestDto(companyName = companyName, jobTitle = jobTitle),
+    )
+
+    override suspend fun getPreparationPlan(jdId: Int): JobPreparationPlanDto =
+        jobsApi.getPreparationPlan(jdId)
+
+    override suspend fun deleteJobDescription(jdId: Int) {
+        jobsApi.deleteJobDescription(jdId)
+    }
 }

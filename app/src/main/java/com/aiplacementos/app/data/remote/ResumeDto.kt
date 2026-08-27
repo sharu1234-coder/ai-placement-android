@@ -52,3 +52,14 @@ data class ResumeUploadResponseDto(
     @SerialName("parse_status") val parseStatus: String,
     val analysis: ResumeAnalysisDto? = null,
 )
+
+@Serializable
+data class ResumeSummaryDto(
+    val id: Int,
+    val filename: String?,
+    @SerialName("parse_status") val parseStatus: String,
+    @SerialName("created_at") val createdAt: String,
+    // Appended rather than inserted -- 2 existing test call sites construct this
+    // positionally; a defaulted trailing param keeps them compiling unchanged.
+    @SerialName("file_size_bytes") val fileSizeBytes: Int? = null,
+)

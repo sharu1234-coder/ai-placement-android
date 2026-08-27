@@ -1,0 +1,64 @@
+package com.aiplacementos.app.ui.onboarding
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aiplacementos.app.data.remote.SkillDto
+import com.aiplacementos.app.ui.common.ErrorState
+import com.aiplacementos.app.ui.common.LoadingState
+import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.SkillPicker
+import com.aiplacementos.app.ui.common.StepProgressIndicator
+import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.networkModule
+import com.aiplacementos.app.ui.theme.Spacing
+
+@Composable
+fun OnboardingSkillsScreen(onNext: () -> Unit) {
+    val network = networkModule()
+    val viewModel: OnboardingSkillsViewModel = viewModel(
+        factory = viewModelFactory { initializer { OnboardingSkillsViewModel(network.profileRepository) } },
+    )
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
+
+    when (val current = state) {
+        is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
+        is UiState.Error -> ErrorState(
+            message = current.message,
+            onRetry = viewModel::load,
+            modifier = Modifier.fillMaxSize(),
+        )
+        is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
+        is UiState.Success<List<SkillDto>> -> Column(
+            modifier = Modifier.fillMaxSize().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            StepProgressIndicator(step = 4, total = 7)
+            Text(text = "Select your skills", style = MaterialTheme.typography.headlineSmall)
+            SkillPicker(
+                skills = current.data,
+                busy = busy,
+                onToggle = viewModel::toggleSkill,
+                modifier = Modifier.weight(1f),
+            )
+            PrimaryButton(
+                text = "Next",
+                onClick = onNext,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}

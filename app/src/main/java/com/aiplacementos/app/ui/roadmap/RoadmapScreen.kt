@@ -51,7 +51,11 @@ fun RoadmapScreen(jdId: Int = 0, autoGenerateIfMissing: Boolean = false, onOpenT
 
     when (val current = state) {
         is RoadmapUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-        is RoadmapUiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is RoadmapUiState.Error -> ErrorState(
+            message = current.message,
+            onRetry = viewModel::load,
+            modifier = Modifier.fillMaxSize(),
+        )
         is RoadmapUiState.NoRoadmap -> NoRoadmapPrompt(onGenerate = { viewModel.generate() })
         is RoadmapUiState.Success -> RoadmapContent(
             roadmap = current.roadmap,

@@ -13,6 +13,14 @@ retrofitKotlinxSerializationConverter = "1.0.0"
 kotlinxCoroutinesAndroid = "1.9.0"
 kotlinxCoroutinesTest = "1.9.0"
 datastorePreferences = "1.1.1"
+# Room 2.6.1 predates the Kotlin 2.x line entirely (released Dec 2023), so its compiled
+# metadata is safely older than this project's pinned Kotlin 2.0.21 -- no repeat of the
+# firebase-bom/kotlinx-coroutines metadata-incompatibility class of failure (see
+# PRODUCTION_READINESS_FINAL.md's Phase 3 Dependabot classification for that precedent).
+room = "2.6.1"
+# KSP version string is <kotlin-version>-<ksp-release>; must match the pinned Kotlin version
+# exactly (unlike a library dependency, KSP is a compiler plugin tied to the compiler itself).
+ksp = "2.0.21-1.0.28"
 googleServices = "4.5.0"
 firebaseCrashlyticsPlugin = "3.0.8"
 firebaseBom = "34.1.0"
@@ -60,11 +68,15 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }

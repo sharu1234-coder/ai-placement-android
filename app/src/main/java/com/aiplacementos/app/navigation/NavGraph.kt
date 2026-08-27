@@ -8,29 +8,77 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.aiplacementos.app.alarm.PlacementAlarmService
+import com.aiplacementos.app.ui.alarm.AlarmCreateScreen
+import com.aiplacementos.app.ui.alarm.AlarmListScreen
+import com.aiplacementos.app.ui.alarm.PlacementAlarmChallengeScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckAnalyzingScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckCategoryDetailScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckHistoryScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckImprovementPlanScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckIssuesScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckLandingScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckParsedViewScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckPreCheckScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckResultScreen
+import com.aiplacementos.app.ui.atscheck.AtsCheckSectionAnalysisScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathDetailScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathGapAnalysisScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathHomeScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathInterviewPrepScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathProjectDetailScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathProjectsScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathReadinessScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathResumeConnectionScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathRoleSelectionScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathSavedRolesScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathSkillDetailScreen
 import com.aiplacementos.app.ui.auth.ForgotPasswordScreen
 import com.aiplacementos.app.ui.auth.LoginScreen
 import com.aiplacementos.app.ui.auth.SignupScreen
+import com.aiplacementos.app.ui.auth.WelcomeScreen
+import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.interview.InterviewEvaluationScreen
+import com.aiplacementos.app.ui.interview.MockInterviewCategoryScreen
 import com.aiplacementos.app.ui.interview.TextInterviewScreen
 import com.aiplacementos.app.ui.interview.VoiceInterviewScreen
+import com.aiplacementos.app.ui.jdanalyzer.JdAnalyzerResultScreen
+import com.aiplacementos.app.ui.jdanalyzer.JdAnalyzerScreen
 import com.aiplacementos.app.ui.job.JDPasteScreen
 import com.aiplacementos.app.ui.job.JobMatchScreen
 import com.aiplacementos.app.ui.job.PrepareMeSummaryScreen
+import com.aiplacementos.app.ui.onboarding.OnboardingConfirmationScreen
+import com.aiplacementos.app.ui.onboarding.OnboardingEducationScreen
+import com.aiplacementos.app.ui.onboarding.OnboardingExperienceLevelScreen
+import com.aiplacementos.app.ui.onboarding.OnboardingGoalsScreen
+import com.aiplacementos.app.ui.onboarding.OnboardingNameScreen
+import com.aiplacementos.app.ui.onboarding.OnboardingRoleScreen
+import com.aiplacementos.app.ui.onboarding.OnboardingSkillsScreen
+import com.aiplacementos.app.ui.onboarding.OnboardingSuccessScreen
+import com.aiplacementos.app.ui.placementpath.PlacementPathScreen
+import com.aiplacementos.app.ui.placementpath.PlacementPathTopicDetailScreen
+import com.aiplacementos.app.ui.placementpath.SavedRoadmapsScreen
+import com.aiplacementos.app.ui.profile.ProfileScreen
 import com.aiplacementos.app.ui.profile.RoleSelectionScreen
 import com.aiplacementos.app.ui.resume.ResumeUploadScreen
+import com.aiplacementos.app.domain.repository.ProfileRepository
+import com.aiplacementos.app.ui.about.AboutUsScreen
+import com.aiplacementos.app.ui.notifications.NotificationCenterScreen
 import com.aiplacementos.app.ui.roadmap.RoadmapScreen
 import com.aiplacementos.app.ui.roadmap.RoadmapTaskDetailScreen
 import com.aiplacementos.app.ui.settings.PrivacyScreen
 import com.aiplacementos.app.ui.settings.SettingsScreen
 import com.aiplacementos.app.ui.settings.TermsScreen
+import com.aiplacementos.app.ui.subscriptions.SubscriptionsScreen
+import com.aiplacementos.app.ui.support.HelpSupportScreen
 
 /**
  * Root graph: Auth -> Main (bottom-nav shell). The "Prepare Me" flow is a guided
@@ -51,8 +99,33 @@ fun NavGraph(navController: NavHostController) {
     // rendering the graph at all rather than flashing LoginScreen and redirecting away from it.
     val network = networkModule()
     var startDestination by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        startDestination = if (network.authRepository.isLoggedIn()) Screen.Main.route else Screen.Login.route
+    // A failed getMyProfile() call here (network down, server unreachable) used to crash the
+    // app outright -- resolvePostAuthDestination() throws, and nothing caught it inside this
+    // LaunchedEffect. A returning, already-logged-in user must always be able to reach
+    // *something* on cold start, even offline, so a failure now surfaces a retryable error
+    // screen instead of an uncaught exception.
+    var sessionRestoreFailed by remember { mutableStateOf(false) }
+    var retryToken by remember { mutableStateOf(0) }
+    LaunchedEffect(retryToken) {
+        sessionRestoreFailed = false
+        startDestination = if (!network.authRepository.isLoggedIn()) {
+            Screen.Welcome.route
+        } else {
+            try {
+                resolvePostAuthDestination(network.profileRepository)
+            } catch (e: Exception) {
+                sessionRestoreFailed = true
+                null
+            }
+        }
+    }
+    if (sessionRestoreFailed) {
+        ErrorState(
+            message = "Couldn't restore your session. Check your connection and try again.",
+            onRetry = { retryToken++ },
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
     }
     val resolvedStart = startDestination
     if (resolvedStart == null) {
@@ -61,12 +134,17 @@ fun NavGraph(navController: NavHostController) {
     }
 
     NavHost(navController = navController, startDestination = resolvedStart) {
+        composable(Screen.Welcome.route) {
+            WelcomeScreen(
+                onGetStarted = { navController.navigate(Screen.Signup.route) },
+                onNavigateToLogin = { navController.navigate(Screen.Login.route) },
+            )
+        }
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
+                    val dest = resolvePostAuthDestinationOrMain(network.profileRepository)
+                    navController.navigate(dest) { popUpTo(0) { inclusive = true } }
                 },
                 onNavigateToSignup = { navController.navigate(Screen.Signup.route) },
                 onNavigateToForgotPassword = { navController.navigate(Screen.ForgotPassword.route) },
@@ -75,11 +153,12 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Signup.route) {
             SignupScreen(
                 onSignupSuccess = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
+                    val dest = resolvePostAuthDestinationOrMain(network.profileRepository)
+                    navController.navigate(dest) { popUpTo(0) { inclusive = true } }
                 },
-                onNavigateToLogin = { navController.popBackStack() },
+                // Explicit navigate rather than popBackStack() -- Signup can be reached either
+                // from Welcome or from Login, and this must always land on Login regardless.
+                onNavigateToLogin = { navController.navigate(Screen.Login.route) },
             )
         }
         composable(Screen.ForgotPassword.route) {
@@ -89,12 +168,59 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
+        composable(Screen.OnboardingName.route) {
+            OnboardingNameScreen(onNext = { navController.navigate(Screen.OnboardingEducation.route) })
+        }
+        composable(Screen.OnboardingEducation.route) {
+            OnboardingEducationScreen(onNext = { navController.navigate(Screen.OnboardingResume.route) })
+        }
+        composable(Screen.OnboardingResume.route) {
+            ResumeUploadScreen(onUploaded = { navController.navigate(Screen.OnboardingSkills.route) })
+        }
+        composable(Screen.OnboardingSkills.route) {
+            OnboardingSkillsScreen(onNext = { navController.navigate(Screen.OnboardingRole.route) })
+        }
+        composable(Screen.OnboardingRole.route) {
+            OnboardingRoleScreen(onNext = { navController.navigate(Screen.OnboardingGoals.route) })
+        }
+        composable(Screen.OnboardingGoals.route) {
+            OnboardingGoalsScreen(onNext = { navController.navigate(Screen.OnboardingExperienceLevel.route) })
+        }
+        composable(Screen.OnboardingExperienceLevel.route) {
+            OnboardingExperienceLevelScreen(onNext = { navController.navigate(Screen.OnboardingConfirmation.route) })
+        }
+        composable(Screen.OnboardingConfirmation.route) {
+            OnboardingConfirmationScreen(
+                onEditName = { navController.navigate(Screen.OnboardingName.route) },
+                onEditEducation = { navController.navigate(Screen.OnboardingEducation.route) },
+                onEditResume = { navController.navigate(Screen.OnboardingResume.route) },
+                onEditSkills = { navController.navigate(Screen.OnboardingSkills.route) },
+                onEditRole = { navController.navigate(Screen.OnboardingRole.route) },
+                onEditGoals = { navController.navigate(Screen.OnboardingGoals.route) },
+                onEditExperienceLevel = { navController.navigate(Screen.OnboardingExperienceLevel.route) },
+                onRoadmapCreated = { navController.navigate(Screen.OnboardingSuccess.route) },
+            )
+        }
+        composable(Screen.OnboardingSuccess.route) {
+            OnboardingSuccessScreen(
+                onGoToHome = {
+                    navController.navigate(Screen.Main.route) { popUpTo(0) { inclusive = true } }
+                },
+            )
+        }
+
         composable(Screen.Main.route) {
             MainScreen(navController = navController)
         }
 
         composable(Screen.RoleSelection.route) {
             RoleSelectionScreen(onRoleSelected = { navController.popBackStack() })
+        }
+        composable(Screen.RoleSelectionSecondary.route) {
+            RoleSelectionScreen(isSecondary = true, onRoleSelected = { navController.popBackStack() })
+        }
+        composable(Screen.ProfileResumeUpload.route) {
+            ResumeUploadScreen(onUploaded = { navController.popBackStack() })
         }
 
         // Prepare Me flow -- jdId (created by JDPasteScreen) flows through as a route arg,
@@ -177,13 +303,18 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(
             Screen.TextInterview.route,
-            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
+            arguments = listOf(
+                navArgument("jdId") { type = NavType.IntType },
+                navArgument("type") { type = NavType.StringType },
+            ),
         ) { backStackEntry ->
             val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
+            val interviewType = backStackEntry.arguments?.getString("type") ?: "technical"
             TextInterviewScreen(
                 jdId = jdId,
+                type = interviewType,
                 onFinish = {
-                    navController.navigate(voiceInterviewRoute(jdId)) {
+                    navController.navigate(voiceInterviewRoute(jdId, interviewType)) {
                         popUpTo(Screen.TextInterview.route) { inclusive = true }
                     }
                 },
@@ -191,11 +322,16 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(
             Screen.VoiceInterview.route,
-            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
+            arguments = listOf(
+                navArgument("jdId") { type = NavType.IntType },
+                navArgument("type") { type = NavType.StringType },
+            ),
         ) { backStackEntry ->
             val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
+            val interviewType = backStackEntry.arguments?.getString("type") ?: "technical"
             VoiceInterviewScreen(
                 jdId = jdId,
+                type = interviewType,
                 onFinish = { interviewId ->
                     navController.navigate(interviewEvaluationRoute(interviewId, jdId)) {
                         popUpTo(Screen.VoiceInterview.route) { inclusive = true }
@@ -245,10 +381,83 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
+        composable(Screen.AlarmList.route) {
+            AlarmListScreen(
+                onCreateAlarm = { navController.navigate(Screen.AlarmCreate.route) },
+                onEditAlarm = { alarmId -> navController.navigate(alarmEditRoute(alarmId)) },
+                onOpenActiveChallenge = { clientAlarmId, alarmConfigId ->
+                    navController.navigate(alarmChallengeRoute(clientAlarmId, alarmConfigId))
+                },
+            )
+        }
+        composable(Screen.AlarmCreate.route) {
+            AlarmCreateScreen(
+                onSaved = { navController.popBackStack() },
+                onGoToResume = { navController.navigate(resumeUploadRoute(0)) },
+            )
+        }
+        composable(
+            Screen.AlarmEdit.route,
+            arguments = listOf(navArgument("alarmId") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            AlarmCreateScreen(
+                onSaved = { navController.popBackStack() },
+                onGoToResume = { navController.navigate(resumeUploadRoute(0)) },
+                alarmId = backStackEntry.arguments?.getLong("alarmId") ?: 0L,
+            )
+        }
+        composable(
+            Screen.AlarmChallenge.route,
+            arguments = listOf(
+                navArgument("clientAlarmId") { type = NavType.StringType },
+                navArgument("alarmConfigId") { type = NavType.LongType },
+            ),
+        ) { backStackEntry ->
+            val context = LocalContext.current
+            val clientAlarmId = backStackEntry.arguments?.getString("clientAlarmId") ?: return@composable
+            val alarmConfigId = backStackEntry.arguments?.getLong("alarmConfigId") ?: 0L
+            PlacementAlarmChallengeScreen(
+                clientAlarmId = clientAlarmId,
+                alarmConfigId = alarmConfigId,
+                onAllSixCorrect = {
+                    context.startService(PlacementAlarmService.stopIntent(context))
+                },
+                onDone = {
+                    navController.navigate(Screen.AlarmList.route) {
+                        popUpTo(Screen.AlarmChallenge.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        // Personalized Placement Roadmap ("Placement Path" internally) -- coexists with the
+        // existing day-plan Roadmap tab above; reached only via the Home card, never the
+        // bottom nav, so none of the Roadmap/RoadmapTaskDetail wiring above is touched.
+        composable(Screen.PlacementPath.route) {
+            PlacementPathScreen(
+                onOpenTopic = { topicId -> navController.navigate(placementPathTopicDetailRoute(topicId)) },
+            )
+        }
+        composable(
+            Screen.PlacementPathTopicDetail.route,
+            arguments = listOf(navArgument("topicId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val topicId = backStackEntry.arguments?.getInt("topicId") ?: 0
+            PlacementPathTopicDetailScreen(
+                topicId = topicId,
+                onStartPractice = { blueprintId -> navController.navigate(testFlowRoute(blueprintId, jdId = 0)) },
+            )
+        }
+
         composable(Screen.Settings.route) {
             SettingsScreen(
+                onOpenEditProfile = { navController.navigate(Screen.Profile.route) },
+                onOpenChangePassword = { navController.navigate(Screen.ForgotPassword.route) },
                 onOpenPrivacy = { navController.navigate(Screen.Privacy.route) },
                 onOpenTerms = { navController.navigate(Screen.Terms.route) },
+                onOpenSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
+                onOpenHelpSupport = { navController.navigate(Screen.HelpSupport.route) },
+                onOpenAboutUs = { navController.navigate(Screen.AboutUs.route) },
                 onLoggedOut = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -256,7 +465,319 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
+        // Also reachable as a real pushed destination from Settings' "Edit Profile" shortcut --
+        // MainScreen's bottom tab reaches the same composable via local selectedRoute state
+        // with no back-stack entry; this registration is what makes a *pushed* route to it work.
+        composable(Screen.Profile.route) {
+            ProfileScreen(
+                onSelectRole = { navController.navigate(Screen.RoleSelection.route) },
+                onSelectSecondaryRole = { navController.navigate(Screen.RoleSelectionSecondary.route) },
+                onReplaceResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
+            )
+        }
         composable(Screen.Privacy.route) { PrivacyScreen() }
         composable(Screen.Terms.route) { TermsScreen() }
+
+        composable(Screen.MockInterviewCategory.route) {
+            MockInterviewCategoryScreen(
+                onSelectCategory = { type -> navController.navigate(textInterviewRoute(0, type)) },
+                onOpenPastInterview = { interviewId -> navController.navigate(interviewHistoryDetailRoute(interviewId)) },
+            )
+        }
+        composable(
+            Screen.InterviewHistoryDetail.route,
+            arguments = listOf(navArgument("interviewId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            InterviewEvaluationScreen(
+                interviewId = backStackEntry.arguments?.getInt("interviewId") ?: 0,
+                onContinue = { navController.popBackStack() },
+            )
+        }
+
+        composable(Screen.JdAnalyzer.route) {
+            JdAnalyzerScreen(onOpenAnalysis = { jdId -> navController.navigate(jdAnalyzerResultRoute(jdId)) })
+        }
+        composable(
+            Screen.JdAnalyzerResult.route,
+            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
+            JdAnalyzerResultScreen(
+                jdId = jdId,
+                onGenerateRoadmap = {
+                    navController.navigate(roadmapUpdatedRoute(jdId)) {
+                        popUpTo(Screen.JdAnalyzer.route)
+                    }
+                },
+                onDeleted = { navController.popBackStack(Screen.JdAnalyzer.route, inclusive = false) },
+                onCareerPathUpdated = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
+            )
+        }
+
+        // Resume ATS Check -- drawer entry point, deliberately separate from the JD
+        // Analyzer above (no JD is ever involved). "Upload New Resume" reuses the
+        // existing ResumeUploadScreen (no duplicated upload code), landing on PreCheck.
+        composable(Screen.AtsCheckLanding.route) {
+            AtsCheckLandingScreen(
+                // Both buttons land on PreCheck -- it already handles "show my current
+                // resume" and "no resume yet, prompt to upload" (UiState.Empty) in one
+                // place, so a second, differently-wired upload destination isn't needed.
+                onCheckMyResume = { navController.navigate(Screen.AtsCheckPreCheck.route) },
+                onUploadNewResume = { navController.navigate(Screen.AtsCheckPreCheck.route) },
+                onOpenJdAnalyzer = { navController.navigate(Screen.JdAnalyzer.route) },
+            )
+        }
+        composable(Screen.AtsCheckPreCheck.route) {
+            AtsCheckPreCheckScreen(
+                onAnalyze = { resumeId, targetRole ->
+                    navController.navigate(atsCheckAnalyzingRoute(resumeId, targetRole))
+                },
+                // Screen.ProfileResumeUpload (not the jdId-scoped prepare-me upload route)
+                // -- its onUploaded does navController.popBackStack(), correctly returning
+                // here rather than into the unrelated JD-matching flow.
+                onUploadNewResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
+            )
+        }
+        composable(
+            Screen.AtsCheckAnalyzing.route,
+            arguments = listOf(
+                navArgument("resumeId") { type = NavType.IntType },
+                navArgument("targetRole") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val resumeId = backStackEntry.arguments?.getInt("resumeId") ?: 0
+            val targetRole = backStackEntry.arguments?.getString("targetRole")?.ifBlank { null }
+            AtsCheckAnalyzingScreen(
+                resumeId = resumeId,
+                targetRole = targetRole,
+                onComplete = { checkId ->
+                    navController.navigate(atsCheckResultRoute(checkId)) {
+                        popUpTo(Screen.AtsCheckAnalyzing.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(
+            Screen.AtsCheckResult.route,
+            arguments = listOf(navArgument("checkId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val checkId = backStackEntry.arguments?.getInt("checkId") ?: 0
+            AtsCheckResultScreen(
+                checkId = checkId,
+                onOpenCategory = { category -> navController.navigate(atsCheckCategoryDetailRoute(checkId, category)) },
+                onOpenSectionAnalysis = { navController.navigate(atsCheckSectionAnalysisRoute(checkId)) },
+                onOpenIssues = { navController.navigate(atsCheckIssuesRoute(checkId)) },
+                onOpenImprovementPlan = { navController.navigate(atsCheckImprovementPlanRoute(checkId)) },
+                onOpenHistory = { navController.navigate(Screen.AtsCheckHistory.route) },
+                onOpenParsedView = { navController.navigate(atsCheckParsedViewRoute(checkId)) },
+            )
+        }
+        composable(
+            Screen.AtsCheckCategoryDetail.route,
+            arguments = listOf(
+                navArgument("checkId") { type = NavType.IntType },
+                navArgument("category") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            AtsCheckCategoryDetailScreen(
+                checkId = backStackEntry.arguments?.getInt("checkId") ?: 0,
+                category = backStackEntry.arguments?.getString("category") ?: "",
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            Screen.AtsCheckSectionAnalysis.route,
+            arguments = listOf(navArgument("checkId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val checkId = backStackEntry.arguments?.getInt("checkId") ?: 0
+            AtsCheckSectionAnalysisScreen(
+                checkId = checkId,
+                onOpenCategory = { category -> navController.navigate(atsCheckCategoryDetailRoute(checkId, category)) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            Screen.AtsCheckIssues.route,
+            arguments = listOf(navArgument("checkId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            AtsCheckIssuesScreen(
+                checkId = backStackEntry.arguments?.getInt("checkId") ?: 0,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            Screen.AtsCheckImprovementPlan.route,
+            arguments = listOf(navArgument("checkId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            AtsCheckImprovementPlanScreen(
+                checkId = backStackEntry.arguments?.getInt("checkId") ?: 0,
+                onOpenResumeUpload = { navController.navigate(Screen.ProfileResumeUpload.route) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Screen.AtsCheckHistory.route) {
+            AtsCheckHistoryScreen(
+                onOpenCheck = { checkId ->
+                    navController.navigate(atsCheckResultRoute(checkId))
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            Screen.AtsCheckParsedView.route,
+            arguments = listOf(navArgument("checkId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            AtsCheckParsedViewScreen(
+                checkId = backStackEntry.arguments?.getInt("checkId") ?: 0,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        // Career Path -- drawer entry point, deliberately independent of the
+        // Roadmap/Placement Path bottom tab: separate screens, separate ViewModels,
+        // separate repository, no shared state (see ui/careerpath/ package docs).
+        composable(Screen.CareerPathHome.route) {
+            CareerPathHomeScreen(
+                onSelectRole = { navController.navigate(Screen.CareerPathRoleSelection.route) },
+                onOpenDetail = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
+                onOpenSaved = { navController.navigate(Screen.CareerPathSavedRoles.route) },
+            )
+        }
+        composable(Screen.CareerPathRoleSelection.route) {
+            CareerPathRoleSelectionScreen(
+                onBack = { navController.popBackStack() },
+                onGenerated = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
+            )
+        }
+        composable(
+            Screen.CareerPathDetail.route,
+            arguments = listOf(navArgument("pathId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val pathId = backStackEntry.arguments?.getInt("pathId") ?: 0
+            CareerPathDetailScreen(
+                pathId = pathId,
+                onBack = { navController.popBackStack() },
+                onOpenSkillDetail = { pid, itemId -> navController.navigate(careerPathSkillDetailRoute(pid, itemId)) },
+                onOpenProjects = { pid -> navController.navigate(careerPathProjectsRoute(pid)) },
+                onOpenGapAnalysis = { pid -> navController.navigate(careerPathGapAnalysisRoute(pid)) },
+                onOpenResumeConnection = { pid -> navController.navigate(careerPathResumeConnectionRoute(pid)) },
+                onOpenInterviewPrep = { pid -> navController.navigate(careerPathInterviewPrepRoute(pid)) },
+                onOpenReadiness = { pid -> navController.navigate(careerPathReadinessRoute(pid)) },
+            )
+        }
+        composable(
+            Screen.CareerPathSkillDetail.route,
+            arguments = listOf(
+                navArgument("pathId") { type = NavType.IntType },
+                navArgument("itemId") { type = NavType.IntType },
+            ),
+        ) { backStackEntry ->
+            CareerPathSkillDetailScreen(
+                pathId = backStackEntry.arguments?.getInt("pathId") ?: 0,
+                itemId = backStackEntry.arguments?.getInt("itemId") ?: 0,
+                onBack = { navController.popBackStack() },
+                onOpenPractice = { blueprintId -> navController.navigate(testFlowRoute(blueprintId, jdId = 0)) },
+            )
+        }
+        composable(
+            Screen.CareerPathGapAnalysis.route,
+            arguments = listOf(navArgument("pathId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            CareerPathGapAnalysisScreen(
+                pathId = backStackEntry.arguments?.getInt("pathId") ?: 0,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            Screen.CareerPathProjects.route,
+            arguments = listOf(navArgument("pathId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val pathId = backStackEntry.arguments?.getInt("pathId") ?: 0
+            CareerPathProjectsScreen(
+                pathId = pathId,
+                onBack = { navController.popBackStack() },
+                onOpenProject = { pid, projectId -> navController.navigate(careerPathProjectDetailRoute(pid, projectId)) },
+            )
+        }
+        composable(
+            Screen.CareerPathProjectDetail.route,
+            arguments = listOf(
+                navArgument("pathId") { type = NavType.IntType },
+                navArgument("projectId") { type = NavType.IntType },
+            ),
+        ) { backStackEntry ->
+            CareerPathProjectDetailScreen(
+                pathId = backStackEntry.arguments?.getInt("pathId") ?: 0,
+                projectId = backStackEntry.arguments?.getInt("projectId") ?: 0,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            Screen.CareerPathResumeConnection.route,
+            arguments = listOf(navArgument("pathId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            CareerPathResumeConnectionScreen(
+                pathId = backStackEntry.arguments?.getInt("pathId") ?: 0,
+                onBack = { navController.popBackStack() },
+                onUploadResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
+                // Reuses the existing ATS Check flow directly -- zero new resume logic.
+                onImproveResume = { resumeId, roleName -> navController.navigate(atsCheckAnalyzingRoute(resumeId, roleName)) },
+            )
+        }
+        composable(
+            Screen.CareerPathInterviewPrep.route,
+            arguments = listOf(navArgument("pathId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            CareerPathInterviewPrepScreen(
+                pathId = backStackEntry.arguments?.getInt("pathId") ?: 0,
+                onBack = { navController.popBackStack() },
+                // Deep-links into the existing Mock Interview flow -- zero new interview UI.
+                onPractice = { jdId, category -> navController.navigate(textInterviewRoute(jdId, category)) },
+            )
+        }
+        composable(
+            Screen.CareerPathReadiness.route,
+            arguments = listOf(navArgument("pathId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            CareerPathReadinessScreen(
+                pathId = backStackEntry.arguments?.getInt("pathId") ?: 0,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Screen.CareerPathSavedRoles.route) {
+            CareerPathSavedRolesScreen(
+                onBack = { navController.popBackStack() },
+                onOpenPath = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
+            )
+        }
+
+        composable(Screen.SavedRoadmaps.route) { SavedRoadmapsScreen() }
+        composable(Screen.NotificationCenter.route) { NotificationCenterScreen() }
+        composable(Screen.Subscriptions.route) { SubscriptionsScreen() }
+        composable(Screen.HelpSupport.route) { HelpSupportScreen() }
+        composable(Screen.AboutUs.route) {
+            AboutUsScreen(
+                onOpenPrivacy = { navController.navigate(Screen.Privacy.route) },
+                onOpenTerms = { navController.navigate(Screen.Terms.route) },
+            )
+        }
     }
 }
+
+/** Used for cold start (already-logged-in) and right after a login/signup success --
+ * a profile that hasn't finished onboarding always restarts at OnboardingName (no
+ * exact-step resumption, see the Phase 3 plan's scope decision). */
+private suspend fun resolvePostAuthDestination(profileRepository: ProfileRepository): String =
+    if (profileRepository.getMyProfile().onboardingCompleted) Screen.Main.route else Screen.OnboardingName.route
+
+/** Login/signup-only wrapper: a valid session was just established (the token is good), so a
+ * transient profile-fetch failure right after must not strand the user with no way forward --
+ * falls back to Main, where the dashboard already has its own retry/error handling, rather than
+ * crashing or blocking on a screen with no retry action. Cold start uses the throwing
+ * [resolvePostAuthDestination] directly instead, since it has a dedicated retryable error UI. */
+private suspend fun resolvePostAuthDestinationOrMain(profileRepository: ProfileRepository): String =
+    try {
+        resolvePostAuthDestination(profileRepository)
+    } catch (e: Exception) {
+        Screen.Main.route
+    }
