@@ -5,4 +5,5 @@
 -->
 <full-backup-content>
     <exclude domain="file" path="datastore/auth_tokens.preferences_pb" />
+    <exclude domain="sharedpref" path="token_keyset_prefs.xml" />
 </full-backup-content>

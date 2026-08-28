@@ -20,6 +20,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -102,7 +104,17 @@ private fun AnalyzingContent(stageIndex: Int) {
 
 @Composable
 private fun StageRow(label: String, done: Boolean, active: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+    val stateDescription = when {
+        done -> "done"
+        active -> "in progress"
+        else -> "pending"
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .padding(vertical = Spacing.xs)
+            .semantics(mergeDescendants = true) { contentDescription = "$label, $stateDescription" },
+    ) {
         val (icon, tint) = when {
             done -> Icons.Filled.CheckCircle to MaterialTheme.colorScheme.primary
             active -> Icons.Filled.RadioButtonChecked to MaterialTheme.colorScheme.primary

@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -23,6 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,11 +42,14 @@ import java.util.Calendar
 
 // Single-letter labels only, except Tuesday/Thursday -- "T"/"T" alone would make the two
 // FilterChips visually indistinguishable, letting a student silently pick the wrong day with
-// no way to tell them apart. "Tu"/"Th" are still compact enough for a chip.
+// no way to tell them apart. "Tu"/"Th" are still compact enough for a chip. Sunday/Saturday
+// are still both visually "S" (a deliberately compact label, unlike Tu/Th which needed two
+// letters to read unambiguously at a glance) -- the third element is the full day name, used
+// only as each chip's accessible contentDescription so TalkBack still disambiguates them.
 private val DAYS = listOf(
-    Calendar.SUNDAY to "S", Calendar.MONDAY to "M", Calendar.TUESDAY to "Tu",
-    Calendar.WEDNESDAY to "W", Calendar.THURSDAY to "Th", Calendar.FRIDAY to "F",
-    Calendar.SATURDAY to "S",
+    Triple(Calendar.SUNDAY, "S", "Sunday"), Triple(Calendar.MONDAY, "M", "Monday"), Triple(Calendar.TUESDAY, "Tu", "Tuesday"),
+    Triple(Calendar.WEDNESDAY, "W", "Wednesday"), Triple(Calendar.THURSDAY, "Th", "Thursday"), Triple(Calendar.FRIDAY, "F", "Friday"),
+    Triple(Calendar.SATURDAY, "S", "Saturday"),
 )
 
 /**
@@ -148,13 +153,14 @@ fun AlarmCreateScreen(
 
                 Text(text = "Repeat", style = MaterialTheme.typography.labelLarge)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    items(DAYS) { (day, label) ->
+                    items(DAYS) { (day, label, fullName) ->
                         FilterChip(
                             selected = day in selectedDays,
                             onClick = {
                                 selectedDays = if (day in selectedDays) selectedDays - day else selectedDays + day
                             },
                             label = { Text(label) },
+                            modifier = Modifier.semantics { contentDescription = fullName },
                         )
                     }
                 }
@@ -163,7 +169,7 @@ fun AlarmCreateScreen(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Notes (optional)") },
-                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
                 )
 
                 Text(

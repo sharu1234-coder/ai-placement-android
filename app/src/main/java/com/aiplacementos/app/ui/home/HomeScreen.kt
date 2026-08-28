@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
@@ -25,18 +26,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aiplacementos.app.data.remote.AtsCheckListItemDto
 import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
-import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.SkeletonList
+import com.aiplacementos.app.ui.common.SkeletonText
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -47,6 +52,7 @@ fun HomeScreen(
     onOpenPlacementPath: () -> Unit,
     onOpenJdAnalyzer: () -> Unit,
     onOpenCareerPath: (pathId: Int) -> Unit,
+    onOpenAtsCheck: (checkId: Int?) -> Unit,
 ) {
     val network = networkModule()
     val viewModel: HomeViewModel = viewModel(
@@ -58,6 +64,7 @@ fun HomeScreen(
                     network.placementAlarmRepository,
                     network.roadmapRepository,
                     network.careerPathRepository,
+                    network.atsCheckRepository,
                 )
             }
         },
@@ -65,20 +72,39 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     when (val current = state) {
-        is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
+        is UiState.Loading -> HomeLoadingSkeleton()
         is UiState.Error -> ErrorState(
             message = current.message,
             onRetry = viewModel::load,
             modifier = Modifier.fillMaxSize(),
         )
-        is UiState.Empty -> EmptyState(message = "Nothing to show yet.", modifier = Modifier.fillMaxSize())
+        is UiState.Empty -> EmptyState(
+            message = "Nothing to show yet.",
+            modifier = Modifier.fillMaxSize(),
+            actionLabel = "Get Started",
+            onAction = onOpenPlacementPath,
+        )
         is UiState.Success<HomeData> -> HomeContent(
             data = current.data,
             onOpenPlacementAlarm = onOpenPlacementAlarm,
             onOpenPlacementPath = onOpenPlacementPath,
             onOpenJdAnalyzer = onOpenJdAnalyzer,
             onOpenCareerPath = onOpenCareerPath,
+            onOpenAtsCheck = onOpenAtsCheck,
         )
+    }
+}
+
+/** Mirrors HomeContent's actual card rhythm (greeting + 3 stacked cards) instead of a bare
+ * spinner -- the loading state should look like the screen that's about to appear. */
+@Composable
+private fun HomeLoadingSkeleton() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        SkeletonText(widthFractions = listOf(0.5f))
+        SkeletonList(count = 3)
     }
 }
 
@@ -89,6 +115,7 @@ private fun HomeContent(
     onOpenPlacementPath: () -> Unit,
     onOpenJdAnalyzer: () -> Unit,
     onOpenCareerPath: (pathId: Int) -> Unit,
+    onOpenAtsCheck: (checkId: Int?) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
@@ -118,6 +145,8 @@ private fun HomeContent(
 
         item { JdAnalyzerPromoCard(onOpenJdAnalyzer) }
 
+        item { ResumeAtsCard(data.resumeHealth, onClick = { onOpenAtsCheck(data.resumeHealth?.id) }) }
+
         if (data.upcomingAlarmLabel != null) {
             item { UpcomingAlarmCard(data.upcomingAlarmLabel, onOpenPlacementAlarm) }
         }
@@ -134,7 +163,7 @@ private fun HomeContent(
                     modifier = Modifier.padding(top = Spacing.sm),
                 )
             }
-            items(data.recommendedForYou) { tip ->
+            items(data.recommendedForYou, key = { it }) { tip ->
                 AppCard(modifier = Modifier.fillMaxWidth()) {
                     Text(text = tip, style = MaterialTheme.typography.bodyMedium)
                 }
@@ -149,7 +178,10 @@ private fun HomeContent(
                     modifier = Modifier.padding(top = Spacing.sm),
                 )
             }
-            items(data.recentActivity) { activity ->
+            items(
+                data.recentActivity,
+                key = { "${it.label}_${it.scorePercent}_${it.isInterview}" },
+            ) { activity ->
                 AppCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -264,7 +296,14 @@ private fun TodaysPlanCard(items: List<TodayPlanItem>) {
         Text(text = "Today's Plan", style = MaterialTheme.typography.titleMedium)
         AppCard(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
             items.forEachIndexed { index, item ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = Spacing.xs)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(vertical = Spacing.xs)
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = "${item.title}, ${item.taskType}, ${if (item.done) "done" else "not done"}"
+                        },
+                ) {
                     Icon(
                         imageVector = if (item.done) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
                         contentDescription = null,
@@ -312,6 +351,46 @@ private fun JdAnalyzerPromoCard(onClick: () -> Unit) {
                     text = "Paste any company's job description and get a personalized preparation plan.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
+    }
+}
+
+/** Shows the latest resume ATS score if one exists, or a promo prompting the first check --
+ * [resumeHealth] being null means "no check run yet," not an error, so this never shows a
+ * fabricated or placeholder score. */
+@Composable
+private fun ResumeAtsCard(resumeHealth: AtsCheckListItemDto?, onClick: () -> Unit) {
+    AppCard(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (resumeHealth != null) {
+                ScoreRing(percent = resumeHealth.overallScore, size = 48.dp)
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.Description,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+            Column(modifier = Modifier.padding(start = Spacing.md)) {
+                Text(
+                    text = if (resumeHealth != null) "Resume ATS Score" else "Check Your Resume",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = if (resumeHealth != null) {
+                        "${resumeHealth.overallScore}% -- ${resumeHealth.scoreCategory}. Tap to view the full report."
+                    } else {
+                        "See how your resume scores against applicant tracking systems."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

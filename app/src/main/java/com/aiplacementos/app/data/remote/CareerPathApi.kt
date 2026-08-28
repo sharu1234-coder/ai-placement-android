@@ -36,9 +36,6 @@ interface CareerPathApi {
     @POST("career-path/{pathId}/refresh")
     suspend fun refresh(@Path("pathId") pathId: Int): CareerPathDto
 
-    @GET("career-path/{pathId}/skills")
-    suspend fun getSkills(@Path("pathId") pathId: Int): List<SkillItemDto>
-
     @GET("career-path/{pathId}/projects")
     suspend fun getProjects(@Path("pathId") pathId: Int): List<CareerPathProjectDto>
 

@@ -19,7 +19,6 @@ class FakeCareerPathRepository : CareerPathRepository {
     var pathResult: (suspend (Int) -> CareerPathDto)? = null
     var setCurrentResult: (suspend (Int) -> CareerPathDto)? = null
     var refreshResult: (suspend (Int) -> CareerPathDto)? = null
-    var skillsResult: (suspend (Int) -> List<SkillItemDto>)? = null
     var projectsResult: (suspend (Int) -> List<CareerPathProjectDto>)? = null
     var practiceResult: (suspend (Int) -> Int)? = null
     var markSkillItemResult: (suspend (Int, String) -> SkillItemDto)? = null
@@ -76,11 +75,6 @@ class FakeCareerPathRepository : CareerPathRepository {
     override suspend fun refresh(pathId: Int): CareerPathDto {
         lastRefreshPathId = pathId
         val fn = requireNotNull(refreshResult) { "refreshResult not configured" }
-        return fn(pathId)
-    }
-
-    override suspend fun getSkills(pathId: Int): List<SkillItemDto> {
-        val fn = requireNotNull(skillsResult) { "skillsResult not configured" }
         return fn(pathId)
     }
 

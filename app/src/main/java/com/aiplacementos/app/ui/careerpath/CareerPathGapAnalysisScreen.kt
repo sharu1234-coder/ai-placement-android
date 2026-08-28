@@ -69,7 +69,9 @@ private fun GapAnalysisContent(gaps: List<SkillGapItemDto>) {
     var selectedFilter by remember { mutableStateOf("all") }
     val counts = FILTERS.associateWith { f -> if (f == "all") gaps.size else gaps.count { it.status == f } }
     val selectedIndex = FILTERS.indexOf(selectedFilter)
-    val filtered = if (selectedFilter == "all") gaps else gaps.filter { it.status == selectedFilter }
+    val filtered = remember(gaps, selectedFilter) {
+        if (selectedFilter == "all") gaps else gaps.filter { it.status == selectedFilter }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedIndex) {

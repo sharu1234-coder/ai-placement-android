@@ -3,8 +3,11 @@ package com.aiplacementos.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.alarm.AlarmScheduler
+import com.aiplacementos.app.data.remote.AtsCheckListItemDto
 import com.aiplacementos.app.data.remote.CareerPathDto
+import com.aiplacementos.app.data.remote.ProgressDashboardDto
 import com.aiplacementos.app.data.remote.progressPercent
+import com.aiplacementos.app.domain.repository.AtsCheckRepository
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.domain.repository.PlacementAlarmRepository
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
@@ -45,6 +48,9 @@ data class HomeData(
     // independent feature with its own progress model (see ui/careerpath/ package docs),
     // never merged into the Placement Path-derived readiness card's data.
     val careerPath: CareerPathDto?,
+    // Latest resume ATS check, if any -- null means "no check run yet" (not an error), which
+    // the UI renders as a promo prompting the student to run their first check.
+    val resumeHealth: AtsCheckListItemDto?,
 )
 
 private fun timeOfDayGreeting(): String = when (LocalTime.now().hour) {
@@ -63,6 +69,33 @@ private fun parseLocalDate(isoDateTime: String): LocalDate? = try {
 }
 
 /**
+ * Rule-based recommendations from real signals only -- weak skills, whether the student has
+ * started practicing at all, resume ATS health, and whether a target role is even set.
+ * Weak-skill tips take priority (most specific/actionable); the rest fill remaining slots
+ * in a fixed order. Capped at 3 so Home never turns into a wall of nudges.
+ */
+private fun buildRecommendations(
+    dashboard: ProgressDashboardDto?,
+    resumeHealth: AtsCheckListItemDto?,
+    careerPath: CareerPathDto?,
+): List<String> {
+    val weaknessTips = dashboard?.topWeaknesses.orEmpty().map { "Your $it is weak -- practice it" }
+    val otherTips = listOfNotNull(
+        "You haven't taken any tests yet -- start with a quick practice test."
+            .takeIf { dashboard != null && dashboard.completedAssessments == 0 },
+        "Try a mock interview to build your confidence."
+            .takeIf { dashboard != null && dashboard.completedInterviews == 0 },
+        when {
+            resumeHealth == null -> "Run an ATS check on your resume to see how it scores."
+            resumeHealth.overallScore < 70 -> "Your resume ATS score is low -- review the improvement plan."
+            else -> null
+        },
+        "Pick a target role in Career Path for a focused prep plan.".takeIf { careerPath == null },
+    )
+    return (weaknessTips + otherTips).take(3)
+}
+
+/**
  * Real dashboard data, reusing existing repositories only. Each section is fetched
  * independently with runCatching so one failing piece degrades that one section gracefully
  * rather than blanking the whole Home screen -- a dashboard should never look dead just
@@ -75,6 +108,7 @@ class HomeViewModel(
     private val placementAlarmRepository: PlacementAlarmRepository,
     private val roadmapRepository: RoadmapRepository,
     private val careerPathRepository: CareerPathRepository,
+    private val atsCheckRepository: AtsCheckRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<HomeData>>(UiState.Loading)
     val uiState: StateFlow<UiState<HomeData>> = _uiState
@@ -87,10 +121,10 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.value = UiState.Loading
 
-            // All five sources are independent -- fetched concurrently instead of one after
+            // All six sources are independent -- fetched concurrently instead of one after
             // another, since Home is the app's landing screen and every cold start otherwise
             // pays the sum of all latencies instead of the max.
-            val (path, dashboard, alarms, roadmap, careerPath) = coroutineScope {
+            val (path, dashboard, alarms, roadmap, careerPath, resumeHealth) = coroutineScope {
                 val pathDeferred = async { runCatching { placementPathRepository.getCurrent() }.getOrNull() }
                 val dashboardDeferred = async { runCatching { progressRepository.getDashboard() }.getOrNull() }
                 val alarmsDeferred = async {
@@ -98,12 +132,16 @@ class HomeViewModel(
                 }
                 val roadmapDeferred = async { runCatching { roadmapRepository.getCurrentRoadmap(null) }.getOrNull() }
                 val careerPathDeferred = async { runCatching { careerPathRepository.getCurrent() }.getOrNull() }
-                Quintuple(
+                val resumeHealthDeferred = async {
+                    runCatching { atsCheckRepository.listAtsChecks().firstOrNull() }.getOrNull()
+                }
+                Sextuple(
                     pathDeferred.await(),
                     dashboardDeferred.await(),
                     alarmsDeferred.await(),
                     roadmapDeferred.await(),
                     careerPathDeferred.await(),
+                    resumeHealthDeferred.await(),
                 )
             }
 
@@ -123,6 +161,8 @@ class HomeViewModel(
             val todaysPlan = roadmap?.tasks.orEmpty()
                 .filter { it.dueDate.startsWith(todayIso) }
                 .map { TodayPlanItem(id = it.id, title = it.title, taskType = it.taskType, done = it.status == "done") }
+                // Prioritized: what's still outstanding today surfaces above what's already done.
+                .sortedBy { it.done }
 
             val streakDates = dashboard?.trend.orEmpty().mapNotNull { parseLocalDate(it.createdAt) }
 
@@ -140,14 +180,21 @@ class HomeViewModel(
                     nextBestActionTitle = path?.nextBestAction?.title,
                     upcomingAlarmLabel = upcomingAlarmLabel,
                     currentStreakDays = currentStreakDays(streakDates),
-                    recommendedForYou = dashboard?.topWeaknesses.orEmpty().take(3)
-                        .map { "Your $it is weak -- practice it" },
+                    recommendedForYou = buildRecommendations(dashboard, resumeHealth, careerPath),
                     recentActivity = recentActivity,
                     careerPath = careerPath,
+                    resumeHealth = resumeHealth,
                 )
             )
         }
     }
 }
 
-private data class Quintuple<A, B, C, D, E>(val first: A, val second: B, val third: C, val fourth: D, val fifth: E)
+private data class Sextuple<A, B, C, D, E, F>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D,
+    val fifth: E,
+    val sixth: F,
+)

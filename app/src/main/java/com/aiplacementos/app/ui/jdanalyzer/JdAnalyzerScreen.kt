@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -107,7 +107,7 @@ fun JdAnalyzerScreen(onOpenAnalysis: (jdId: Int) -> Unit) {
                     value = jdText,
                     onValueChange = { if (it.length <= MAX_JD_LENGTH) jdText = it },
                     label = { Text("Paste job description here...") },
-                    modifier = Modifier.fillMaxWidth().height(220.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp),
                 )
                 Text(
                     text = "${jdText.length}/$MAX_JD_LENGTH",

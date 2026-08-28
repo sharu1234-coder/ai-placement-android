@@ -1,6 +1,6 @@
 package com.aiplacementos.app.ui.onboarding
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -77,7 +78,11 @@ fun OnboardingExperienceLevelScreen(onNext: () -> Unit) {
                     } else {
                         MaterialTheme.colorScheme.surface
                     },
-                    modifier = Modifier.fillMaxWidth().clickable { selectedLevel = value },
+                    modifier = Modifier.fillMaxWidth().selectable(
+                        selected = isSelected,
+                        role = Role.RadioButton,
+                        onClick = { selectedLevel = value },
+                    ),
                 ) {
                     Text(text = value.replaceFirstChar(Char::uppercase), style = MaterialTheme.typography.titleMedium)
                     Text(text = description, style = MaterialTheme.typography.bodyMedium)

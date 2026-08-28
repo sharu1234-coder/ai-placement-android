@@ -13,9 +13,6 @@ interface JobsApi {
     @POST("jobs")
     suspend fun createJobDescription(@Body request: ParseJdRequestDto): JobDescriptionParseResponseDto
 
-    @GET("jobs/{id}/requirements")
-    suspend fun getRequirements(@Path("id") id: Int): List<RequirementDto>
-
     @POST("jobs/{id}/match")
     suspend fun matchJob(@Path("id") id: Int): JobMatchDto
 

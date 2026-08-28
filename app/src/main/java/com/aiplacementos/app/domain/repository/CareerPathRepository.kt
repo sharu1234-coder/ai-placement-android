@@ -17,7 +17,6 @@ interface CareerPathRepository {
     suspend fun getPath(pathId: Int): CareerPathDto
     suspend fun setCurrent(pathId: Int): CareerPathDto
     suspend fun refresh(pathId: Int): CareerPathDto
-    suspend fun getSkills(pathId: Int): List<SkillItemDto>
     suspend fun getProjects(pathId: Int): List<CareerPathProjectDto>
     suspend fun practiceSkillItem(itemId: Int): Int // returns blueprintId
     suspend fun markSkillItemStatus(itemId: Int, status: String): SkillItemDto

@@ -1,12 +1,14 @@
 package com.aiplacementos.app.ui.home
 
 import com.aiplacementos.app.MainDispatcherRule
+import com.aiplacementos.app.data.remote.AtsCheckListItemDto
 import com.aiplacementos.app.data.remote.NextBestActionDto
 import com.aiplacementos.app.data.remote.PlacementPathDto
 import com.aiplacementos.app.data.remote.ProgressDashboardDto
 import com.aiplacementos.app.data.remote.ProgressTrendPointDto
 import com.aiplacementos.app.data.remote.RoadmapDto
 import com.aiplacementos.app.data.remote.RoadmapTaskDto
+import com.aiplacementos.app.fakes.FakeAtsCheckRepository
 import com.aiplacementos.app.fakes.FakeCareerPathRepository
 import com.aiplacementos.app.fakes.FakePlacementAlarmRepository
 import com.aiplacementos.app.fakes.FakePlacementPathRepository
@@ -15,6 +17,7 @@ import com.aiplacementos.app.fakes.FakeRoadmapRepository
 import com.aiplacementos.app.ui.common.UiState
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -56,12 +59,14 @@ class HomeViewModelTest {
         val placementAlarmRepository = FakePlacementAlarmRepository()
         val roadmapRepository = FakeRoadmapRepository().apply { currentResult = { roadmap } }
         val careerPathRepository = FakeCareerPathRepository().apply { currentResult = { null } }
+        val atsCheckRepository = FakeAtsCheckRepository()
         return HomeViewModel(
             placementPathRepository,
             progressRepository,
             placementAlarmRepository,
             roadmapRepository,
             careerPathRepository,
+            atsCheckRepository,
         )
     }
 
@@ -112,13 +117,117 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `recommended for you is templated from real weak areas`() {
+    fun `recommended for you leads with real weak areas, then fills remaining slots from other signals`() {
         val data = (viewModel().uiState.value as UiState.Success<HomeData>).data
 
         assertEquals(
-            listOf("Your SQL JOINs is weak -- practice it", "Your Dynamic Programming is weak -- practice it"),
+            listOf(
+                "Your SQL JOINs is weak -- practice it",
+                "Your Dynamic Programming is weak -- practice it",
+                "Run an ATS check on your resume to see how it scores.",
+            ),
             data.recommendedForYou,
         )
+    }
+
+    @Test
+    fun `recommended for you surfaces test, interview, resume and target-role gaps when there are no weaknesses`() {
+        val noWeaknessDashboard = dashboard().copy(completedAssessments = 0, completedInterviews = 0, topWeaknesses = emptyList())
+
+        val data = (viewModel(dashboard = noWeaknessDashboard).uiState.value as UiState.Success<HomeData>).data
+
+        assertEquals(
+            listOf(
+                "You haven't taken any tests yet -- start with a quick practice test.",
+                "Try a mock interview to build your confidence.",
+                "Run an ATS check on your resume to see how it scores.",
+            ),
+            data.recommendedForYou,
+        )
+    }
+
+    @Test
+    fun `recommended for you flags a low resume score once a check exists`() {
+        val atsCheckRepository = FakeAtsCheckRepository().apply {
+            listResult = Result.success(
+                listOf(
+                    AtsCheckListItemDto(
+                        id = 1,
+                        resumeId = 1,
+                        resumeFilename = "resume.pdf",
+                        overallScore = 40,
+                        scoreCategory = "Needs Work",
+                        createdAt = "2026-01-01T00:00:00Z",
+                    ),
+                ),
+            )
+        }
+        val viewModel = HomeViewModel(
+            FakePlacementPathRepository().apply { currentResult = { path() } },
+            FakeProgressRepository().apply { dashboardResult = Result.success(dashboard()) },
+            FakePlacementAlarmRepository(),
+            FakeRoadmapRepository().apply { currentResult = { null } },
+            FakeCareerPathRepository().apply { currentResult = { null } },
+            atsCheckRepository,
+        )
+
+        val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
+
+        assertTrue(data.recommendedForYou.contains("Your resume ATS score is low -- review the improvement plan."))
+    }
+
+    @Test
+    fun `todays plan surfaces not-done tasks before completed ones`() {
+        val today = LocalDate.now().toString()
+        val roadmap = RoadmapDto(
+            id = 1,
+            jdId = null,
+            durationDays = 30,
+            status = "active",
+            tasks = listOf(
+                RoadmapTaskDto(1, 1, "practice", "SQL", "Joins", "desc", "done", today),
+                RoadmapTaskDto(2, 1, "practice", "DSA", "Arrays", "desc", "not_started", today),
+            ),
+        )
+
+        val data = (viewModel(roadmap = roadmap).uiState.value as UiState.Success<HomeData>).data
+
+        assertEquals("Arrays", data.todaysPlan.first().title)
+        assertFalse(data.todaysPlan.first().done)
+    }
+
+    @Test
+    fun `resume health reflects the latest ats check, or null when none has been run`() {
+        val atsCheckRepository = FakeAtsCheckRepository().apply {
+            listResult = Result.success(
+                listOf(
+                    AtsCheckListItemDto(
+                        id = 7,
+                        resumeId = 1,
+                        resumeFilename = "resume.pdf",
+                        overallScore = 82,
+                        scoreCategory = "Strong",
+                        createdAt = "2026-01-01T00:00:00Z",
+                    ),
+                ),
+            )
+        }
+        val placementPathRepository = FakePlacementPathRepository().apply { currentResult = { path() } }
+        val progressRepository = FakeProgressRepository().apply { dashboardResult = Result.success(dashboard()) }
+        val roadmapRepository = FakeRoadmapRepository().apply { currentResult = { null } }
+        val careerPathRepository = FakeCareerPathRepository().apply { currentResult = { null } }
+        val viewModel = HomeViewModel(
+            placementPathRepository,
+            progressRepository,
+            FakePlacementAlarmRepository(),
+            roadmapRepository,
+            careerPathRepository,
+            atsCheckRepository,
+        )
+
+        val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
+
+        assertEquals(82, data.resumeHealth?.overallScore)
     }
 
     @Test
@@ -126,8 +235,16 @@ class HomeViewModelTest {
         val data = (viewModel(dashboard = null).uiState.value as UiState.Success<HomeData>).data
 
         assertNull(data.readinessPercent)
-        assertEquals(emptyList<String>(), data.recommendedForYou)
         assertEquals(0, data.currentStreakDays)
+        // Weakness tips are dashboard-sourced and drop out, but resume/career-path tips are
+        // independent signals that still populate -- Home never goes fully blank.
+        assertEquals(
+            listOf(
+                "Run an ATS check on your resume to see how it scores.",
+                "Pick a target role in Career Path for a focused prep plan.",
+            ),
+            data.recommendedForYou,
+        )
         // The OTHER sources (placement path) still populate normally.
         assertEquals("SQL JOINs", data.nextBestActionTitle)
     }

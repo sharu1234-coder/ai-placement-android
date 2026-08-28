@@ -244,6 +244,7 @@ fun NavGraph(navController: NavHostController) {
             JobMatchScreen(
                 jdId = jdId,
                 onContinue = { navController.navigate(prepareMeSummaryRoute(jdId)) },
+                onCancel = { navController.popBackStack() },
             )
         }
         composable(
@@ -254,6 +255,7 @@ fun NavGraph(navController: NavHostController) {
             PrepareMeSummaryScreen(
                 jdId = jdId,
                 onStartTests = { blueprintId -> navController.navigate(testFlowRoute(blueprintId, jdId)) },
+                onCancel = { navController.popBackStack() },
             )
         }
         composable(

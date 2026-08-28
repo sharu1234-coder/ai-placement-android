@@ -219,6 +219,11 @@ fun MainScreen(navController: NavHostController) {
                             Icon(Icons.Filled.Menu, contentDescription = "Open menu")
                         }
                     },
+                    actions = {
+                        IconButton(onClick = { navController.navigate(Screen.NotificationCenter.route) }) {
+                            Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                        }
+                    },
                 )
             },
             bottomBar = {
@@ -241,6 +246,11 @@ fun MainScreen(navController: NavHostController) {
                         onOpenPlacementPath = { selectedRoute = Screen.Roadmap.route },
                         onOpenJdAnalyzer = { navController.navigate(Screen.JdAnalyzer.route) },
                         onOpenCareerPath = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
+                        onOpenAtsCheck = { checkId ->
+                            navController.navigate(
+                                if (checkId != null) atsCheckResultRoute(checkId) else Screen.AtsCheckPreCheck.route,
+                            )
+                        },
                     )
                     // Swapped from the pre-fix mapping (see the bottomTabs comment above):
                     // Roadmap = the staged/topic roadmap, Practice = the day-task schedule.

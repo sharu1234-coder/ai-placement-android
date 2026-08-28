@@ -13,9 +13,6 @@ interface ResumesApi {
     @POST("resumes")
     suspend fun uploadResume(@Part file: MultipartBody.Part): ResumeUploadResponseDto
 
-    @GET("resumes/{id}/analysis")
-    suspend fun getResumeAnalysis(@Path("id") id: Int): ResumeAnalysisDto
-
     @GET("resumes/me/latest")
     suspend fun getMyLatestResume(): ResumeSummaryDto?
 

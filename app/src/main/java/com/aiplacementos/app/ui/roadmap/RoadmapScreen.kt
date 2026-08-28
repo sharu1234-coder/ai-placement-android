@@ -16,6 +16,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,9 +27,9 @@ import com.aiplacementos.app.data.remote.RoadmapDto
 import com.aiplacementos.app.data.remote.RoadmapTaskDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
-import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.SecondaryButton
+import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -50,7 +52,7 @@ fun RoadmapScreen(jdId: Int = 0, autoGenerateIfMissing: Boolean = false, onOpenT
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     when (val current = state) {
-        is RoadmapUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
+        is RoadmapUiState.Loading -> SkeletonList(count = 4, modifier = Modifier.fillMaxSize().padding(Spacing.md))
         is RoadmapUiState.Error -> ErrorState(
             message = current.message,
             onRetry = viewModel::load,
@@ -155,7 +157,11 @@ private fun RoadmapContent(
 private fun TaskCard(task: RoadmapTaskDto, onOpen: () -> Unit, onToggleDone: () -> Unit) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = task.status == "done", onCheckedChange = { onToggleDone() })
+            Checkbox(
+                checked = task.status == "done",
+                onCheckedChange = { onToggleDone() },
+                modifier = Modifier.semantics { contentDescription = "Mark \"${task.title}\" as done" },
+            )
             Column(
                 modifier = Modifier
                     .weight(1f)

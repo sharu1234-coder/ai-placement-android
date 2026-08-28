@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,9 +26,10 @@ import com.aiplacementos.app.data.remote.PlacementPathDto
 import com.aiplacementos.app.data.remote.PlacementPathTopicDto
 import com.aiplacementos.app.data.remote.progressPercent
 import com.aiplacementos.app.ui.common.AppCard
+import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
-import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -51,7 +54,7 @@ fun PlacementPathScreen(onOpenTopic: (topicId: Int) -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     when (val current = state) {
-        is PlacementPathUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
+        is PlacementPathUiState.Loading -> SkeletonList(count = 3, modifier = Modifier.fillMaxSize().padding(Spacing.md))
         is PlacementPathUiState.Error -> ErrorState(
             message = current.message,
             onRetry = viewModel::load,
@@ -69,21 +72,15 @@ fun PlacementPathScreen(onOpenTopic: (topicId: Int) -> Unit) {
 
 @Composable
 private fun NoPathPrompt(onGenerate: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(Spacing.md),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(text = "Your Placement Roadmap", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = "Upload your resume to generate your personalized placement roadmap -- " +
-                "built around the skills you already have.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.md),
-        )
-        PrimaryButton(text = "Generate my roadmap", onClick = onGenerate)
-    }
+    EmptyState(
+        title = "No Roadmap Yet",
+        message = "Upload your resume to generate your personalized placement roadmap -- " +
+            "built around the skills you already have.",
+        modifier = Modifier.fillMaxSize(),
+        icon = Icons.AutoMirrored.Filled.Assignment,
+        actionLabel = "Generate My Roadmap",
+        onAction = onGenerate,
+    )
 }
 
 @Composable

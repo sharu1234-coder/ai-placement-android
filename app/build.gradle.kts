@@ -154,6 +154,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
+    // Encrypts TokenStore's access/refresh JWTs at rest (Android Keystore-backed key via
+    // Tink's AndroidKeysetManager) -- see TokenStore.kt.
+    implementation(libs.tink.android)
     // Local persistence for the Placement Accountability Alarm (scheduled alarm configs +
     // resumable challenge state) -- the only local DB in the app; everything else stays
     // backend-fetched-on-demand per the existing architecture. WorkManager is deliberately

@@ -30,8 +30,6 @@ class CareerPathRepositoryImpl(private val careerPathApi: CareerPathApi) : Caree
 
     override suspend fun refresh(pathId: Int): CareerPathDto = careerPathApi.refresh(pathId)
 
-    override suspend fun getSkills(pathId: Int): List<SkillItemDto> = careerPathApi.getSkills(pathId)
-
     override suspend fun getProjects(pathId: Int): List<CareerPathProjectDto> = careerPathApi.getProjects(pathId)
 
     override suspend fun practiceSkillItem(itemId: Int): Int = careerPathApi.practiceSkillItem(itemId).blueprintId

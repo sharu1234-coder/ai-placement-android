@@ -1,6 +1,5 @@
 package com.aiplacementos.app.data.repository
 
-import com.aiplacementos.app.data.remote.ResumeAnalysisDto
 import com.aiplacementos.app.data.remote.ResumeSummaryDto
 import com.aiplacementos.app.data.remote.ResumeUploadResponseDto
 import com.aiplacementos.app.data.remote.ResumesApi
@@ -15,9 +14,6 @@ class ResumeRepositoryImpl(private val resumesApi: ResumesApi) : ResumeRepositor
         val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
         return resumesApi.uploadResume(part)
     }
-
-    override suspend fun getAnalysis(resumeId: Int): ResumeAnalysisDto =
-        resumesApi.getResumeAnalysis(resumeId)
 
     override suspend fun getLatestResume(): ResumeSummaryDto? = resumesApi.getMyLatestResume()
 

@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +30,7 @@ import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 
 @Composable
-fun JobMatchScreen(jdId: Int, onContinue: () -> Unit) {
+fun JobMatchScreen(jdId: Int, onContinue: () -> Unit, onCancel: () -> Unit = {}) {
     val network = networkModule()
     val viewModel: JobMatchViewModel = viewModel(
         factory = viewModelFactory { initializer { JobMatchViewModel(jdId, network.jobRepository) } },
@@ -36,7 +39,14 @@ fun JobMatchScreen(jdId: Int, onContinue: () -> Unit) {
 
     when (val current = state) {
         is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-        is UiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is UiState.Error -> ErrorState(
+            message = current.message,
+            icon = if (current.isNetworkError) Icons.Filled.WifiOff else Icons.Filled.ErrorOutline,
+            onRetry = viewModel::load,
+            secondaryLabel = "Cancel",
+            onSecondary = onCancel,
+            modifier = Modifier.fillMaxSize(),
+        )
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
         is UiState.Success<JobMatchDto> -> MatchResult(match = current.data, onContinue = onContinue)
     }

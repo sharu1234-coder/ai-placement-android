@@ -88,9 +88,11 @@ private fun RoleSelectionContent(
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var customRoleText by remember { mutableStateOf("") }
 
-    val filteredRoles = state.roles.filter { role ->
-        (selectedCategory == null || role.category == selectedCategory) &&
-            (query.isBlank() || role.displayName.contains(query, ignoreCase = true))
+    val filteredRoles = remember(state.roles, selectedCategory, query) {
+        state.roles.filter { role ->
+            (selectedCategory == null || role.category == selectedCategory) &&
+                (query.isBlank() || role.displayName.contains(query, ignoreCase = true))
+        }
     }
 
     LazyColumn(

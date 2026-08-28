@@ -4,13 +4,11 @@ import com.aiplacementos.app.data.remote.JobDescriptionListItemDto
 import com.aiplacementos.app.data.remote.JobDescriptionParseResponseDto
 import com.aiplacementos.app.data.remote.JobMatchDto
 import com.aiplacementos.app.data.remote.JobPreparationPlanDto
-import com.aiplacementos.app.data.remote.RequirementDto
 import com.aiplacementos.app.domain.repository.JobRepository
 
 class FakeJobRepository : JobRepository {
     var listResult: (suspend () -> List<JobDescriptionListItemDto>)? = null
     var parseResult: (suspend (String) -> JobDescriptionParseResponseDto)? = null
-    var requirementsResult: (suspend (Int) -> List<RequirementDto>)? = null
     var matchResult: (suspend (Int) -> JobMatchDto)? = null
     var generatePlanResult: (suspend (Int, String?, String?) -> JobPreparationPlanDto)? = null
     var getPlanResult: (suspend (Int) -> JobPreparationPlanDto)? = null
@@ -30,11 +28,6 @@ class FakeJobRepository : JobRepository {
         lastParsedText = rawText
         val fn = requireNotNull(parseResult) { "parseResult not configured" }
         return fn(rawText)
-    }
-
-    override suspend fun getRequirements(jdId: Int): List<RequirementDto> {
-        val fn = requireNotNull(requirementsResult) { "requirementsResult not configured" }
-        return fn(jdId)
     }
 
     override suspend fun matchJob(jdId: Int): JobMatchDto {

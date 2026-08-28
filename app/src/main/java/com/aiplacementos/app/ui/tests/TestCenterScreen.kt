@@ -30,6 +30,7 @@ import com.aiplacementos.app.data.remote.AssessmentHistoryItemDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
+import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -53,7 +54,7 @@ fun TestCenterScreen(onStartTest: (blueprintId: Int) -> Unit) {
     val startError by viewModel.startError.collectAsStateWithLifecycle()
 
     when (val current = state) {
-        is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
+        is UiState.Loading -> SkeletonList(count = 3, modifier = Modifier.fillMaxSize().padding(Spacing.md))
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
         is UiState.Error -> ErrorState(message = current.message, onRetry = viewModel::load, modifier = Modifier.fillMaxSize())
         is UiState.Success<TestCenterData> -> TestCenterContent(

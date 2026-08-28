@@ -20,6 +20,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -166,7 +168,13 @@ private fun AlarmRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Switch(checked = alarm.enabled, onCheckedChange = onToggle)
+            Switch(
+                checked = alarm.enabled,
+                onCheckedChange = onToggle,
+                modifier = Modifier.semantics {
+                    contentDescription = "${alarm.title?.takeIf { it.isNotBlank() } ?: AlarmType.label(alarm.type)} alarm"
+                },
+            )
         }
 
         Row(

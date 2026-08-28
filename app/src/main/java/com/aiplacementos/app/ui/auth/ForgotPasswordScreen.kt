@@ -16,6 +16,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,6 +61,7 @@ fun ForgotPasswordScreen(onResetSuccess: () -> Unit, onBackToLogin: () -> Unit) 
                     onValueChange = { email = it },
                     label = { Text("Email") },
                     singleLine = true,
+                    isError = state is UiState.Error,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -66,6 +70,7 @@ fun ForgotPasswordScreen(onResetSuccess: () -> Unit, onBackToLogin: () -> Unit) 
                         text = (state as UiState.Error).message,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
                 PrimaryButton(
@@ -88,6 +93,7 @@ fun ForgotPasswordScreen(onResetSuccess: () -> Unit, onBackToLogin: () -> Unit) 
                     onValueChange = { code = it },
                     label = { Text("Reset code") },
                     singleLine = true,
+                    isError = state is UiState.Error,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -95,6 +101,7 @@ fun ForgotPasswordScreen(onResetSuccess: () -> Unit, onBackToLogin: () -> Unit) 
                     onValueChange = { newPassword = it },
                     label = { Text("New password (min 8 characters)") },
                     singleLine = true,
+                    isError = state is UiState.Error,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
@@ -104,6 +111,7 @@ fun ForgotPasswordScreen(onResetSuccess: () -> Unit, onBackToLogin: () -> Unit) 
                         text = (state as UiState.Error).message,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
                 PrimaryButton(

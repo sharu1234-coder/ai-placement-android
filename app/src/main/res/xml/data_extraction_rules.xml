@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Android 12+ (API 31+) backup/transfer rules. auth_tokens is TokenStore's DataStore file
-  (network/TokenStore.kt): it holds the access/refresh JWTs unencrypted (a known,
-  already-flagged gap, see that file's own doc comment), so it must not travel in a cloud
-  backup or a device-to-device transfer, where it could land on another device or in a
-  compromised Google account backup. This does not fix the unencrypted-at-rest issue itself;
-  it only stops the tokens from leaving the original device via Android's backup mechanisms.
+  (network/TokenStore.kt), holding the access/refresh JWTs encrypted with a Tink AEAD key that
+  is itself wrapped by an Android Keystore master key. token_keyset_prefs is the wrapped-keyset
+  SharedPreferences file Tink's AndroidKeysetManager stores that key material in. Neither file
+  is useful if restored to another device (the Keystore-protected master key is device-bound
+  and never travels), but both are excluded anyway as defense-in-depth so no token ciphertext
+  or wrapped key material leaves the original device via Android's backup mechanisms at all.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="datastore/auth_tokens.preferences_pb" />
+        <exclude domain="sharedpref" path="token_keyset_prefs.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="datastore/auth_tokens.preferences_pb" />
+        <exclude domain="sharedpref" path="token_keyset_prefs.xml" />
     </device-transfer>
 </data-extraction-rules>

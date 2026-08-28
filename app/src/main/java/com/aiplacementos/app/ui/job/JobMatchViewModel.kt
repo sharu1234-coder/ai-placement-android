@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.JobMatchDto
 import com.aiplacementos.app.domain.repository.JobRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.isNetworkError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,7 +34,10 @@ class JobMatchViewModel(private val jdId: Int, private val jobRepository: JobRep
                     }
                 )
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't reach the server. Check your connection.")
+                _uiState.value = UiState.Error(
+                    "Couldn't reach the server. Check your connection.",
+                    isNetworkError = e.isNetworkError(),
+                )
             }
         }
     }

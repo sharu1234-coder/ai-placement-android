@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -114,12 +115,9 @@ private fun SavedRoleCard(summary: CareerPathSummaryDto, onOpen: () -> Unit, onS
                     )
                 }
             } else {
-                Text(
-                    text = "Set as Primary",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable(onClick = onSetCurrent),
-                )
+                TextButton(onClick = onSetCurrent) {
+                    Text(text = "Set as Primary", style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
         Spacer(modifier = Modifier.height(Spacing.sm))

@@ -21,6 +21,12 @@ room = "2.6.1"
 # KSP version string is <kotlin-version>-<ksp-release>; must match the pinned Kotlin version
 # exactly (unlike a library dependency, KSP is a compiler plugin tied to the compiler itself).
 ksp = "2.0.21-1.0.28"
+# EncryptedSharedPreferences (androidx.security:security-crypto) was deprecated by Google in
+# April 2025 -- the current recommended pattern for secure local storage is DataStore (already
+# in use here) + Tink for encryption + Android Keystore for key protection, which is what
+# TokenStore.kt uses this for. tink-android is the standalone Tink library, not tied to the
+# deprecated security-crypto artifact.
+tink = "1.21.0"
 googleServices = "4.5.0"
 firebaseCrashlyticsPlugin = "3.0.8"
 firebaseBom = "34.1.0"
@@ -68,6 +74,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
+tink-android = { group = "com.google.crypto.tink", name = "tink-android", version.ref = "tink" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }

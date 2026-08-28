@@ -66,7 +66,7 @@ fun CareerPathProjectsScreen(pathId: Int, onBack: () -> Unit, onOpenProject: (pa
 private fun ProjectsContent(projects: List<CareerPathProjectDto>, onOpenProject: (projectId: Int) -> Unit) {
     var selectedDifficulty by remember { mutableStateOf(DIFFICULTIES.first()) }
     val selectedIndex = DIFFICULTIES.indexOf(selectedDifficulty)
-    val filtered = projects.filter { it.difficulty == selectedDifficulty }
+    val filtered = remember(projects, selectedDifficulty) { projects.filter { it.difficulty == selectedDifficulty } }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedIndex) {

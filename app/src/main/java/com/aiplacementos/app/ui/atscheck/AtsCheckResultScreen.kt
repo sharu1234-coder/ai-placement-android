@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,8 +48,10 @@ import com.aiplacementos.app.data.remote.AtsIssueDto
 import com.aiplacementos.app.data.remote.CategoryBreakdownDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
-import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.SkeletonCircle
+import com.aiplacementos.app.ui.common.SkeletonList
+import com.aiplacementos.app.ui.common.SkeletonText
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -70,7 +74,7 @@ fun AtsCheckResultScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     when (val current = state) {
-        is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
+        is UiState.Loading -> AtsResultLoadingSkeleton()
         is UiState.Error -> ErrorState(message = current.message, onRetry = viewModel::load, modifier = Modifier.fillMaxSize())
         is UiState.Empty -> ErrorState(message = "This report is no longer available.", modifier = Modifier.fillMaxSize())
         is UiState.Success<AtsCheckReportDto> -> ResultContent(
@@ -82,6 +86,22 @@ fun AtsCheckResultScreen(
             onOpenHistory = onOpenHistory,
             onOpenParsedView = onOpenParsedView,
         )
+    }
+}
+
+/** Silhouettes the score header + issue/recommendation rows this screen renders once loaded,
+ * instead of a bare spinner unrelated to what's about to appear. */
+@Composable
+private fun AtsResultLoadingSkeleton() {
+    Column(modifier = Modifier.fillMaxSize().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        AppCard(modifier = Modifier.fillMaxWidth()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                SkeletonCircle(size = 72.dp)
+                Spacer(modifier = Modifier.height(Spacing.sm))
+                SkeletonText(widthFractions = listOf(0.4f))
+            }
+        }
+        SkeletonList(count = 3)
     }
 }
 
@@ -282,12 +302,9 @@ private fun TopPriorityIssuesCard(issues: List<AtsIssueDto>, totalHigh: Int, onV
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(
-                text = "View All",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable(onClick = onViewAll),
-            )
+            TextButton(onClick = onViewAll) {
+                Text(text = "View All", style = MaterialTheme.typography.labelMedium)
+            }
         }
         Column(modifier = Modifier.padding(top = Spacing.sm)) {
             issues.forEach { issue ->

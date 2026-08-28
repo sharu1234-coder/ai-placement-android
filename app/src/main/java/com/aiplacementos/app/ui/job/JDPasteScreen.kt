@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -62,7 +62,7 @@ fun JDPasteScreen(onContinue: (jdId: Int) -> Unit) {
             label = { Text("Job description") },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp),
+                .heightIn(min = 220.dp),
         )
 
         if (state is UiState.Error) {

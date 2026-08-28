@@ -68,7 +68,7 @@ fun AtsCheckIssuesScreen(checkId: Int, onBack: () -> Unit) {
 private fun IssuesContent(issues: List<AtsIssueDto>, modifier: Modifier = Modifier) {
     var selectedSeverity by remember { mutableStateOf(SEVERITIES.first { severity -> issues.any { it.severity == severity } }) }
     val counts = SEVERITIES.associateWith { severity -> issues.count { it.severity == severity } }
-    val filtered = issues.filter { it.severity == selectedSeverity }
+    val filtered = remember(issues, selectedSeverity) { issues.filter { it.severity == selectedSeverity } }
     val selectedIndex = SEVERITIES.indexOf(selectedSeverity).coerceAtLeast(0)
 
     Column(modifier = modifier.fillMaxSize()) {

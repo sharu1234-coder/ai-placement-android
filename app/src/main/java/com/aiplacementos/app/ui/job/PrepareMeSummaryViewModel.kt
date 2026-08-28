@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.AssessmentBlueprintDto
 import com.aiplacementos.app.domain.repository.AssessmentRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.isNetworkError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +31,8 @@ class PrepareMeSummaryViewModel(
                 )
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(
-                    "Couldn't build your preparation plan. Check your connection and try again."
+                    "Couldn't build your preparation plan. Check your connection and try again.",
+                    isNetworkError = e.isNetworkError(),
                 )
             }
         }

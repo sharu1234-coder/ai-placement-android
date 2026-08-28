@@ -29,10 +29,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
-import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SecondaryButton
+import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -66,7 +66,7 @@ fun CareerPathHomeScreen(
     }
 
     when (val current = state) {
-        is CareerPathHomeUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
+        is CareerPathHomeUiState.Loading -> SkeletonList(count = 3, modifier = Modifier.fillMaxSize().padding(Spacing.md))
         is CareerPathHomeUiState.Error -> ErrorState(
             message = current.message,
             modifier = Modifier.fillMaxSize(),
