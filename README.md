@@ -87,9 +87,8 @@ publishing was performed; item 19 (File + AI abuse controls) was backend-only, n
 changes.
 - **Fixed a real gap**: `android:allowBackup="true"` had no `dataExtractionRules`/
   `fullBackupContent` restricting Android's Auto Backup, so `TokenStore`'s DataStore file
-  (holds the access/refresh JWTs **unencrypted** — a known, separately-flagged gap in that
-  file's own comment) could have been swept into a cloud backup or device-to-device transfer,
-  extending the tokens' exposure beyond the original device. Added
+  (holding the access/refresh JWTs) could have been swept into a cloud backup or
+  device-to-device transfer, extending the tokens' exposure beyond the original device. Added
   `res/xml/data_extraction_rules.xml` (API 31+) and `res/xml/backup_rules.xml` (API < 31,
   minSdk is 26) excluding that one file from both; wired into the manifest.
   **Re-verified by inspecting the actual merged/packaged manifest output** (not just the
@@ -99,12 +98,18 @@ changes.
 - Re-ran the full verification suite after these changes: `testDevDebugUnitTest`
   `testProdDebugUnitTest` `lintDevDebug` `lintProdDebug` `assembleDevDebug` `assembleProdDebug`
   `assembleProdRelease` — all green, 30 unit tests passing, R8/shrinking still clean.
-- **Still open (flagged, not fixed here)**: the token store itself remains unencrypted at
+- **Update (2026-08-28): the token-storage gap flagged below was fixed.** `TokenStore` now
+  encrypts the access/refresh JWTs at rest with Google Tink AEAD (AES-256-GCM), its keyset
+  wrapped by an Android Keystore-backed master key (`android-keystore://...`) — not
+  `androidx.security.crypto`/`EncryptedSharedPreferences`, which Google deprecated in April
+  2025 (see `TokenStore.kt`'s own header comment for the rationale). The line below is kept
+  for history; it no longer describes the current state.
+- ~~Still open (flagged, not fixed here): the token store itself remains unencrypted at
   rest on-device (readable given root or physical device access, independent of the backup
   fix above). Migrating to `androidx.security.crypto` or DataStore+manual crypto is a real,
   moderately-sized change (new dependency, a migration path for already-installed users) —
   judged out of scope for an audit item, called out explicitly in
-  `PRODUCTION_READINESS_FINAL.md` as a real gap rather than silently deferred.
+  `PRODUCTION_READINESS_FINAL.md` as a real gap rather than silently deferred.~~
 - Also re-confirmed (not re-assumed): permissions are minimal and each maps to a real shipped
   feature (`INTERNET`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`); no `google-services.json`/
   `keystore.properties`/`*.jks` was ever committed at any point in git history (checked three
@@ -660,5 +665,6 @@ surfaced and fixed several real issues, most severe first:
   `runBlocking` read of the token store (the audit itself rated this low-risk in
   practice); no R8/ProGuard shrinking or an explicit release `signingConfig` yet (pre-
   release concern, consistent with everything else marked "before real deployment").
-- Not yet built: roadmap update screen, Hilt/Koin DI, encrypted token storage, HTTPS before
-  release.
+- Not yet built: roadmap update screen, Hilt/Koin DI, HTTPS before release. (Encrypted token
+  storage was later built — see the 2026-08-28 entry near the top of this status log; this
+  line is historical and predates that fix.)
