@@ -12,6 +12,7 @@ import com.aiplacementos.app.fakes.FakeAtsCheckRepository
 import com.aiplacementos.app.fakes.FakeCareerPathRepository
 import com.aiplacementos.app.fakes.FakePlacementAlarmRepository
 import com.aiplacementos.app.fakes.FakePlacementPathRepository
+import com.aiplacementos.app.fakes.FakeProfileRepository
 import com.aiplacementos.app.fakes.FakeProgressRepository
 import com.aiplacementos.app.fakes.FakeRoadmapRepository
 import com.aiplacementos.app.ui.common.UiState
@@ -67,6 +68,7 @@ class HomeViewModelTest {
             roadmapRepository,
             careerPathRepository,
             atsCheckRepository,
+            FakeProfileRepository(),
         )
     }
 
@@ -169,6 +171,7 @@ class HomeViewModelTest {
             FakeRoadmapRepository().apply { currentResult = { null } },
             FakeCareerPathRepository().apply { currentResult = { null } },
             atsCheckRepository,
+            FakeProfileRepository(),
         )
 
         val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
@@ -223,11 +226,49 @@ class HomeViewModelTest {
             roadmapRepository,
             careerPathRepository,
             atsCheckRepository,
+            FakeProfileRepository(),
         )
 
         val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
 
         assertEquals(82, data.resumeHealth?.overallScore)
+    }
+
+    @Test
+    fun `target role name prefers the custom target role over a catalog role lookup`() {
+        val profileRepository = FakeProfileRepository().apply {
+            profileResult = profileResult.getOrThrow().copy(customTargetRole = "Quant Researcher").let { Result.success(it) }
+        }
+        val viewModel = HomeViewModel(
+            FakePlacementPathRepository().apply { currentResult = { path() } },
+            FakeProgressRepository().apply { dashboardResult = Result.success(dashboard()) },
+            FakePlacementAlarmRepository(),
+            FakeRoadmapRepository().apply { currentResult = { null } },
+            FakeCareerPathRepository().apply { currentResult = { null } },
+            FakeAtsCheckRepository(),
+            profileRepository,
+        )
+
+        val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
+
+        assertEquals("Quant Researcher", data.targetRoleName)
+    }
+
+    @Test
+    fun `target role name is null when the profile has no target role set`() {
+        val data = (viewModel().uiState.value as UiState.Success<HomeData>).data
+
+        assertNull(data.targetRoleName)
+    }
+
+    @Test
+    fun `biggest gap is the top weakness from real progress history, or null with no history`() {
+        val withWeakness = (viewModel().uiState.value as UiState.Success<HomeData>).data
+        assertEquals("SQL JOINs", withWeakness.biggestGap)
+
+        val noWeaknessDashboard = dashboard().copy(topWeaknesses = emptyList())
+        val withoutWeakness = (viewModel(dashboard = noWeaknessDashboard).uiState.value as UiState.Success<HomeData>).data
+        assertNull(withoutWeakness.biggestGap)
     }
 
     @Test

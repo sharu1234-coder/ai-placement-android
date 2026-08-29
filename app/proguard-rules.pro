@@ -15,3 +15,20 @@
 #     Class.getDeclaredConstructor().newInstance() call and retains it automatically.
 # If a new DTO, API interface, or reflectively-constructed class is added later, re-check
 # mapping.txt for it after a release build rather than assuming this still holds.
+
+# Razorpay Checkout SDK -- these ARE required (per Razorpay's own published consumer
+# ProGuard guidance): the SDK relies on runtime reflection to invoke the hosting Activity's
+# onPayment* callback methods and to (de)serialize its own model classes, both of which R8
+# would otherwise strip/rename as apparently-unused.
+-keepclassmembers class * implements com.razorpay.PaymentResultWithDataListener {
+    public void onPayment*(...);
+}
+-keepclassmembers class * implements com.razorpay.ExternalWalletListener {
+    public void onExternalWalletSelected(...);
+}
+-keep class com.razorpay.** { *; }
+-dontwarn com.razorpay.**
+-optimizations !method/inlining/*
+-keepattributes JavascriptInterface
+-keepattributes Signature
+-keepattributes *Annotation*

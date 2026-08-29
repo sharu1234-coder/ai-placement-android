@@ -246,11 +246,14 @@ fun MainScreen(navController: NavHostController) {
                         onOpenPlacementPath = { selectedRoute = Screen.Roadmap.route },
                         onOpenJdAnalyzer = { navController.navigate(Screen.JdAnalyzer.route) },
                         onOpenCareerPath = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
+                        onOpenCareerPathHome = { navController.navigate(Screen.CareerPathHome.route) },
                         onOpenAtsCheck = { checkId ->
                             navController.navigate(
                                 if (checkId != null) atsCheckResultRoute(checkId) else Screen.AtsCheckPreCheck.route,
                             )
                         },
+                        onOpenPractice = { selectedRoute = Screen.Practice.route },
+                        onOpenTests = { selectedRoute = Screen.Tests.route },
                     )
                     // Swapped from the pre-fix mapping (see the bottomTabs comment above):
                     // Roadmap = the staged/topic roadmap, Practice = the day-task schedule.

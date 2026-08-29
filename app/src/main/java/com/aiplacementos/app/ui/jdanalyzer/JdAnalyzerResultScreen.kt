@@ -1,5 +1,6 @@
 package com.aiplacementos.app.ui.jdanalyzer
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
@@ -19,7 +21,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,11 +40,13 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ConfirmationDialog
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
+import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 import com.aiplacementos.app.ui.theme.successColor
 import com.aiplacementos.app.ui.theme.warningColor
+import kotlinx.coroutines.launch
 
 @Composable
 fun JdAnalyzerResultScreen(
@@ -103,7 +109,22 @@ private fun ResultContent(
     careerPathUpdateError: String?,
     onUpdateCareerPath: () -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    // Real, derived match signal -- the share of required skills the student's profile
+    // already covers, from the same preparation_gaps the "Top Missing Skills" section below
+    // reads. Never shown when there's no gap data at all, rather than rendering a
+    // meaningless 0%.
+    val matchPercent = plan.preparationGaps.takeIf { it.isNotEmpty() }
+        ?.let { gaps -> (gaps.count { it.status == "strong" } * 100) / gaps.size }
+    val totalInterviewQuestions = plan.interviewPrep.size
+    // "Generate Roadmap" is this screen's actual start-preparation action; index computed so
+    // the top CTA below scrolls to it regardless of how many conditional sections precede it.
+    val generateRoadmapIndex = 3 + (if (matchPercent != null) 1 else 0) +
+        (if (plan.requiredSkills.isNotEmpty()) 1 else 0) + (if (plan.preparationPlan.isNotEmpty()) 1 else 0)
+
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxWidth().padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
@@ -119,9 +140,27 @@ private fun ResultContent(
             }
         }
 
+        if (matchPercent != null) {
+            item { MatchScoreCard(matchPercent) }
+        }
+
         item { JobSummarySection(plan) }
+
+        item {
+            Text(
+                text = "Start Preparation Plan →",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable {
+                    scope.launch { listState.animateScrollToItem(generateRoadmapIndex) }
+                },
+            )
+        }
+
+        item { PrepStatsRow(preparationCategories = plan.preparationPlan.size, interviewQuestions = totalInterviewQuestions) }
+
+        item { TopMissingSkillsSection(plan.preparationGaps, plan.requiredSkills) }
         item { RequiredSkillsSection(plan.requiredSkills) }
-        item { PreparationGapSection(plan.preparationGaps) }
         item { PreparationPlanSection(plan.preparationPlan) }
         item {
             GenerateRoadmapSection(isBusy = isGeneratingRoadmap, onGenerate = onGenerateRoadmap)
@@ -130,6 +169,46 @@ private fun ResultContent(
             UpdateCareerPathSection(isBusy = isUpdatingCareerPath, error = careerPathUpdateError, onUpdate = onUpdateCareerPath)
         }
         item { InterviewPrepSection(plan.interviewPrep) }
+    }
+}
+
+@Composable
+private fun MatchScoreCard(matchPercent: Int) {
+    val (label, color) = when {
+        matchPercent >= 75 -> "Strong Match" to successColor()
+        matchPercent >= 50 -> "Good Match" to warningColor()
+        else -> "Needs Preparation" to MaterialTheme.colorScheme.error
+    }
+    AppCard(modifier = Modifier.fillMaxWidth(), containerColor = MaterialTheme.colorScheme.primaryContainer) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ScoreRing(percent = matchPercent, size = 72.dp, ringColor = color)
+            Column(modifier = Modifier.padding(start = Spacing.md)) {
+                Text(text = label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
+                Text(
+                    text = "Based on how many required skills your profile already covers.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+    }
+}
+
+/** Two honest at-a-glance counts, not a fabricated hours estimate -- there's no real
+ * per-JD time-to-prepare model, so this never invents one. */
+@Composable
+private fun PrepStatsRow(preparationCategories: Int, interviewQuestions: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
+        PrepStatCard(value = preparationCategories.toString(), label = "prep categories", modifier = Modifier.weight(1f))
+        PrepStatCard(value = interviewQuestions.toString(), label = "interview topics", modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun PrepStatCard(value: String, label: String, modifier: Modifier = Modifier) {
+    AppCard(modifier = modifier) {
+        Text(text = value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -218,40 +297,76 @@ private fun RequiredSkillsSection(skills: List<RequiredSkillDto>) {
     }
 }
 
+/** Only the gaps that actually need attention -- skills already marked "strong" are real
+ * evidence the student is fine there, so they're left out of a list titled "missing." Each
+ * remaining gap's severity comes from the matching RequiredSkillDto's own importance field
+ * when one is found by name, never invented independently of that real signal. */
 @Composable
-private fun PreparationGapSection(gaps: List<SkillGapStatusDto>) {
+private fun TopMissingSkillsSection(gaps: List<SkillGapStatusDto>, requiredSkills: List<RequiredSkillDto>) {
     if (gaps.isEmpty()) return
+    val missing = gaps.filter { it.status != "strong" }
+        .sortedByDescending { importanceRank(it, requiredSkills) }
     Column {
-        SectionTitle("Preparation Gap")
-        AppCard(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
-            gaps.forEach { gap ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(text = gap.skill, style = MaterialTheme.typography.bodyMedium)
-                    GapStatusBadge(gap.status)
+        SectionTitle("Top Missing Skills")
+        if (missing.isEmpty()) {
+            AppCard(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
+                Text(
+                    text = "No major skill gaps found for this role based on your current profile.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = successColor(),
+                )
+            }
+        } else {
+            AppCard(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
+                missing.forEach { gap ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(text = gap.skill, style = MaterialTheme.typography.bodyMedium)
+                        GapStatusBadge(gap.status, importanceLabel(gap, requiredSkills))
+                    }
                 }
             }
         }
     }
 }
 
+private fun importanceRank(gap: SkillGapStatusDto, requiredSkills: List<RequiredSkillDto>): Int =
+    when (requiredSkills.find { it.value.equals(gap.skill, ignoreCase = true) }?.importance) {
+        "high" -> 2
+        "medium" -> 1
+        else -> 0
+    }
+
+private fun importanceLabel(gap: SkillGapStatusDto, requiredSkills: List<RequiredSkillDto>): String? =
+    requiredSkills.find { it.value.equals(gap.skill, ignoreCase = true) }?.importance
+        ?.replaceFirstChar { it.uppercase() }
+
 @Composable
-private fun GapStatusBadge(status: String) {
+private fun GapStatusBadge(status: String, importance: String?) {
     val (label, color) = when (status) {
         "strong" -> "Strong" to successColor()
         "needs_improvement" -> "Needs Improvement" to warningColor()
         else -> "Missing" to MaterialTheme.colorScheme.error
     }
-    Surface(color = color.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
-        )
+    Column(horizontalAlignment = Alignment.End) {
+        Surface(color = color.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = color,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
+            )
+        }
+        if (importance != null) {
+            Text(
+                text = importance,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

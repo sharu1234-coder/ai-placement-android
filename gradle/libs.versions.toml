@@ -31,6 +31,11 @@ googleServices = "4.5.0"
 firebaseCrashlyticsPlugin = "3.0.8"
 firebaseBom = "34.1.0"
 fragment = "1.9.0"
+# Razorpay's own current stable Android Checkout SDK release (com.razorpay:checkout), used
+# for TEST MODE order checkout only -- see PaymentActivity.kt equivalent in
+# payment/RazorpayCheckoutBridge.kt. Confirmed against Razorpay's own sample app
+# (razorpay/razorpay-android-sample-app) and official Android integration docs.
+razorpayCheckout = "1.6.40"
 
 [libraries]
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
@@ -78,6 +83,7 @@ tink-android = { group = "com.google.crypto.tink", name = "tink-android", versio
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+razorpay-checkout = { group = "com.razorpay", name = "checkout", version.ref = "razorpayCheckout" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

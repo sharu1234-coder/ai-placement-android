@@ -181,6 +181,10 @@ dependencies {
     implementation(libs.firebase.appcheck.debug)
     implementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.androidx.fragment)
+    // Razorpay TEST MODE checkout only -- see payment/RazorpayCheckoutBridge.kt. Order
+    // creation and payment-signature verification both happen server-side; this SDK only
+    // renders Razorpay's own hosted checkout UI and hands back a result to verify.
+    implementation(libs.razorpay.checkout)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.android)

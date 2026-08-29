@@ -32,7 +32,12 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
         // (production readiness item 17 is Firebase wiring only; see README). A push can't
         // actually be *sent* to a specific user until that endpoint exists and something
         // server-side calls it -- this only makes the app able to *receive* one.
-        Log.d(TAG, "FCM token refreshed (not yet registered with the backend): $token")
+        // Deliberately never logs the token value itself -- it's a real per-device
+        // credential (whoever holds it, combined with this project's separate Firebase
+        // server key, could target push messages at this exact device), and Log.d output is
+        // not stripped from release builds here (no such ProGuard rule exists), so anything
+        // logged at this level persists in a shipped APK's logs.
+        Log.d(TAG, "FCM token refreshed (not yet registered with the backend)")
     }
 
     override fun onMessageReceived(message: RemoteMessage) {

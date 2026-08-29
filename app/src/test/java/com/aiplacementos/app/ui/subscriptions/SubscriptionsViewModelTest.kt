@@ -1,37 +1,159 @@
 package com.aiplacementos.app.ui.subscriptions
 
+import android.app.Activity
 import com.aiplacementos.app.MainDispatcherRule
 import com.aiplacementos.app.data.remote.SubscriptionStatusDto
 import com.aiplacementos.app.fakes.FakeSubscriptionRepository
+import com.aiplacementos.app.payment.RazorpayCheckoutBridge
 import com.aiplacementos.app.ui.common.UiState
+import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+
+/** Never calls any real framework method on it -- passed through as an opaque reference and
+ * compared by identity only, so a bare subclass (no Robolectric) is enough; there's no other
+ * Activity test-double already in this codebase to reuse. */
+private class TestActivity : Activity()
 
 class SubscriptionsViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    private val fakeActivity: Activity = TestActivity()
+
+    private fun viewModel(
+        repository: FakeSubscriptionRepository = FakeSubscriptionRepository(),
+        results: MutableSharedFlow<RazorpayCheckoutBridge.Result> = MutableSharedFlow(extraBufferCapacity = 1),
+        openCheckout: (Activity, String, String, Int, String) -> Unit = { _, _, _, _, _ -> },
+    ) = Triple(SubscriptionsViewModel(repository, results, openCheckout), repository, results)
+
     @Test
-    fun `loads the free coming-soon status successfully`() {
-        val repository = FakeSubscriptionRepository().apply {
-            statusResult = Result.success(SubscriptionStatusDto(tier = "free", status = "coming_soon"))
-        }
-        val viewModel = SubscriptionsViewModel(repository)
+    fun `loads status and plans successfully`() {
+        val (viewModel, _, _) = viewModel()
 
         val state = viewModel.uiState.value
         assertTrue(state is UiState.Success)
-        assertEquals("free", (state as UiState.Success<SubscriptionStatusDto>).data.tier)
+        val data = (state as UiState.Success<SubscriptionsData>).data
+        assertEquals("free", data.status.tier)
+        assertEquals(4, data.plans.size)
     }
 
     @Test
     fun `a load failure surfaces an error state`() {
-        val repository = FakeSubscriptionRepository().apply {
-            statusResult = Result.failure(java.io.IOException("boom"))
-        }
-        val viewModel = SubscriptionsViewModel(repository)
+        val repository = FakeSubscriptionRepository().apply { statusResult = Result.failure(java.io.IOException("boom")) }
+        val (viewModel, _, _) = viewModel(repository)
 
         assertTrue(viewModel.uiState.value is UiState.Error)
+    }
+
+    @Test
+    fun `starting checkout calls the backend with the chosen plan and opens the SDK with server-issued values`() {
+        var openedWith: List<Any>? = null
+        val (viewModel, repository, _) = viewModel(
+            openCheckout = { activity, keyId, orderId, amount, currency -> openedWith = listOf(activity, keyId, orderId, amount, currency) },
+        )
+        val plan = com.aiplacementos.app.data.remote.PlanDto("3_months", "3 Months", 49_900, 90)
+
+        viewModel.startCheckout(fakeActivity, plan)
+
+        assertEquals("3_months", repository.lastCheckoutPlan)
+        assertEquals(listOf(fakeActivity, "rzp_test_fake", "order_fake", 19_900, "INR"), openedWith)
+        assertTrue(viewModel.purchaseState.value is PurchaseState.Processing)
+    }
+
+    @Test
+    fun `a successful bridge result verifies server-side and reports Success only after that`() {
+        val results = MutableSharedFlow<RazorpayCheckoutBridge.Result>(extraBufferCapacity = 1)
+        val repository = FakeSubscriptionRepository().apply {
+            checkoutResult = Result.success(
+                com.aiplacementos.app.data.remote.CheckoutResponseDto("order_1", "rzp_test_fake", 19_900, "INR", "1_month"),
+            )
+            verifyResult = Result.success(SubscriptionStatusDto(tier = "premium", status = "active", plan = "1_month", expiresAt = null))
+        }
+        val (viewModel, _, _) = viewModel(repository, results)
+        val plan = com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30)
+        viewModel.startCheckout(fakeActivity, plan)
+
+        results.tryEmit(RazorpayCheckoutBridge.Result.Success("order_1", "pay_1", "sig_1"))
+
+        val purchaseState = viewModel.purchaseState.value
+        assertTrue(purchaseState is PurchaseState.Success)
+        assertEquals("premium", (purchaseState as PurchaseState.Success).status.tier)
+        assertEquals("order_1", repository.lastVerifyArgs?.orderId)
+        assertEquals("pay_1", repository.lastVerifyArgs?.paymentId)
+        assertEquals("sig_1", repository.lastVerifyArgs?.signature)
+    }
+
+    @Test
+    fun `a bridge result for a different order id than the one in flight is ignored`() {
+        val results = MutableSharedFlow<RazorpayCheckoutBridge.Result>(extraBufferCapacity = 1)
+        val repository = FakeSubscriptionRepository().apply {
+            checkoutResult = Result.success(
+                com.aiplacementos.app.data.remote.CheckoutResponseDto("order_real", "rzp_test_fake", 19_900, "INR", "1_month"),
+            )
+        }
+        val (viewModel, _, _) = viewModel(repository, results)
+        val plan = com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30)
+        viewModel.startCheckout(fakeActivity, plan)
+
+        // A stale result for some other order this ViewModel never started -- must not be
+        // processed as if it belonged to the in-flight checkout.
+        results.tryEmit(RazorpayCheckoutBridge.Result.Success("order_stale", "pay_x", "sig_x"))
+
+        assertNull(repository.lastVerifyArgs)
+        assertTrue(viewModel.purchaseState.value is PurchaseState.Processing)
+    }
+
+    @Test
+    fun `a failed bridge result reports Failed without calling verify`() {
+        val results = MutableSharedFlow<RazorpayCheckoutBridge.Result>(extraBufferCapacity = 1)
+        val repository = FakeSubscriptionRepository().apply {
+            checkoutResult = Result.success(
+                com.aiplacementos.app.data.remote.CheckoutResponseDto("order_1", "rzp_test_fake", 19_900, "INR", "1_month"),
+            )
+        }
+        val (viewModel, _, _) = viewModel(repository, results)
+        val plan = com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30)
+        viewModel.startCheckout(fakeActivity, plan)
+
+        results.tryEmit(RazorpayCheckoutBridge.Result.Failure(code = 1, description = "card declined"))
+
+        assertNull(repository.lastVerifyArgs)
+        val purchaseState = viewModel.purchaseState.value
+        assertTrue(purchaseState is PurchaseState.Failed)
+        assertEquals("card declined", (purchaseState as PurchaseState.Failed).message)
+    }
+
+    @Test
+    fun `a cancelled bridge result reports Cancelled without calling verify`() {
+        val results = MutableSharedFlow<RazorpayCheckoutBridge.Result>(extraBufferCapacity = 1)
+        val repository = FakeSubscriptionRepository().apply {
+            checkoutResult = Result.success(
+                com.aiplacementos.app.data.remote.CheckoutResponseDto("order_1", "rzp_test_fake", 19_900, "INR", "1_month"),
+            )
+        }
+        val (viewModel, _, _) = viewModel(repository, results)
+        val plan = com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30)
+        viewModel.startCheckout(fakeActivity, plan)
+
+        results.tryEmit(RazorpayCheckoutBridge.Result.Cancelled)
+
+        assertNull(repository.lastVerifyArgs)
+        assertEquals(PurchaseState.Cancelled, viewModel.purchaseState.value)
+    }
+
+    @Test
+    fun `starting a second checkout while one is already processing is ignored`() {
+        var callCount = 0
+        val (viewModel, repository, _) = viewModel(openCheckout = { _, _, _, _, _ -> callCount++ })
+        val plan = com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30)
+
+        viewModel.startCheckout(fakeActivity, plan)
+        viewModel.startCheckout(fakeActivity, plan)
+
+        assertEquals(1, callCount)
     }
 }

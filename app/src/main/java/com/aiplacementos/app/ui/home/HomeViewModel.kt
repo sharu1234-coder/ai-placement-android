@@ -11,6 +11,7 @@ import com.aiplacementos.app.domain.repository.AtsCheckRepository
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.domain.repository.PlacementAlarmRepository
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
+import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.domain.repository.ProgressRepository
 import com.aiplacementos.app.domain.repository.RoadmapRepository
 import com.aiplacementos.app.domain.streak.currentStreakDays
@@ -51,6 +52,14 @@ data class HomeData(
     // Latest resume ATS check, if any -- null means "no check run yet" (not an error), which
     // the UI renders as a promo prompting the student to run their first check.
     val resumeHealth: AtsCheckListItemDto?,
+    // Same resolution MainScreenViewModel's drawer header already uses (customTargetRole,
+    // falling back to a lookup in the role catalog) -- null means the student hasn't set one.
+    val targetRoleName: String?,
+    // The single weakest area from real progress history, or null if there isn't enough
+    // history yet to name one. Deliberately just the weakness itself -- there's no
+    // corresponding "strengths" field on the dashboard, so nothing is claimed about what the
+    // student is already strong in.
+    val biggestGap: String?,
 )
 
 private fun timeOfDayGreeting(): String = when (LocalTime.now().hour) {
@@ -109,6 +118,7 @@ class HomeViewModel(
     private val roadmapRepository: RoadmapRepository,
     private val careerPathRepository: CareerPathRepository,
     private val atsCheckRepository: AtsCheckRepository,
+    private val profileRepository: ProfileRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<HomeData>>(UiState.Loading)
     val uiState: StateFlow<UiState<HomeData>> = _uiState
@@ -124,7 +134,7 @@ class HomeViewModel(
             // All six sources are independent -- fetched concurrently instead of one after
             // another, since Home is the app's landing screen and every cold start otherwise
             // pays the sum of all latencies instead of the max.
-            val (path, dashboard, alarms, roadmap, careerPath, resumeHealth) = coroutineScope {
+            val (path, dashboard, alarms, roadmap, careerPath, resumeHealth, targetRoleName) = coroutineScope {
                 val pathDeferred = async { runCatching { placementPathRepository.getCurrent() }.getOrNull() }
                 val dashboardDeferred = async { runCatching { progressRepository.getDashboard() }.getOrNull() }
                 val alarmsDeferred = async {
@@ -135,13 +145,21 @@ class HomeViewModel(
                 val resumeHealthDeferred = async {
                     runCatching { atsCheckRepository.listAtsChecks().firstOrNull() }.getOrNull()
                 }
-                Sextuple(
+                val targetRoleNameDeferred = async {
+                    runCatching {
+                        val profile = profileRepository.getMyProfile()
+                        profile.customTargetRole
+                            ?: profileRepository.getRoles().find { it.id == profile.targetRoleId }?.name
+                    }.getOrNull()
+                }
+                Septuple(
                     pathDeferred.await(),
                     dashboardDeferred.await(),
                     alarmsDeferred.await(),
                     roadmapDeferred.await(),
                     careerPathDeferred.await(),
                     resumeHealthDeferred.await(),
+                    targetRoleNameDeferred.await(),
                 )
             }
 
@@ -184,17 +202,20 @@ class HomeViewModel(
                     recentActivity = recentActivity,
                     careerPath = careerPath,
                     resumeHealth = resumeHealth,
+                    targetRoleName = targetRoleName,
+                    biggestGap = dashboard?.topWeaknesses?.firstOrNull(),
                 )
             )
         }
     }
 }
 
-private data class Sextuple<A, B, C, D, E, F>(
+private data class Septuple<A, B, C, D, E, F, G>(
     val first: A,
     val second: B,
     val third: C,
     val fourth: D,
     val fifth: E,
     val sixth: F,
+    val seventh: G,
 )

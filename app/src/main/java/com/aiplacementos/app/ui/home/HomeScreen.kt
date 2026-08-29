@@ -12,15 +12,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.WorkOutline
+import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,7 +58,10 @@ fun HomeScreen(
     onOpenPlacementPath: () -> Unit,
     onOpenJdAnalyzer: () -> Unit,
     onOpenCareerPath: (pathId: Int) -> Unit,
+    onOpenCareerPathHome: () -> Unit,
     onOpenAtsCheck: (checkId: Int?) -> Unit,
+    onOpenPractice: () -> Unit,
+    onOpenTests: () -> Unit,
 ) {
     val network = networkModule()
     val viewModel: HomeViewModel = viewModel(
@@ -65,6 +74,7 @@ fun HomeScreen(
                     network.roadmapRepository,
                     network.careerPathRepository,
                     network.atsCheckRepository,
+                    network.profileRepository,
                 )
             }
         },
@@ -90,7 +100,10 @@ fun HomeScreen(
             onOpenPlacementPath = onOpenPlacementPath,
             onOpenJdAnalyzer = onOpenJdAnalyzer,
             onOpenCareerPath = onOpenCareerPath,
+            onOpenCareerPathHome = onOpenCareerPathHome,
             onOpenAtsCheck = onOpenAtsCheck,
+            onOpenPractice = onOpenPractice,
+            onOpenTests = onOpenTests,
         )
     }
 }
@@ -115,7 +128,10 @@ private fun HomeContent(
     onOpenPlacementPath: () -> Unit,
     onOpenJdAnalyzer: () -> Unit,
     onOpenCareerPath: (pathId: Int) -> Unit,
+    onOpenCareerPathHome: () -> Unit,
     onOpenAtsCheck: (checkId: Int?) -> Unit,
+    onOpenPractice: () -> Unit,
+    onOpenTests: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
@@ -124,13 +140,26 @@ private fun HomeContent(
         item {
             Text(text = data.greeting, style = MaterialTheme.typography.headlineSmall)
             Text(
-                text = "Let's get you placement-ready.",
+                text = data.targetRoleName?.let { "Target Role: $it" } ?: "Let's get you placement-ready.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         item { PlacementReadinessCard(data, onOpenPlacementPath) }
+
+        item {
+            QuickAccessGrid(
+                onOpenCareerPathHome = onOpenCareerPathHome,
+                onOpenJdAnalyzer = onOpenJdAnalyzer,
+                onOpenPractice = onOpenPractice,
+                onOpenTests = onOpenTests,
+            )
+        }
+
+        if (data.biggestGap != null) {
+            item { BiggestGapCard(data.biggestGap, onOpenPlacementPath) }
+        }
 
         // Deliberately its own card, not merged into PlacementReadinessCard above -- Career
         // Path is an independent feature with its own progress model.
@@ -408,6 +437,90 @@ private fun UpcomingAlarmCard(label: String, onClick: () -> Unit) {
             Column(modifier = Modifier.padding(start = Spacing.sm)) {
                 Text(text = "Upcoming alarm", style = MaterialTheme.typography.titleSmall)
                 Text(text = label, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+/** One-tap shortcuts into the app's other core sections. Career Path deliberately routes to
+ * its own home/empty-state screen rather than a detail route -- Home has no reliable "which
+ * path" to jump into when the student hasn't picked a role yet, and CareerPathHomeScreen
+ * already handles that no-path case honestly. */
+@Composable
+private fun QuickAccessGrid(
+    onOpenCareerPathHome: () -> Unit,
+    onOpenJdAnalyzer: () -> Unit,
+    onOpenPractice: () -> Unit,
+    onOpenTests: () -> Unit,
+) {
+    Column {
+        Text(text = "Quick Access", style = MaterialTheme.typography.titleMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            QuickAccessTile(Icons.Filled.Route, "Career Path", onOpenCareerPathHome, Modifier.weight(1f))
+            QuickAccessTile(Icons.AutoMirrored.Outlined.Assignment, "JD Analyzer", onOpenJdAnalyzer, Modifier.weight(1f))
+            QuickAccessTile(Icons.Filled.School, "Practice", onOpenPractice, Modifier.weight(1f))
+            QuickAccessTile(Icons.Filled.CheckCircle, "Tests", onOpenTests, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun QuickAccessTile(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Surface(
+            modifier = Modifier.size(56.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(Spacing.sm),
+            )
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(top = Spacing.xs),
+        )
+    }
+}
+
+/** Names the single weakest real signal from progress history and offers a way to act on it
+ * -- never claims a specific "strong in X, Y" pairing since the dashboard has no strengths
+ * field to back that up. */
+@Composable
+private fun BiggestGapCard(biggestGap: String, onClick: () -> Unit) {
+    AppCard(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        containerColor = MaterialTheme.colorScheme.errorContainer,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.BarChart,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(32.dp),
+            )
+            Column(modifier = Modifier.padding(start = Spacing.md)) {
+                Text(
+                    text = "Your Biggest Gap",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Text(
+                    text = "You need more practice in $biggestGap. Start practicing to close this gap.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
             }
         }
     }
