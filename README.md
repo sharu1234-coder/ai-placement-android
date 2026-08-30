@@ -64,12 +64,15 @@ instead, which needs no manual step but does need the app's real release-signing
 registered in Firebase (Project Settings → your app → SHA certificate fingerprints) once a
 real release keystore exists (item 12) — not done yet, since one doesn't.
 
-**App Check is not enforced end-to-end yet.** Installing the provider on Android only makes
-the app *generate* App Check tokens — nothing currently verifies them, since the FastAPI
-backend has no Firebase Admin SDK integration (and none is planned; the backend stays
-Firebase-independent per the architecture above). Real enforcement would mean the backend
-verifying the token on relevant requests, which is a backend change, not part of this item's
-(Android-only) scope.
+**App Check is wired end-to-end but not enforced by default (2026-08-30).**
+`NetworkModule.kt`'s `AppCheckInterceptor` attaches an `X-Firebase-AppCheck` token to every
+outgoing request (failing open — proceeding without the header — if the token fetch fails or
+times out, rather than blocking the request over a transient Play Integrity hiccup). The
+FastAPI backend now has a Firebase Admin SDK integration (`app_check.py` in that repo) that
+can verify this header, but ships with enforcement OFF (`FIREBASE_APP_CHECK_ENABLED=false`)
+until a real Firebase service account is configured server-side — see that repo's README for
+the backend half. Flipping enforcement on before a build with this interceptor is actually the
+one installed on users' devices would reject every request with 401.
 
 ## Stack
 
@@ -78,6 +81,20 @@ verifying the token on relevant requests, which is a backend change, not part of
 - minSdk 26, compileSdk/targetSdk 35
 
 ## Status
+
+**Master hardening pass — Firebase App Check actually wired end-to-end (2026-08-30).** New
+`AppCheckInterceptor` (`network/NetworkModule.kt`) attaches an `X-Firebase-AppCheck` token
+(via `Firebase.appCheck.getAppCheckToken` + `Tasks.await`, a 10s timeout) to every outgoing
+request — previously the provider was installed (`AiPlacementApp.onCreate`) but nothing ever
+read a token or sent it anywhere, so App Check provided zero actual protection despite being
+"set up." Fails open (proceeds without the header) on any fetch failure/timeout rather than
+blocking the request — a transient Play Integrity hiccup shouldn't brick the app, especially
+since the backend's own verification defaults to disabled anyway (see the backend repo's
+README/`app_check.py`). Verified via `compileDevDebugKotlin` (real compile, not assumed) since
+this touches a static Firebase API surface (`Task<AppCheckToken>`, `Tasks.await`) that's easy
+to get subtly wrong from memory. No dedicated unit test — same as `AuthInterceptor`, a static
+Firebase singleton dependency isn't practically unit-testable without Robolectric, which this
+project doesn't currently pull in; covered by the full Gradle build gate instead.
 
 **Production readiness item 20/20 — Final production deployment readiness audit
 (2026-08-24).** Full cross-repo audit and classification (READY/BLOCKER/NEEDS MANUAL

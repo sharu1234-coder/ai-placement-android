@@ -23,10 +23,14 @@ class AiPlacementApp : Application() {
         // the dev/prod flavor -- a prod-flavor debug build (assembleProdDebug) still needs
         // the Debug provider. A real release build always gets Play Integrity.
         //
-        // NOTE: installing the provider here only makes the *app* generate App Check tokens.
-        // Nothing currently verifies them -- the FastAPI backend doesn't check App Check
-        // tokens on incoming requests (it has no Firebase Admin SDK integration), so this is
-        // not yet enforced protection end-to-end. See README's Firebase status entry.
+        // NOTE: installing the provider here only makes the *app* generate App Check tokens;
+        // NetworkModule's AppCheckInterceptor is what attaches one to every outgoing request
+        // (X-Firebase-AppCheck header). The FastAPI backend can verify that header (see
+        // app/core/app_check.py) but ships with enforcement OFF by default
+        // (FIREBASE_APP_CHECK_ENABLED) until a real Firebase service account is configured
+        // server-side -- so this is real, wired end-to-end, but not yet an *enforced*
+        // requirement in any deployment that hasn't explicitly turned it on. See README's
+        // Firebase status entry.
         Firebase.appCheck.installAppCheckProviderFactory(
             if (BuildConfig.DEBUG) {
                 DebugAppCheckProviderFactory.getInstance()
