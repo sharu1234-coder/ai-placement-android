@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.domain.repository.CareerPathRepository
+import com.aiplacementos.app.ui.common.isNetworkError
+import com.aiplacementos.app.ui.common.isTimeoutError
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +18,7 @@ import kotlinx.coroutines.launch
 sealed interface CareerPathHomeUiState {
     data object Loading : CareerPathHomeUiState
     data class NoPath(val savedCount: Int) : CareerPathHomeUiState
-    data class Error(val message: String) : CareerPathHomeUiState
+    data class Error(val message: String, val isNetworkError: Boolean = false) : CareerPathHomeUiState
     data class Success(val current: CareerPathDto, val savedCount: Int) : CareerPathHomeUiState
 }
 
@@ -40,7 +43,10 @@ class CareerPathHomeViewModel(private val careerPathRepository: CareerPathReposi
                 }
             } catch (e: Exception) {
                 _uiState.value = CareerPathHomeUiState.Error(
-                    "Couldn't load your Career Path. Check your connection and try again."
+                    e.toUserMessage("load your Career Path"),
+                    // See PlacementPathViewModel.load()'s identical comment: a timeout gets
+                    // its own message above, so it shouldn't also show the WifiOff icon.
+                    isNetworkError = e.isNetworkError() && !e.isTimeoutError(),
                 )
             }
         }

@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.PlacementPathDto
 import com.aiplacementos.app.data.remote.PlacementPathTopicDto
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
+import com.aiplacementos.app.ui.common.isNetworkError
+import com.aiplacementos.app.ui.common.isTimeoutError
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +23,7 @@ import retrofit2.HttpException
 sealed interface PlacementPathUiState {
     data object Loading : PlacementPathUiState
     data object NoPath : PlacementPathUiState
-    data class Error(val message: String) : PlacementPathUiState
+    data class Error(val message: String, val isNetworkError: Boolean = false) : PlacementPathUiState
     data class Success(val path: PlacementPathDto, val isBusy: Boolean = false) : PlacementPathUiState
 }
 
@@ -44,7 +47,11 @@ class PlacementPathViewModel(private val placementPathRepository: PlacementPathR
                 }
             } catch (e: Exception) {
                 _uiState.value = PlacementPathUiState.Error(
-                    "Couldn't load your roadmap. Check your connection and try again."
+                    e.toUserMessage("load your roadmap"),
+                    // A timeout is technically an IOException too, but it gets its own
+                    // "taking too long" message above -- showing the WifiOff icon for it
+                    // would contradict that message, so it's deliberately excluded here.
+                    isNetworkError = e.isNetworkError() && !e.isTimeoutError(),
                 )
             }
         }

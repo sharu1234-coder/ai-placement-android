@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,6 +59,7 @@ fun PlacementPathScreen(onOpenTopic: (topicId: Int) -> Unit) {
         is PlacementPathUiState.Loading -> SkeletonList(count = 3, modifier = Modifier.fillMaxSize().padding(Spacing.md))
         is PlacementPathUiState.Error -> ErrorState(
             message = current.message,
+            icon = if (current.isNetworkError) Icons.Filled.WifiOff else Icons.Filled.ErrorOutline,
             onRetry = viewModel::load,
             modifier = Modifier.fillMaxSize(),
         )

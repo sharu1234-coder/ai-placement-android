@@ -12,6 +12,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 private fun topic(
     id: Int,
@@ -78,6 +81,59 @@ class PlacementPathViewModelTest {
         val viewModel = PlacementPathViewModel(repository)
 
         assertTrue(viewModel.uiState.value is PlacementPathUiState.Error)
+    }
+
+    // Real-device finding: load() previously caught every Exception identically and always
+    // showed "Check your connection", even for a 401 (expired session) or a 500 (server
+    // bug) -- indistinguishable from an actual dropped Wi-Fi connection. These four cases
+    // pin down the classification now expected of load()'s catch block.
+
+    @Test
+    fun `genuine connectivity failure on load is flagged as a network error`() {
+        val repository = FakePlacementPathRepository().apply {
+            currentResult = { throw UnknownHostException("no route to host") }
+        }
+        val viewModel = PlacementPathViewModel(repository)
+
+        val state = viewModel.uiState.value as PlacementPathUiState.Error
+        assertTrue(state.isNetworkError)
+        assertTrue(state.message.contains("connection", ignoreCase = true))
+    }
+
+    @Test
+    fun `timeout on load gets a distinct message, not the connectivity message`() {
+        val repository = FakePlacementPathRepository().apply {
+            currentResult = { throw SocketTimeoutException("timeout") }
+        }
+        val viewModel = PlacementPathViewModel(repository)
+
+        val state = viewModel.uiState.value as PlacementPathUiState.Error
+        assertFalse(state.isNetworkError)
+        assertTrue(state.message.contains("too long", ignoreCase = true))
+    }
+
+    @Test
+    fun `expired session on load shows a sign-in message, not a connectivity message`() {
+        val repository = FakePlacementPathRepository().apply {
+            currentResult = { throw httpException(401) }
+        }
+        val viewModel = PlacementPathViewModel(repository)
+
+        val state = viewModel.uiState.value as PlacementPathUiState.Error
+        assertFalse(state.isNetworkError)
+        assertTrue(state.message.contains("session", ignoreCase = true))
+    }
+
+    @Test
+    fun `server error on load is reported as a server problem, not a connectivity problem`() {
+        val repository = FakePlacementPathRepository().apply {
+            currentResult = { throw httpException(500) }
+        }
+        val viewModel = PlacementPathViewModel(repository)
+
+        val state = viewModel.uiState.value as PlacementPathUiState.Error
+        assertFalse(state.isNetworkError)
+        assertTrue(state.message.contains("our server", ignoreCase = true))
     }
 
     @Test

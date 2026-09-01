@@ -12,10 +12,14 @@ import com.aiplacementos.app.data.remote.RoleOverviewDto
 import com.aiplacementos.app.data.remote.SkillGapItemDto
 import com.aiplacementos.app.data.remote.SkillItemDto
 import com.aiplacementos.app.fakes.FakeCareerPathRepository
+import com.aiplacementos.app.fakes.httpException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 /** Shared sample builder reused by every Career Path ViewModel test file in this package --
  * same precedent as AtsCheckResultViewModelTest's internal sampleReport(). */
@@ -181,5 +185,57 @@ class CareerPathHomeViewModelTest {
         val viewModel = CareerPathHomeViewModel(repository)
 
         assertTrue(viewModel.uiState.value is CareerPathHomeUiState.Error)
+    }
+
+    // Real-device finding (same class of bug as PlacementPathViewModel): load() previously
+    // caught every Exception identically and always showed "Check your connection", even for
+    // a 401 or a 500. These pin down the classification now expected.
+
+    @Test
+    fun `genuine connectivity failure is flagged as a network error`() {
+        val repository = FakeCareerPathRepository().apply {
+            currentResult = { throw UnknownHostException("no route to host") }
+        }
+        val viewModel = CareerPathHomeViewModel(repository)
+
+        val state = viewModel.uiState.value as CareerPathHomeUiState.Error
+        assertTrue(state.isNetworkError)
+        assertTrue(state.message.contains("connection", ignoreCase = true))
+    }
+
+    @Test
+    fun `timeout gets a distinct message, not the connectivity message`() {
+        val repository = FakeCareerPathRepository().apply {
+            currentResult = { throw SocketTimeoutException("timeout") }
+        }
+        val viewModel = CareerPathHomeViewModel(repository)
+
+        val state = viewModel.uiState.value as CareerPathHomeUiState.Error
+        assertFalse(state.isNetworkError)
+        assertTrue(state.message.contains("too long", ignoreCase = true))
+    }
+
+    @Test
+    fun `expired session shows a sign-in message, not a connectivity message`() {
+        val repository = FakeCareerPathRepository().apply {
+            currentResult = { throw httpException(401) }
+        }
+        val viewModel = CareerPathHomeViewModel(repository)
+
+        val state = viewModel.uiState.value as CareerPathHomeUiState.Error
+        assertFalse(state.isNetworkError)
+        assertTrue(state.message.contains("session", ignoreCase = true))
+    }
+
+    @Test
+    fun `server error is reported as a server problem, not a connectivity problem`() {
+        val repository = FakeCareerPathRepository().apply {
+            currentResult = { throw httpException(500) }
+        }
+        val viewModel = CareerPathHomeViewModel(repository)
+
+        val state = viewModel.uiState.value as CareerPathHomeUiState.Error
+        assertFalse(state.isNetworkError)
+        assertTrue(state.message.contains("our server", ignoreCase = true))
     }
 }

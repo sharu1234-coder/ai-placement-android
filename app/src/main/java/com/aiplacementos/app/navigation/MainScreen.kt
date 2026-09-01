@@ -2,9 +2,12 @@ package com.aiplacementos.app.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
@@ -22,6 +25,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.WorkspacePremium
@@ -122,6 +126,15 @@ fun MainScreen(navController: NavHostController) {
                 DrawerItem("Job Description Analyzer", Icons.Filled.WorkOutline) {
                     navController.navigate(Screen.JdAnalyzer.route)
                 },
+                // Real-device finding: this entire flow (paste a role/JD -> resume check ->
+                // match analysis -> prep plan -> tests -> interviews -> roadmap update) was
+                // fully built and registered in NavGraph but had no entry point anywhere in
+                // the app -- Screen.RoleOrJdEntry was never the target of a single
+                // navController.navigate() call. Distinct from JD Analyzer above (a quick
+                // skill-match check): this is the longer guided preparation flow.
+                DrawerItem("Job Preparation", Icons.Filled.School) {
+                    navController.navigate(Screen.RoleOrJdEntry.route)
+                },
                 DrawerItem("Mock Interviews", Icons.Filled.Mic) { navController.navigate(Screen.MockInterviewCategory.route) },
                 DrawerItem("Placement Alarms", Icons.Filled.Alarm) { navController.navigate(Screen.AlarmList.route) },
                 DrawerItem("Saved Roadmaps", Icons.Filled.History) { navController.navigate(Screen.SavedRoadmaps.route) },
@@ -154,59 +167,75 @@ fun MainScreen(navController: NavHostController) {
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                DrawerHeader(headerData)
-                drawerSections.forEach { section ->
-                    HorizontalDivider()
-                    if (section.header != null) {
-                        Text(
-                            text = section.header,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs),
-                        )
-                    }
-                    section.items.forEach { item ->
+                // Root cause of the drawer's unscrollable content (real-device finding): this
+                // Column previously had no scroll modifier at all -- ModalDrawerSheet itself
+                // doesn't scroll its content, so once the header + 3 sections + ~13 items +
+                // logout exceeded the screen height (routine on smaller phones or with a
+                // larger system font), everything past the fold was simply unreachable, not
+                // merely hidden. Header stays outside the scrollable region (stays visually
+                // stable per spec) while the section list + logout scroll in the remaining
+                // space via Modifier.weight(1f).verticalScroll(...).
+                Column(modifier = Modifier.fillMaxHeight()) {
+                    DrawerHeader(headerData)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        drawerSections.forEach { section ->
+                            HorizontalDivider()
+                            if (section.header != null) {
+                                Text(
+                                    text = section.header,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+                                )
+                            }
+                            section.items.forEach { item ->
+                                NavigationDrawerItem(
+                                    label = { Text(item.label) },
+                                    icon = { Icon(item.icon, contentDescription = null) },
+                                    badge = item.badge?.let { badgeText ->
+                                        {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                shape = MaterialTheme.shapes.small,
+                                            ) {
+                                                Text(
+                                                    text = badgeText,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 2.dp),
+                                                )
+                                            }
+                                        }
+                                    },
+                                    selected = false,
+                                    onClick = {
+                                        scope.launch { drawerState.close() }
+                                        item.onClick()
+                                    },
+                                    modifier = Modifier.padding(horizontal = Spacing.sm),
+                                )
+                            }
+                        }
+                        HorizontalDivider()
                         NavigationDrawerItem(
-                            label = { Text(item.label) },
-                            icon = { Icon(item.icon, contentDescription = null) },
-                            badge = item.badge?.let { badgeText ->
-                                {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.primaryContainer,
-                                        shape = MaterialTheme.shapes.small,
-                                    ) {
-                                        Text(
-                                            text = badgeText,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 2.dp),
-                                        )
-                                    }
-                                }
-                            },
+                            label = { Text("Log out") },
+                            icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null) },
                             selected = false,
                             onClick = {
-                                scope.launch { drawerState.close() }
-                                item.onClick()
+                                scope.launch {
+                                    drawerState.close()
+                                    network.authRepository.logout()
+                                    navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
+                                }
                             },
                             modifier = Modifier.padding(horizontal = Spacing.sm),
                         )
                     }
                 }
-                HorizontalDivider()
-                NavigationDrawerItem(
-                    label = { Text("Log out") },
-                    icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null) },
-                    selected = false,
-                    onClick = {
-                        scope.launch {
-                            drawerState.close()
-                            network.authRepository.logout()
-                            navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = Spacing.sm),
-                )
             }
         },
     ) {
