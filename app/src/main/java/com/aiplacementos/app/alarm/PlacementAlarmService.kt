@@ -123,7 +123,7 @@ class PlacementAlarmService : Service() {
         )
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_notify)
             .setContentTitle("Placement Alarm")
             .setContentText("Solve 6 questions to stop the alarm")
             .setPriority(NotificationCompat.PRIORITY_HIGH)

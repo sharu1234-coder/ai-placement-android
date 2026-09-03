@@ -17,10 +17,10 @@ import com.aiplacementos.app.ui.theme.Spacing
 /** Renders a fetched legal document (privacy policy / terms of service) with the same
  * Loading/Error/Success handling every other data-driven screen already uses. */
 @Composable
-fun LegalDocumentContent(state: UiState<LegalDocumentDto>) {
+fun LegalDocumentContent(state: UiState<LegalDocumentDto>, onRetry: () -> Unit) {
     when (state) {
         is UiState.Loading, UiState.Empty -> LoadingState()
-        is UiState.Error -> ErrorState(message = state.message)
+        is UiState.Error -> ErrorState(message = state.message, onRetry = onRetry)
         is UiState.Success -> {
             Text(
                 text = state.data.content,

@@ -20,6 +20,13 @@ class ResumeUploadViewModel(private val resumeRepository: ResumeRepository) : Vi
     private val _uiState = MutableStateFlow<UiState<ResumeUploadResponseDto>>(UiState.Empty)
     val uiState: StateFlow<UiState<ResumeUploadResponseDto>> = _uiState.asStateFlow()
 
+    /** Lets the screen return to the "pick/upload" UI after a failed upload -- without this,
+     * picking a new file after an Error has nothing to reset _uiState back to Empty, so the
+     * Error card (and its Retry action) would show forever regardless of what's re-picked. */
+    fun reset() {
+        _uiState.value = UiState.Empty
+    }
+
     fun upload(contentResolver: ContentResolver, uri: Uri, fileName: String) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading

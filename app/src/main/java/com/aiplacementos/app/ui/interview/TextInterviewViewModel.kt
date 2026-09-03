@@ -35,6 +35,13 @@ class TextInterviewViewModel(
         start()
     }
 
+    /** Nothing is submitted server-side until submitAnswer succeeds, so once an interview
+     * exists, re-fetching "next question" always lands back on the same still-pending one --
+     * safe to reuse as the recovery for both loadNext's and submitAnswer's failure paths. */
+    fun retry() {
+        if (interviewId != null) loadNext() else start()
+    }
+
     private fun start() {
         viewModelScope.launch {
             _uiState.value = TextInterviewUiState.Loading

@@ -49,6 +49,10 @@ fun ResumeUploadScreen(onUploaded: () -> Unit) {
         if (uri != null) {
             selectedUri = uri
             selectedName = queryDisplayName(context.contentResolver, uri) ?: "resume.pdf"
+            // A failed upload must not be a permanent dead end -- picking a different file
+            // (or the same one again) needs to bring back the normal Upload button rather
+            // than leaving the old Error card showing forever.
+            if (state is UiState.Error) viewModel.reset()
         }
     }
 
@@ -72,7 +76,12 @@ fun ResumeUploadScreen(onUploaded: () -> Unit) {
 
         when (val current = state) {
             is UiState.Loading -> LoadingState()
-            is UiState.Error -> ErrorState(message = current.message)
+            is UiState.Error -> ErrorState(
+                message = current.message,
+                onRetry = selectedUri?.let { uri ->
+                    { viewModel.upload(context.contentResolver, uri, selectedName ?: "resume.pdf") }
+                },
+            )
             is UiState.Success<ResumeUploadResponseDto> -> ResumeResult(
                 result = current.data,
                 onContinue = onUploaded,

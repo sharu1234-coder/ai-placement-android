@@ -18,6 +18,8 @@ import com.aiplacementos.app.alarm.PlacementAlarmService
 import com.aiplacementos.app.ui.alarm.AlarmCreateScreen
 import com.aiplacementos.app.ui.alarm.AlarmListScreen
 import com.aiplacementos.app.ui.alarm.PlacementAlarmChallengeScreen
+import com.aiplacementos.app.ui.arena.ArenaListScreen
+import com.aiplacementos.app.ui.arena.ArenaSessionScreen
 import com.aiplacementos.app.ui.atscheck.AtsCheckAnalyzingScreen
 import com.aiplacementos.app.ui.atscheck.AtsCheckCategoryDetailScreen
 import com.aiplacementos.app.ui.atscheck.AtsCheckHistoryScreen
@@ -28,6 +30,7 @@ import com.aiplacementos.app.ui.atscheck.AtsCheckParsedViewScreen
 import com.aiplacementos.app.ui.atscheck.AtsCheckPreCheckScreen
 import com.aiplacementos.app.ui.atscheck.AtsCheckResultScreen
 import com.aiplacementos.app.ui.atscheck.AtsCheckSectionAnalysisScreen
+import com.aiplacementos.app.ui.careerdecision.CareerDecisionLabScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathDetailScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathGapAnalysisScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathHomeScreen
@@ -39,6 +42,17 @@ import com.aiplacementos.app.ui.careerpath.CareerPathResumeConnectionScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathRoleSelectionScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathSavedRolesScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathSkillDetailScreen
+import com.aiplacementos.app.ui.careertwin.CareerTwinScreen
+import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderCreateScreen
+import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderDetailScreen
+import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderListScreen
+import com.aiplacementos.app.ui.projectbuilder.ProjectProofScreen
+import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackCreateScreen
+import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackListScreen
+import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackResultsScreen
+import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackSessionScreen
+import com.aiplacementos.app.ui.skillpassport.SkillPassportDetailScreen
+import com.aiplacementos.app.ui.skillpassport.SkillPassportScreen
 import com.aiplacementos.app.ui.auth.ForgotPasswordScreen
 import com.aiplacementos.app.ui.auth.LoginScreen
 import com.aiplacementos.app.ui.auth.SignupScreen
@@ -750,6 +764,139 @@ fun NavGraph(navController: NavHostController) {
             CareerPathSavedRolesScreen(
                 onBack = { navController.popBackStack() },
                 onOpenPath = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
+            )
+        }
+        composable(Screen.CareerTwin.route) {
+            CareerTwinScreen(
+                onSelectRole = { navController.navigate(Screen.CareerPathRoleSelection.route) },
+                onUpgrade = { navController.navigate(Screen.Subscriptions.route) },
+            )
+        }
+        composable(Screen.SkillPassport.route) {
+            SkillPassportScreen(onOpenSkill = { skill -> navController.navigate(skillPassportDetailRoute(skill)) })
+        }
+        composable(
+            Screen.SkillPassportDetail.route,
+            arguments = listOf(navArgument("skill") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val skill = backStackEntry.arguments?.getString("skill").orEmpty()
+            SkillPassportDetailScreen(skill = skill, onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.ProjectBuilderList.route) {
+            ProjectBuilderListScreen(
+                onOpenBuild = { buildId -> navController.navigate(projectBuilderDetailRoute(buildId)) },
+                onCreateNew = { navController.navigate(Screen.ProjectBuilderCreate.route) },
+            )
+        }
+        composable(Screen.ProjectBuilderCreate.route) {
+            ProjectBuilderCreateScreen(
+                onBack = { navController.popBackStack() },
+                onCreated = { buildId ->
+                    navController.navigate(projectBuilderDetailRoute(buildId)) {
+                        popUpTo(Screen.ProjectBuilderList.route)
+                    }
+                },
+            )
+        }
+        composable(
+            Screen.ProjectBuilderDetail.route,
+            arguments = listOf(navArgument("buildId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val buildId = backStackEntry.arguments?.getInt("buildId") ?: 0
+            ProjectBuilderDetailScreen(
+                buildId = buildId,
+                onBack = { navController.popBackStack() },
+                onViewProof = { id -> navController.navigate(projectBuilderProofRoute(id)) },
+            )
+        }
+        composable(
+            Screen.ProjectBuilderProof.route,
+            arguments = listOf(navArgument("buildId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val buildId = backStackEntry.arguments?.getInt("buildId") ?: 0
+            ProjectProofScreen(buildId = buildId, onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.RecruiterAttackList.route) {
+            RecruiterAttackListScreen(
+                onOpenSession = { sessionId -> navController.navigate(recruiterAttackSessionRoute(sessionId)) },
+                onCreateNew = { navController.navigate(Screen.RecruiterAttackCreate.route) },
+            )
+        }
+        composable(Screen.RecruiterAttackCreate.route) {
+            RecruiterAttackCreateScreen(
+                onBack = { navController.popBackStack() },
+                onCreated = { sessionId ->
+                    navController.navigate(recruiterAttackSessionRoute(sessionId)) {
+                        popUpTo(Screen.RecruiterAttackList.route)
+                    }
+                },
+            )
+        }
+        composable(
+            Screen.RecruiterAttackSession.route,
+            arguments = listOf(navArgument("sessionId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getInt("sessionId") ?: 0
+            RecruiterAttackSessionScreen(
+                sessionId = sessionId,
+                onFinish = { id ->
+                    navController.navigate(recruiterAttackResultsRoute(id)) {
+                        popUpTo(Screen.RecruiterAttackList.route)
+                    }
+                },
+            )
+        }
+        composable(
+            Screen.RecruiterAttackResults.route,
+            arguments = listOf(navArgument("sessionId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getInt("sessionId") ?: 0
+            RecruiterAttackResultsScreen(
+                sessionId = sessionId,
+                onUpgrade = { navController.navigate(Screen.Subscriptions.route) },
+                onDone = {
+                    navController.navigate(Screen.RecruiterAttackList.route) {
+                        popUpTo(Screen.RecruiterAttackList.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        composable(Screen.CareerDecisionLab.route) {
+            CareerDecisionLabScreen(onUpgrade = { navController.navigate(Screen.Subscriptions.route) })
+        }
+
+        composable(Screen.ArenaList.route) {
+            ArenaListScreen(
+                onStarted = { start ->
+                    navController.navigate(
+                        arenaSessionRoute(start.arenaAttemptId, start.assessmentId, start.timeLimitSeconds)
+                    )
+                },
+            )
+        }
+        composable(
+            Screen.ArenaSession.route,
+            arguments = listOf(
+                navArgument("arenaAttemptId") { type = NavType.IntType },
+                navArgument("assessmentId") { type = NavType.IntType },
+                navArgument("timeLimitSeconds") { type = NavType.IntType },
+            ),
+        ) { backStackEntry ->
+            val arenaAttemptId = backStackEntry.arguments?.getInt("arenaAttemptId") ?: 0
+            val assessmentId = backStackEntry.arguments?.getInt("assessmentId") ?: 0
+            val timeLimitSeconds = backStackEntry.arguments?.getInt("timeLimitSeconds") ?: 0
+            ArenaSessionScreen(
+                arenaAttemptId = arenaAttemptId,
+                assessmentId = assessmentId,
+                timeLimitSeconds = timeLimitSeconds,
+                onDone = {
+                    navController.navigate(Screen.ArenaList.route) {
+                        popUpTo(Screen.ArenaList.route) { inclusive = true }
+                    }
+                },
             )
         }
 

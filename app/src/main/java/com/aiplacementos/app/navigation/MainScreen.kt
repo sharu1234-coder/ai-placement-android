@@ -14,8 +14,12 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CompareArrows
+import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
@@ -25,8 +29,10 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.WorkOutline
@@ -116,12 +122,18 @@ fun MainScreen(navController: NavHostController) {
             "CAREER",
             listOf(
                 DrawerItem("Profile", Icons.Filled.Person) { navController.navigate(Screen.Profile.route) },
+                DrawerItem("Career Twin", Icons.Filled.Psychology, badge = "New") {
+                    navController.navigate(Screen.CareerTwin.route)
+                },
                 DrawerItem("Resume", Icons.Filled.Description) { navController.navigate(Screen.ProfileResumeUpload.route) },
                 DrawerItem("Resume ATS Check", Icons.Filled.FindInPage, badge = "New") {
                     navController.navigate(Screen.AtsCheckLanding.route)
                 },
                 DrawerItem("Career Path", Icons.AutoMirrored.Filled.TrendingUp, badge = "New") {
                     navController.navigate(Screen.CareerPathHome.route)
+                },
+                DrawerItem("Career Decision Lab", Icons.Filled.CompareArrows, badge = "New") {
+                    navController.navigate(Screen.CareerDecisionLab.route)
                 },
                 DrawerItem("Job Description Analyzer", Icons.Filled.WorkOutline) {
                     navController.navigate(Screen.JdAnalyzer.route)
@@ -138,6 +150,26 @@ fun MainScreen(navController: NavHostController) {
                 DrawerItem("Mock Interviews", Icons.Filled.Mic) { navController.navigate(Screen.MockInterviewCategory.route) },
                 DrawerItem("Placement Alarms", Icons.Filled.Alarm) { navController.navigate(Screen.AlarmList.route) },
                 DrawerItem("Saved Roadmaps", Icons.Filled.History) { navController.navigate(Screen.SavedRoadmaps.route) },
+            ),
+        ),
+        // Split out of CAREER (Phase 12): these four are the "build and prove it" verticals --
+        // distinct from the planning/analysis items above -- matching the reference image's
+        // dedicated Home/navigation grouping.
+        DrawerSection(
+            "BUILD PROOF",
+            listOf(
+                DrawerItem("Project Builder", Icons.Filled.Construction, badge = "New") {
+                    navController.navigate(Screen.ProjectBuilderList.route)
+                },
+                DrawerItem("Skill Passport", Icons.Filled.Badge, badge = "New") {
+                    navController.navigate(Screen.SkillPassport.route)
+                },
+                DrawerItem("Recruiter Attack", Icons.Filled.Shield, badge = "New") {
+                    navController.navigate(Screen.RecruiterAttackList.route)
+                },
+                DrawerItem("Placement Arena", Icons.Filled.EmojiEvents, badge = "New") {
+                    navController.navigate(Screen.ArenaList.route)
+                },
             ),
         ),
         DrawerSection(
@@ -283,6 +315,8 @@ fun MainScreen(navController: NavHostController) {
                         },
                         onOpenPractice = { selectedRoute = Screen.Practice.route },
                         onOpenTests = { selectedRoute = Screen.Tests.route },
+                        onOpenCareerTwin = { navController.navigate(Screen.CareerTwin.route) },
+                        onOpenSkillPassport = { navController.navigate(Screen.SkillPassport.route) },
                     )
                     // Swapped from the pre-fix mapping (see the bottomTabs comment above):
                     // Roadmap = the staged/topic roadmap, Practice = the day-task schedule.

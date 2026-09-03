@@ -9,6 +9,7 @@ import com.aiplacementos.app.data.remote.ProgressDashboardDto
 import com.aiplacementos.app.data.remote.progressPercent
 import com.aiplacementos.app.domain.repository.AtsCheckRepository
 import com.aiplacementos.app.domain.repository.CareerPathRepository
+import com.aiplacementos.app.domain.repository.CareerTwinRepository
 import com.aiplacementos.app.domain.repository.PlacementAlarmRepository
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
@@ -37,7 +38,14 @@ data class TodayPlanItem(val id: Int, val title: String, val taskType: String, v
 
 data class HomeData(
     val greeting: String,
+    // Career Twin's readiness number when a target role/twin is available (the one
+    // authoritative "how ready am I" figure home shows -- see the Phase 12 decision that this
+    // REPLACES the old Placement Path-derived readiness, never a second number alongside it);
+    // falls back to the Placement Path dashboard's score only when no Career Twin data exists
+    // yet, so Home never regresses to blank for a student who hasn't picked a target role.
     val readinessPercent: Int?,
+    val readinessTrendPercent: Int?,
+    val readinessIsEstimate: Boolean,
     val subMetrics: List<ReadinessSubMetric>,
     val todaysPlan: List<TodayPlanItem>,
     val nextBestActionTitle: String?,
@@ -55,11 +63,18 @@ data class HomeData(
     // Same resolution MainScreenViewModel's drawer header already uses (customTargetRole,
     // falling back to a lookup in the role catalog) -- null means the student hasn't set one.
     val targetRoleName: String?,
-    // The single weakest area from real progress history, or null if there isn't enough
-    // history yet to name one. Deliberately just the weakness itself -- there's no
-    // corresponding "strengths" field on the dashboard, so nothing is claimed about what the
-    // student is already strong in.
+    // The single weakest area, preferring Career Twin's evidence-backed biggest gap over the
+    // older progress-history weakness list -- falls back to the latter only when Career Twin
+    // has no data (e.g. no target role set yet), same degrade-gracefully rule as readiness.
     val biggestGap: String?,
+    // The most recently evidence-verified skill (by Evidence Engine's own last-verified
+    // timestamp), or null when nothing has reached "verified" yet -- never a fabricated
+    // congratulatory message, only a real state transition already recorded server-side.
+    val recentWinSkill: String?,
+    // Count of skills currently in the "verified" state on the Career Twin. Null (not zero)
+    // means "no Career Twin data at all" so the UI can hide the card entirely; zero is a real,
+    // honest count that's still worth showing once a target role is set.
+    val verifiedSkillCount: Int?,
 )
 
 private fun timeOfDayGreeting(): String = when (LocalTime.now().hour) {
@@ -119,6 +134,7 @@ class HomeViewModel(
     private val careerPathRepository: CareerPathRepository,
     private val atsCheckRepository: AtsCheckRepository,
     private val profileRepository: ProfileRepository,
+    private val careerTwinRepository: CareerTwinRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<HomeData>>(UiState.Loading)
     val uiState: StateFlow<UiState<HomeData>> = _uiState
@@ -131,10 +147,10 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.value = UiState.Loading
 
-            // All six sources are independent -- fetched concurrently instead of one after
+            // All eight sources are independent -- fetched concurrently instead of one after
             // another, since Home is the app's landing screen and every cold start otherwise
             // pays the sum of all latencies instead of the max.
-            val (path, dashboard, alarms, roadmap, careerPath, resumeHealth, targetRoleName) = coroutineScope {
+            val (path, dashboard, alarms, roadmap, careerPath, resumeHealth, targetRoleName, careerTwin) = coroutineScope {
                 val pathDeferred = async { runCatching { placementPathRepository.getCurrent() }.getOrNull() }
                 val dashboardDeferred = async { runCatching { progressRepository.getDashboard() }.getOrNull() }
                 val alarmsDeferred = async {
@@ -152,7 +168,10 @@ class HomeViewModel(
                             ?: profileRepository.getRoles().find { it.id == profile.targetRoleId }?.name
                     }.getOrNull()
                 }
-                Septuple(
+                val careerTwinDeferred = async {
+                    runCatching { careerTwinRepository.getCareerTwin() }.getOrNull()?.takeIf { it.hasRole }
+                }
+                Octuple(
                     pathDeferred.await(),
                     dashboardDeferred.await(),
                     alarmsDeferred.await(),
@@ -160,6 +179,7 @@ class HomeViewModel(
                     careerPathDeferred.await(),
                     resumeHealthDeferred.await(),
                     targetRoleNameDeferred.await(),
+                    careerTwinDeferred.await(),
                 )
             }
 
@@ -184,10 +204,21 @@ class HomeViewModel(
 
             val streakDates = dashboard?.trend.orEmpty().mapNotNull { parseLocalDate(it.createdAt) }
 
+            // Most recently verified skill, by Evidence Engine's own last-verified timestamp --
+            // ISO-8601 timestamps sort correctly as strings, same trick relied on elsewhere in
+            // this file for streak dates. Never a fabricated "well done"; the transition itself
+            // already happened server-side, this just surfaces the newest one.
+            val recentWinSkill = careerTwin?.skills
+                ?.filter { it.state == "verified" && it.lastVerifiedAt != null }
+                ?.maxByOrNull { it.lastVerifiedAt!! }
+                ?.skill
+
             _uiState.value = UiState.Success(
                 HomeData(
                     greeting = timeOfDayGreeting(),
-                    readinessPercent = dashboard?.readinessScore?.let { (it * 100).toInt() },
+                    readinessPercent = careerTwin?.readinessPercent ?: dashboard?.readinessScore?.let { (it * 100).toInt() },
+                    readinessTrendPercent = careerTwin?.readinessTrendPercent,
+                    readinessIsEstimate = careerTwin?.isEstimate ?: false,
                     subMetrics = listOfNotNull(
                         path?.let { ReadinessSubMetric("Roadmap", "${it.progressPercent()}%") },
                         dashboard?.let { ReadinessSubMetric("Tests Completed", "${it.completedAssessments}") },
@@ -203,14 +234,16 @@ class HomeViewModel(
                     careerPath = careerPath,
                     resumeHealth = resumeHealth,
                     targetRoleName = targetRoleName,
-                    biggestGap = dashboard?.topWeaknesses?.firstOrNull(),
+                    biggestGap = careerTwin?.biggestGapSkill ?: dashboard?.topWeaknesses?.firstOrNull(),
+                    recentWinSkill = recentWinSkill,
+                    verifiedSkillCount = careerTwin?.skills?.count { it.state == "verified" },
                 )
             )
         }
     }
 }
 
-private data class Septuple<A, B, C, D, E, F, G>(
+private data class Octuple<A, B, C, D, E, F, G, H>(
     val first: A,
     val second: B,
     val third: C,
@@ -218,4 +251,5 @@ private data class Septuple<A, B, C, D, E, F, G>(
     val fifth: E,
     val sixth: F,
     val seventh: G,
+    val eighth: H,
 )

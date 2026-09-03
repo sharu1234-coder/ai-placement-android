@@ -88,7 +88,11 @@ fun AlarmCreateScreen(
 
     when (val current = eligibility) {
         is EligibilityState.Checking -> LoadingState(modifier = Modifier.fillMaxSize())
-        is EligibilityState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is EligibilityState.Error -> ErrorState(
+            message = current.message,
+            modifier = Modifier.fillMaxSize(),
+            onRetry = viewModel::checkEligibility,
+        )
         is EligibilityState.NotEligible -> Column(
             modifier = Modifier.fillMaxSize().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),

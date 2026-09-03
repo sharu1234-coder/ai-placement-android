@@ -117,6 +117,41 @@ class PlacementAlarmChallengeViewModelTest {
     }
 
     @Test
+    fun `retry recovers from a failed load -- this screen has no other way out`() {
+        val repository = FakePlacementAlarmRepository().apply {
+            startOrResumeResult = { _, _ -> error("network down") }
+        }
+        val viewModel = PlacementAlarmChallengeViewModel(CLIENT_ALARM_ID, ALARM_CONFIG_ID, repository)
+
+        assertTrue(viewModel.uiState.value is ChallengeUiState.Error)
+
+        repository.startOrResumeResult = { _, _ -> challengeState("in_progress", listOf(questionEntity(0, 101))) }
+        viewModel.retry()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is ChallengeUiState.Question)
+        assertEquals(101, (state as ChallengeUiState.Question).question.backendQuestionId)
+    }
+
+    @Test
+    fun `retry recovers a submit failure back to the same unanswered question`() {
+        val repository = FakePlacementAlarmRepository().apply {
+            startOrResumeResult = { _, _ -> challengeState("in_progress", listOf(questionEntity(0, 101))) }
+            submitAnswerImpl = { _, _, _ -> error("network down") }
+        }
+        val viewModel = PlacementAlarmChallengeViewModel(CLIENT_ALARM_ID, ALARM_CONFIG_ID, repository)
+
+        viewModel.submitAnswer(101, "A")
+        assertTrue(viewModel.uiState.value is ChallengeUiState.Error)
+
+        viewModel.retry()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is ChallengeUiState.Question)
+        assertEquals(101, (state as ChallengeUiState.Question).question.backendQuestionId)
+    }
+
+    @Test
     fun `the sixth correct answer reaches Completed`() {
         val repository = FakePlacementAlarmRepository().apply {
             startOrResumeResult = { _, _ -> challengeState("in_progress", listOf(questionEntity(5, 106))) }

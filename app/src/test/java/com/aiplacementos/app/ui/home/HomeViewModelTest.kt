@@ -2,14 +2,17 @@ package com.aiplacementos.app.ui.home
 
 import com.aiplacementos.app.MainDispatcherRule
 import com.aiplacementos.app.data.remote.AtsCheckListItemDto
+import com.aiplacementos.app.data.remote.CareerTwinDto
 import com.aiplacementos.app.data.remote.NextBestActionDto
 import com.aiplacementos.app.data.remote.PlacementPathDto
 import com.aiplacementos.app.data.remote.ProgressDashboardDto
 import com.aiplacementos.app.data.remote.ProgressTrendPointDto
 import com.aiplacementos.app.data.remote.RoadmapDto
 import com.aiplacementos.app.data.remote.RoadmapTaskDto
+import com.aiplacementos.app.data.remote.SkillTwinItemDto
 import com.aiplacementos.app.fakes.FakeAtsCheckRepository
 import com.aiplacementos.app.fakes.FakeCareerPathRepository
+import com.aiplacementos.app.fakes.FakeCareerTwinRepository
 import com.aiplacementos.app.fakes.FakePlacementAlarmRepository
 import com.aiplacementos.app.fakes.FakePlacementPathRepository
 import com.aiplacementos.app.fakes.FakeProfileRepository
@@ -48,10 +51,15 @@ class HomeViewModelTest {
         trend = trend,
     )
 
+    /** hasRole=false by default -- matches the real repository's "no target role yet" shape and
+     * keeps every pre-existing dashboard-only test asserting the old fallback behavior. */
+    private fun noRoleCareerTwin() = CareerTwinDto(hasRole = false, roleSource = "none")
+
     private fun viewModel(
         path: PlacementPathDto? = path(),
         dashboard: ProgressDashboardDto? = dashboard(),
         roadmap: RoadmapDto? = null,
+        careerTwin: CareerTwinDto = noRoleCareerTwin(),
     ): HomeViewModel {
         val placementPathRepository = FakePlacementPathRepository().apply { currentResult = { path } }
         val progressRepository = FakeProgressRepository().apply {
@@ -61,6 +69,7 @@ class HomeViewModelTest {
         val roadmapRepository = FakeRoadmapRepository().apply { currentResult = { roadmap } }
         val careerPathRepository = FakeCareerPathRepository().apply { currentResult = { null } }
         val atsCheckRepository = FakeAtsCheckRepository()
+        val careerTwinRepository = FakeCareerTwinRepository().apply { careerTwinResult = { careerTwin } }
         return HomeViewModel(
             placementPathRepository,
             progressRepository,
@@ -69,6 +78,7 @@ class HomeViewModelTest {
             careerPathRepository,
             atsCheckRepository,
             FakeProfileRepository(),
+            careerTwinRepository,
         )
     }
 
@@ -172,6 +182,7 @@ class HomeViewModelTest {
             FakeCareerPathRepository().apply { currentResult = { null } },
             atsCheckRepository,
             FakeProfileRepository(),
+            FakeCareerTwinRepository().apply { careerTwinResult = { noRoleCareerTwin() } },
         )
 
         val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
@@ -227,6 +238,7 @@ class HomeViewModelTest {
             careerPathRepository,
             atsCheckRepository,
             FakeProfileRepository(),
+            FakeCareerTwinRepository().apply { careerTwinResult = { noRoleCareerTwin() } },
         )
 
         val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
@@ -247,6 +259,7 @@ class HomeViewModelTest {
             FakeCareerPathRepository().apply { currentResult = { null } },
             FakeAtsCheckRepository(),
             profileRepository,
+            FakeCareerTwinRepository().apply { careerTwinResult = { noRoleCareerTwin() } },
         )
 
         val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
@@ -288,5 +301,47 @@ class HomeViewModelTest {
         )
         // The OTHER sources (placement path) still populate normally.
         assertEquals("SQL JOINs", data.nextBestActionTitle)
+    }
+
+    @Test
+    fun `career twin readiness replaces the dashboard readiness once a target role is set`() {
+        val twin = CareerTwinDto(
+            hasRole = true,
+            roleSource = "career_path",
+            readinessPercent = 82,
+            readinessTrendPercent = 6,
+            isEstimate = true,
+            biggestGapSkill = "System Design",
+        )
+
+        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
+
+        assertEquals(82, data.readinessPercent)
+        assertEquals(6, data.readinessTrendPercent)
+        assertTrue(data.readinessIsEstimate)
+        // Career Twin's biggest gap takes priority over the dashboard's top weakness.
+        assertEquals("System Design", data.biggestGap)
+    }
+
+    @Test
+    fun `recent win surfaces the most recently verified skill, or null when none is verified yet`() {
+        val twin = CareerTwinDto(
+            hasRole = true,
+            roleSource = "career_path",
+            skills = listOf(
+                SkillTwinItemDto(skill = "SQL", weight = 1f, confidencePercent = 90, state = "verified", lastVerifiedAt = "2026-01-01T00:00:00Z"),
+                SkillTwinItemDto(skill = "Python", weight = 1f, confidencePercent = 95, state = "verified", lastVerifiedAt = "2026-02-01T00:00:00Z"),
+                SkillTwinItemDto(skill = "DSA", weight = 1f, confidencePercent = 40, state = "supported"),
+            ),
+        )
+
+        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
+
+        assertEquals("Python", data.recentWinSkill)
+        assertEquals(2, data.verifiedSkillCount)
+
+        val noEvidence = (viewModel().uiState.value as UiState.Success<HomeData>).data
+        assertNull(noEvidence.recentWinSkill)
+        assertNull(noEvidence.verifiedSkillCount)
     }
 }

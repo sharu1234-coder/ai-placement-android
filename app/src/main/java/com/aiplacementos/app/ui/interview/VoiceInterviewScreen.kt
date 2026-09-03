@@ -108,7 +108,11 @@ fun VoiceInterviewScreen(jdId: Int, type: String = "technical", onFinish: (inter
     when (val current = state) {
         is VoiceInterviewUiState.Starting -> LoadingState(modifier = Modifier.fillMaxSize())
         is VoiceInterviewUiState.Completed -> LoadingState(modifier = Modifier.fillMaxSize())
-        is VoiceInterviewUiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is VoiceInterviewUiState.Error -> ErrorState(
+            message = current.message,
+            modifier = Modifier.fillMaxSize(),
+            onRetry = viewModel::retry,
+        )
         is VoiceInterviewUiState.Turn -> TurnContent(
             question = current.question,
             phase = current.phase,

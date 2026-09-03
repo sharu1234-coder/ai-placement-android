@@ -48,7 +48,11 @@ fun ProgressDashboardScreen() {
 
     when (val current = state) {
         is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-        is UiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is UiState.Error -> ErrorState(
+            message = current.message,
+            modifier = Modifier.fillMaxSize(),
+            onRetry = viewModel::load,
+        )
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
         is UiState.Success<ProgressDashboardDto> -> DashboardContent(current.data)
     }

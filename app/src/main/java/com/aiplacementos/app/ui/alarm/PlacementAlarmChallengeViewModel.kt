@@ -39,6 +39,15 @@ class PlacementAlarmChallengeViewModel(
         loadInitial()
     }
 
+    /** Public retry entry point -- this screen blocks the system Back gesture (it's the only
+     * way to silence a ringing alarm), so a failed load/submit must never be a permanent
+     * dead end. Resets to Loading first so a repeated failure re-renders a fresh Error
+     * rather than silently no-oping (loadInitial's catch only replaces a Loading state). */
+    fun retry() {
+        _uiState.value = ChallengeUiState.Loading
+        loadInitial()
+    }
+
     private fun loadInitial() {
         viewModelScope.launch {
             // Render instantly from whatever's cached (offline-friendly, survives process

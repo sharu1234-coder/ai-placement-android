@@ -103,6 +103,15 @@ private fun SubscriptionsContent(
             )
         }
 
+        if (data.plans.isEmpty()) {
+            item {
+                Text(
+                    text = "No plans are available right now -- check back later.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         items(data.plans, key = { it.plan }) { plan ->
             val isProcessingThisPlan = purchaseState is PurchaseState.Processing && purchaseState.plan == plan.plan
             val isProcessingAnyPlan = purchaseState is PurchaseState.Processing

@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import com.aiplacementos.app.database.entity.NotificationEntity
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.EmptyState
@@ -75,7 +76,25 @@ private fun NotificationRow(notification: NotificationEntity, onClick: () -> Uni
         },
     ) {
         Column {
-            Text(text = notification.title, style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = notification.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    // Unread state must not be color-only (the card tint alone isn't a
+                    // reliable cue for colorblind/low-vision users) -- bold weight is a real,
+                    // non-color difference, plus the explicit "New" tag below.
+                    fontWeight = if (notification.read) FontWeight.Normal else FontWeight.Bold,
+                )
+                if (!notification.read) {
+                    Text(
+                        text = "•  New",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = Spacing.xs),
+                    )
+                }
+            }
             if (!notification.body.isNullOrBlank()) {
                 Text(
                     text = notification.body,

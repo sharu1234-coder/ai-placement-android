@@ -75,7 +75,11 @@ fun PlacementAlarmChallengeScreen(
     when (val current = state) {
         is ChallengeUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
         is ChallengeUiState.Completed -> ChallengeCompletionScreen(onDone = onDone)
-        is ChallengeUiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is ChallengeUiState.Error -> ErrorState(
+            message = current.message,
+            modifier = Modifier.fillMaxSize(),
+            onRetry = viewModel::retry,
+        )
         is ChallengeUiState.Question -> QuestionCard(
             index = current.index,
             question = current.question,

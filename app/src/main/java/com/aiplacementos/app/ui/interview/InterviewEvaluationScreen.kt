@@ -40,7 +40,11 @@ fun InterviewEvaluationScreen(interviewId: Int, onContinue: () -> Unit) {
 
     when (val current = state) {
         is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-        is UiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is UiState.Error -> ErrorState(
+            message = current.message,
+            modifier = Modifier.fillMaxSize(),
+            onRetry = viewModel::load,
+        )
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
         is UiState.Success<InterviewEvaluationDto> -> EvaluationSummary(current.data, onContinue)
     }
@@ -121,6 +125,7 @@ private fun EvaluationSummary(evaluation: InterviewEvaluationDto, onContinue: ()
                     )
                 }
             }
+            item { WeaknessMemorySection() }
         }
 
         PrimaryButton(
@@ -136,4 +141,22 @@ private fun EvaluationSummary(evaluation: InterviewEvaluationDto, onContinue: ()
 @Composable
 private fun DimensionBar(label: String, score: Double) {
     SkillBar(label = label, percent = (score * 100).roundToInt())
+}
+
+/** Fetched via its own small ViewModel rather than folded into InterviewEvaluationViewModel,
+ * same "independent, self-contained widget" convention as CareerTwinScreen's
+ * NextBestActionSection and Home's TodaysMissionSection. Renders nothing while loading or when
+ * there's no cross-interview history yet -- a student's very first interview has nothing to
+ * show here, which is correct, not an error. */
+@Composable
+private fun WeaknessMemorySection() {
+    val network = networkModule()
+    val viewModel: InterviewMemoryViewModel = viewModel(
+        factory = viewModelFactory { initializer { InterviewMemoryViewModel(network.weaknessRepository) } },
+    )
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val current = state
+    if (current is InterviewMemoryUiState.Success && current.records.isNotEmpty()) {
+        WeaknessMemoryCard(records = current.records)
+    }
 }

@@ -50,7 +50,11 @@ fun TestTakingScreen(assessmentId: Int, onFinish: () -> Unit) {
     when (val current = state) {
         is TestTakingUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
         is TestTakingUiState.Completed -> LoadingState(modifier = Modifier.fillMaxSize())
-        is TestTakingUiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is TestTakingUiState.Error -> ErrorState(
+            message = current.message,
+            modifier = Modifier.fillMaxSize(),
+            onRetry = viewModel::loadNext,
+        )
         is TestTakingUiState.Question -> QuestionCard(
             question = current.question,
             onSubmit = { answer -> viewModel.submitAnswer(answer) },

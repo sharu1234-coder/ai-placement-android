@@ -35,7 +35,11 @@ fun TestListScreen(blueprintId: Int, onStartTest: (assessmentId: Int) -> Unit) {
 
     when (val current = state) {
         is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-        is UiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is UiState.Error -> ErrorState(
+            message = current.message,
+            modifier = Modifier.fillMaxSize(),
+            onRetry = viewModel::start,
+        )
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
         is UiState.Success<AssessmentDto> -> ReadyToStart(
             onBegin = { onStartTest(current.data.id) },

@@ -116,6 +116,46 @@ sealed class Screen(val route: String) {
     data object CareerPathInterviewPrep : Screen("career-path/{pathId}/interview-prep")
     data object CareerPathReadiness : Screen("career-path/{pathId}/readiness")
     data object CareerPathSavedRoles : Screen("career-path/saved")
+
+    // Career Twin -- a continuously-updated readiness view composed server-side from Evidence
+    // Engine + Skill Graph + whichever of Career Path/target role is active. Read-only: never
+    // writes to Career Path, Placement Path, or the profile's target role. Single screen for
+    // now (no path params) -- per-skill drill-down reuses this same screen's data.
+    data object CareerTwin : Screen("career-twin")
+
+    // Skill Passport -- per-skill evidence deep-dive over the same server-side Evidence
+    // Engine Career Twin reads. Independent screens/ViewModels; never calls into Career Twin.
+    data object SkillPassport : Screen("skill-passport")
+    data object SkillPassportDetail : Screen("skill-passport/{skill}")
+
+    // Project Builder -- a guided, staged build of one real project. A completed build
+    // automatically feeds Evidence Engine as a new project source and unlocks Project->Proof;
+    // never reads/writes Career Path's own project *recommendations* (CareerPathProject).
+    data object ProjectBuilderList : Screen("project-builder")
+    data object ProjectBuilderCreate : Screen("project-builder/create")
+    data object ProjectBuilderDetail : Screen("project-builder/{buildId}/detail")
+    data object ProjectBuilderProof : Screen("project-builder/{buildId}/proof")
+
+    // Recruiter Attack -- a skeptical AI recruiter fires a bounded series of follow-up
+    // questions at one real, verifiable claim (a completed Project Builder build, or a
+    // substring picked from the student's own resume), then grades the defense. Feeds
+    // Interview Memory and Evidence Engine on completion, same as Project->Proof; never
+    // reads/writes ProjectBuilder's own stage state.
+    data object RecruiterAttackList : Screen("recruiter-attack")
+    data object RecruiterAttackCreate : Screen("recruiter-attack/create")
+    data object RecruiterAttackSession : Screen("recruiter-attack/{sessionId}/session")
+    data object RecruiterAttackResults : Screen("recruiter-attack/{sessionId}/results")
+
+    // Career Decision Lab -- a stateless "what if" simulation comparing 2-3 candidate roles
+    // side by side, reusing Career Twin's own readiness math. Nothing is persisted server-side
+    // (see career_decision_service's docstring); this screen owns no other state either.
+    data object CareerDecisionLab : Screen("career-decision-lab")
+
+    // Placement Arena -- a timed-mode + personal-best wrapper around the existing Assessment
+    // engine. ArenaSession reuses TestTakingScreen unchanged for the actual Q&A (see
+    // ArenaSessionScreen), so it needs the real assessmentId alongside the arena attempt id.
+    data object ArenaList : Screen("arena")
+    data object ArenaSession : Screen("arena/{arenaAttemptId}/{assessmentId}/{timeLimitSeconds}/session")
 }
 
 fun resumeUploadRoute(jdId: Int): String = "prepare-me/resume-upload/$jdId"
@@ -136,6 +176,12 @@ fun placementPathTopicDetailRoute(topicId: Int): String = "placement-path/topic-
 fun jdAnalyzerResultRoute(jdId: Int): String = "jd-analyzer/result/$jdId"
 fun alarmEditRoute(alarmId: Long): String = "placement-alarm/edit/$alarmId"
 fun interviewHistoryDetailRoute(interviewId: Int): String = "mock-interview/history/$interviewId"
+fun projectBuilderDetailRoute(buildId: Int): String = "project-builder/$buildId/detail"
+fun projectBuilderProofRoute(buildId: Int): String = "project-builder/$buildId/proof"
+fun recruiterAttackSessionRoute(sessionId: Int): String = "recruiter-attack/$sessionId/session"
+fun recruiterAttackResultsRoute(sessionId: Int): String = "recruiter-attack/$sessionId/results"
+fun arenaSessionRoute(arenaAttemptId: Int, assessmentId: Int, timeLimitSeconds: Int): String =
+    "arena/$arenaAttemptId/$assessmentId/$timeLimitSeconds/session"
 
 // "" is the "no target role" sentinel (matching this codebase's existing jdId=0 convention
 // for optional route args) -- Uri.encode/decode because a free-typed role like "AI/ML
@@ -157,3 +203,7 @@ fun careerPathProjectDetailRoute(pathId: Int, projectId: Int): String = "career-
 fun careerPathResumeConnectionRoute(pathId: Int): String = "career-path/$pathId/resume-connection"
 fun careerPathInterviewPrepRoute(pathId: Int): String = "career-path/$pathId/interview-prep"
 fun careerPathReadinessRoute(pathId: Int): String = "career-path/$pathId/readiness"
+
+// Uri.encode -- a skill name can contain spaces/parentheses (e.g. "Databases (SQL)") which
+// would otherwise break path segmentation, same rationale as atsCheckAnalyzingRoute's targetRole.
+fun skillPassportDetailRoute(skill: String): String = "skill-passport/${android.net.Uri.encode(skill)}"

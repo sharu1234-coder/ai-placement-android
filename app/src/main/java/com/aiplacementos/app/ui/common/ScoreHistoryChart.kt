@@ -8,6 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /**
@@ -24,7 +26,21 @@ fun ScoreHistoryChart(
 ) {
     if (scores.size < 2) return
 
-    Canvas(modifier = modifier.fillMaxWidth().height(120.dp)) {
+    // A hand-drawn Canvas has zero built-in semantics -- a screen-reader user would get
+    // nothing from this chart otherwise. A short trend summary is more useful here than
+    // per-point detail, which the raw chart doesn't cleanly expose either.
+    val trend = scores.last() - scores.first()
+    val trendDescription = when {
+        trend > 0 -> "up ${trend} points"
+        trend < 0 -> "down ${-trend} points"
+        else -> "unchanged"
+    }
+    val description = "Score trend chart: from ${scores.first()} to ${scores.last()} " +
+        "over ${scores.size} attempts, $trendDescription."
+
+    Canvas(
+        modifier = modifier.fillMaxWidth().height(120.dp).semantics { contentDescription = description },
+    ) {
         val minScore = (scores.min() - 5).coerceAtLeast(0)
         val maxScore = (scores.max() + 5).coerceAtMost(100)
         val range = (maxScore - minScore).coerceAtLeast(1)

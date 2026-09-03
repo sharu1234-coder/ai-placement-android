@@ -3,11 +3,14 @@ package com.aiplacementos.app.ui.onboarding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,8 +87,16 @@ fun OnboardingExperienceLevelScreen(onNext: () -> Unit) {
                         onClick = { selectedLevel = value },
                     ),
                 ) {
-                    Text(text = value.replaceFirstChar(Char::uppercase), style = MaterialTheme.typography.titleMedium)
-                    Text(text = description, style = MaterialTheme.typography.bodyMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Selection must not be color-only -- the filled/empty radio glyph is
+                        // a real shape difference, not just the card's tint (see Phase 15's
+                        // accessibility audit for the same category of fix elsewhere).
+                        RadioButton(selected = isSelected, onClick = null)
+                        Column {
+                            Text(text = value.replaceFirstChar(Char::uppercase), style = MaterialTheme.typography.titleMedium)
+                            Text(text = description, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                 }
             }
             PrimaryButton(

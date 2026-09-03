@@ -23,5 +23,5 @@ fun TermsScreen() {
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LegalDocumentContent(state)
+    LegalDocumentContent(state, onRetry = viewModel::load)
 }

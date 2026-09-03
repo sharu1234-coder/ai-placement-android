@@ -35,6 +35,15 @@ class VoiceInterviewViewModel(
         start()
     }
 
+    /** Error never preserves which turn/question was in progress (it's just a message), so a
+     * uniform recovery is the only option -- and it's the correct one for every failure path
+     * here: nothing is ever submitted to the server until stopRecordingAndSubmit succeeds, so
+     * re-fetching "next question" once an interview exists always lands back on the exact
+     * same still-pending question, never skips or duplicates one. */
+    fun retry() {
+        if (interviewId != null) loadNextTurn() else start()
+    }
+
     private fun start() {
         viewModelScope.launch {
             _uiState.value = VoiceInterviewUiState.Starting

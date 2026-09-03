@@ -12,9 +12,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
@@ -45,12 +47,21 @@ import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
+import com.aiplacementos.app.ui.common.NextBestActionCard
 import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkeletonText
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
+import com.aiplacementos.app.ui.mission.TodaysMissionCard
+import com.aiplacementos.app.ui.mission.TodaysMissionUiState
+import com.aiplacementos.app.ui.mission.TodaysMissionViewModel
+import com.aiplacementos.app.ui.nextbestaction.NextBestActionUiState
+import com.aiplacementos.app.ui.nextbestaction.NextBestActionViewModel
+import com.aiplacementos.app.ui.notifications.NotificationSyncSection
 import com.aiplacementos.app.ui.theme.Spacing
+import com.aiplacementos.app.ui.theme.successColor
+import com.aiplacementos.app.ui.theme.warningColor
 
 @Composable
 fun HomeScreen(
@@ -62,6 +73,8 @@ fun HomeScreen(
     onOpenAtsCheck: (checkId: Int?) -> Unit,
     onOpenPractice: () -> Unit,
     onOpenTests: () -> Unit,
+    onOpenCareerTwin: () -> Unit,
+    onOpenSkillPassport: () -> Unit,
 ) {
     val network = networkModule()
     val viewModel: HomeViewModel = viewModel(
@@ -75,11 +88,16 @@ fun HomeScreen(
                     network.careerPathRepository,
                     network.atsCheckRepository,
                     network.profileRepository,
+                    network.careerTwinRepository,
                 )
             }
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Invisible -- runs regardless of Home's own load state, so a pending server-detected
+    // notification is synced even if the dashboard's own data happens to be loading/erroring.
+    NotificationSyncSection()
 
     when (val current = state) {
         is UiState.Loading -> HomeLoadingSkeleton()
@@ -104,6 +122,8 @@ fun HomeScreen(
             onOpenAtsCheck = onOpenAtsCheck,
             onOpenPractice = onOpenPractice,
             onOpenTests = onOpenTests,
+            onOpenCareerTwin = onOpenCareerTwin,
+            onOpenSkillPassport = onOpenSkillPassport,
         )
     }
 }
@@ -132,6 +152,8 @@ private fun HomeContent(
     onOpenAtsCheck: (checkId: Int?) -> Unit,
     onOpenPractice: () -> Unit,
     onOpenTests: () -> Unit,
+    onOpenCareerTwin: () -> Unit,
+    onOpenSkillPassport: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
@@ -146,7 +168,27 @@ private fun HomeContent(
             )
         }
 
-        item { PlacementReadinessCard(data, onOpenPlacementPath) }
+        // Home Intelligence core: one readiness number (Career Twin's, once a target role is
+        // set), Today's Mission, then the Career Twin-derived signals -- biggest gap, most
+        // recent evidence win, and verified-skill proof count -- followed by the cross-feature
+        // Next Best Action recommendation. Matches the reference image's Home layout order.
+        item { CareerReadinessCard(data, onOpenCareerTwin) }
+
+        item { TodaysMissionSection() }
+
+        if (data.biggestGap != null) {
+            item { BiggestGapCard(data.biggestGap, onOpenCareerTwin) }
+        }
+
+        if (data.recentWinSkill != null) {
+            item { RecentWinCard(data.recentWinSkill, onOpenCareerTwin) }
+        }
+
+        if (data.verifiedSkillCount != null) {
+            item { ProofOfSkillCard(data.verifiedSkillCount, onOpenSkillPassport) }
+        }
+
+        item { NextMilestoneSection() }
 
         item {
             QuickAccessGrid(
@@ -157,11 +199,7 @@ private fun HomeContent(
             )
         }
 
-        if (data.biggestGap != null) {
-            item { BiggestGapCard(data.biggestGap, onOpenPlacementPath) }
-        }
-
-        // Deliberately its own card, not merged into PlacementReadinessCard above -- Career
+        // Deliberately its own card, not merged into CareerReadinessCard above -- Career
         // Path is an independent feature with its own progress model.
         val careerPath = data.careerPath
         if (careerPath != null) {
@@ -230,14 +268,18 @@ private fun HomeContent(
     }
 }
 
+/** The one authoritative readiness number on Home -- Career Twin's, once a target role/twin
+ * exists, falling back to the older Placement Path dashboard score only when there's no twin
+ * yet. Deliberately replaces the old PlacementReadinessCard rather than adding a second
+ * readiness card next to it (Phase 12 decision: one number, not two). */
 @Composable
-private fun PlacementReadinessCard(data: HomeData, onClick: () -> Unit) {
+private fun CareerReadinessCard(data: HomeData, onClick: () -> Unit) {
     AppCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         containerColor = MaterialTheme.colorScheme.primaryContainer,
     ) {
         Text(
-            text = "Placement Readiness",
+            text = "Career Readiness",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
@@ -253,6 +295,15 @@ private fun PlacementReadinessCard(data: HomeData, onClick: () -> Unit) {
                 )
             }
             Column(modifier = Modifier.padding(start = Spacing.md)) {
+                val trend = data.readinessTrendPercent
+                if (trend != null) {
+                    val sign = if (trend >= 0) "+" else ""
+                    Text(
+                        text = "$sign$trend% this week",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (trend >= 0) successColor() else warningColor(),
+                    )
+                }
                 data.subMetrics.forEach { metric ->
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         Icon(
@@ -271,6 +322,14 @@ private fun PlacementReadinessCard(data: HomeData, onClick: () -> Unit) {
                 }
             }
         }
+        if (data.readinessIsEstimate) {
+            Text(
+                text = "Estimated -- this role's skill list isn't fully verified yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+        }
         Text(
             text = data.nextBestActionTitle?.let { "Today's focus: $it" }
                 ?: "Generate your personalized roadmap to get started.",
@@ -281,7 +340,74 @@ private fun PlacementReadinessCard(data: HomeData, onClick: () -> Unit) {
     }
 }
 
-/** "How do I become job-ready for role X" -- a distinct question from PlacementReadinessCard
+/** A real, timestamped Evidence Engine state transition -- never a fabricated "well done." */
+@Composable
+private fun RecentWinCard(skill: String, onClick: () -> Unit) {
+    AppCard(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.EmojiEvents,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.size(32.dp),
+            )
+            Column(modifier = Modifier.padding(start = Spacing.md)) {
+                Text(
+                    text = "Recent Win",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Text(
+                    text = "$skill just reached Verified status.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
+        }
+    }
+}
+
+/** Zero is a real, honest count worth showing (not hidden as if it were an error) -- this card
+ * only disappears entirely when there's no Career Twin data at all (see HomeData.verifiedSkillCount). */
+@Composable
+private fun ProofOfSkillCard(verifiedSkillCount: Int, onClick: () -> Unit) {
+    AppCard(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.Badge,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(32.dp),
+            )
+            Column(modifier = Modifier.padding(start = Spacing.md)) {
+                Text(
+                    text = "Proof of Skill",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                Text(
+                    text = if (verifiedSkillCount == 1) {
+                        "1 skill backed by real, verified evidence."
+                    } else {
+                        "$verifiedSkillCount skills backed by real, verified evidence."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
+    }
+}
+
+/** "How do I become job-ready for role X" -- a distinct question from CareerReadinessCard
  * above ("what should I work on in my current learning plan"), so this is its own card
  * sourced from an entirely separate repository/state, never merged into that one. */
 @Composable
@@ -549,5 +675,44 @@ private fun StreakCard(days: Int) {
                 )
             }
         }
+    }
+}
+
+/** Fetched via its own small ViewModel rather than folded into HomeViewModel's 8-source
+ * concurrent fetch, same "independent, self-contained widget" convention as
+ * CareerTwinScreen's NextBestActionSection -- a loading/error state here renders nothing
+ * rather than disrupting the rest of Home. */
+@Composable
+private fun TodaysMissionSection() {
+    val network = networkModule()
+    val viewModel: TodaysMissionViewModel = viewModel(
+        factory = viewModelFactory { initializer { TodaysMissionViewModel(network.missionRepository) } },
+    )
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val current = state
+    if (current is TodaysMissionUiState.Success) {
+        TodaysMissionCard(
+            mission = current.mission,
+            onStart = viewModel::start,
+            onComplete = viewModel::complete,
+        )
+    }
+}
+
+/** Same self-contained-widget convention as TodaysMissionSection above -- Next Best Action is
+ * a cross-feature ranked recommendation (see next_best_action_service.py's 9-tier priority
+ * order), already built as the reusable NextBestActionCard for Career Twin; Home just embeds
+ * it via its own small ViewModel instead of folding a ninth source into HomeViewModel's
+ * concurrent fetch. A loading/error state here renders nothing rather than disrupting Home. */
+@Composable
+private fun NextMilestoneSection() {
+    val network = networkModule()
+    val viewModel: NextBestActionViewModel = viewModel(
+        factory = viewModelFactory { initializer { NextBestActionViewModel(network.nextBestActionRepository) } },
+    )
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val current = state
+    if (current is NextBestActionUiState.Success) {
+        NextBestActionCard(action = current.action)
     }
 }

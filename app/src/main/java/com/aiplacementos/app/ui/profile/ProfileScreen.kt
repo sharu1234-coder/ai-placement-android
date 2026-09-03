@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -368,8 +370,15 @@ private fun ExperienceLevelSection(initialLevel: String?, saving: Boolean, onSav
                         onClick = { selectedLevel = value },
                     ),
                 ) {
-                    Text(text = value.replaceFirstChar(Char::uppercase), style = MaterialTheme.typography.titleSmall)
-                    Text(text = description, style = MaterialTheme.typography.bodySmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Selection must not be color-only -- the filled/empty radio glyph is
+                        // a real shape difference, not just the card's tint.
+                        RadioButton(selected = isSelected, onClick = null, enabled = !saving)
+                        Column {
+                            Text(text = value.replaceFirstChar(Char::uppercase), style = MaterialTheme.typography.titleSmall)
+                            Text(text = description, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
             }
             PrimaryButton(

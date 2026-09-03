@@ -37,7 +37,11 @@ fun PlacementPathTopicDetailScreen(topicId: Int, onStartPractice: (blueprintId: 
 
     when (val current = state) {
         is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-        is UiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is UiState.Error -> ErrorState(
+            message = current.message,
+            modifier = Modifier.fillMaxSize(),
+            onRetry = viewModel::load,
+        )
         is UiState.Empty -> EmptyState(message = "This topic couldn't be found.", modifier = Modifier.fillMaxSize())
         is UiState.Success -> TopicDetailContent(
             topic = current.data,

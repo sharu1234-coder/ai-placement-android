@@ -6,31 +6,31 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class FakeNotificationRepository : NotificationRepository {
-    private val notificationsFlow = MutableStateFlow<List<NotificationEntity>>(emptyList())
-    private var nextId = 1L
+    data class RecordedCall(val title: String, val body: String?, val receivedAt: Long)
 
-    var lastMarkedReadId: Long? = null
+    private val _entities = MutableStateFlow<List<NotificationEntity>>(emptyList())
+    val recorded = mutableListOf<RecordedCall>()
+    var markAllReadCalled = false
 
     fun setNotifications(notifications: List<NotificationEntity>) {
-        notificationsFlow.value = notifications
+        _entities.value = notifications
     }
 
-    override fun observeAll(): Flow<List<NotificationEntity>> = notificationsFlow
+    override fun observeAll(): Flow<List<NotificationEntity>> = _entities
 
     override suspend fun record(title: String, body: String?, receivedAt: Long) {
-        val entity = NotificationEntity(id = nextId++, title = title, body = body, receivedAt = receivedAt)
-        notificationsFlow.value = listOf(entity) + notificationsFlow.value
+        recorded.add(RecordedCall(title, body, receivedAt))
+        _entities.value = _entities.value + NotificationEntity(
+            id = recorded.size.toLong(), title = title, body = body, receivedAt = receivedAt,
+        )
     }
 
     override suspend fun markRead(id: Long) {
-        lastMarkedReadId = id
-        notificationsFlow.value = notificationsFlow.value.map { if (it.id == id) it.copy(read = true) else it }
+        _entities.value = _entities.value.map { if (it.id == id) it.copy(read = true) else it }
     }
-
-    var markAllReadCalled: Boolean = false
 
     override suspend fun markAllRead() {
         markAllReadCalled = true
-        notificationsFlow.value = notificationsFlow.value.map { it.copy(read = true) }
+        _entities.value = _entities.value.map { it.copy(read = true) }
     }
 }

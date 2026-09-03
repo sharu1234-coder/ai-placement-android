@@ -46,7 +46,11 @@ fun TextInterviewScreen(jdId: Int, type: String = "technical", onFinish: () -> U
     when (val current = state) {
         is TextInterviewUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
         is TextInterviewUiState.Completed -> LoadingState(modifier = Modifier.fillMaxSize())
-        is TextInterviewUiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize())
+        is TextInterviewUiState.Error -> ErrorState(
+            message = current.message,
+            modifier = Modifier.fillMaxSize(),
+            onRetry = viewModel::retry,
+        )
         is TextInterviewUiState.Question -> QuestionCard(
             question = current.question,
             submitting = current.submitting,
