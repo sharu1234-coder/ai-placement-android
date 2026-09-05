@@ -1,5 +1,6 @@
 package com.aiplacementos.app.ui.interview
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.InterviewQuestionDto
@@ -25,14 +26,26 @@ class TextInterviewViewModel(
     private val jdId: Int,
     private val type: String,
     private val interviewRepository: InterviewRepository,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private var interviewId: Int? = null
+    // Backed by SavedStateHandle (not a plain var) so it survives process death -- otherwise
+    // a killed-and-recreated ViewModel had no memory of the interview it already created,
+    // and start() below would silently begin a brand-new 5-question session, abandoning
+    // whatever the student had already answered server-side.
+    private var interviewId: Int?
+        get() = savedStateHandle["interviewId"]
+        set(value) {
+            savedStateHandle["interviewId"] = value
+        }
 
     private val _uiState = MutableStateFlow<TextInterviewUiState>(TextInterviewUiState.Loading)
     val uiState: StateFlow<TextInterviewUiState> = _uiState.asStateFlow()
 
     init {
-        start()
+        // A restored interviewId means this instance was recreated after process death/
+        // rotation mid-interview -- resume the same interview's next pending question
+        // instead of starting over.
+        if (interviewId != null) loadNext() else start()
     }
 
     /** Nothing is submitted server-side until submitAnswer succeeds, so once an interview

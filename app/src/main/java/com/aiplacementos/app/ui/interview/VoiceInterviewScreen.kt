@@ -40,6 +40,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -60,7 +61,9 @@ fun VoiceInterviewScreen(jdId: Int, type: String = "technical", onFinish: (inter
     val manager = remember { VoiceInterviewManager(context.applicationContext, network.interviewRepository) }
     val viewModel: VoiceInterviewViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { VoiceInterviewViewModel(jdId, type, manager, network.interviewRepository) }
+            initializer {
+                VoiceInterviewViewModel(jdId, type, manager, network.interviewRepository, createSavedStateHandle())
+            }
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()

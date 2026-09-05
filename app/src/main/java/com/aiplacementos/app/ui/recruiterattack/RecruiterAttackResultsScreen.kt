@@ -20,7 +20,6 @@ import com.aiplacementos.app.data.remote.RecruiterAttackResultsDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
-import com.aiplacementos.app.ui.common.PaywallGate
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SkillBar
@@ -32,7 +31,7 @@ import com.aiplacementos.app.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 @Composable
-fun RecruiterAttackResultsScreen(sessionId: Int, onDone: () -> Unit, onUpgrade: () -> Unit) {
+fun RecruiterAttackResultsScreen(sessionId: Int, onDone: () -> Unit) {
     val network = networkModule()
     val viewModel: RecruiterAttackResultsViewModel = viewModel(
         factory = viewModelFactory {
@@ -48,12 +47,12 @@ fun RecruiterAttackResultsScreen(sessionId: Int, onDone: () -> Unit, onUpgrade: 
             modifier = Modifier.fillMaxSize(),
             onRetry = viewModel::load,
         )
-        is RecruiterAttackResultsUiState.Success -> ResultsSummary(current.results, onDone, onUpgrade)
+        is RecruiterAttackResultsUiState.Success -> ResultsSummary(current.results, onDone)
     }
 }
 
 @Composable
-private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Unit, onUpgrade: () -> Unit) {
+private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(Spacing.md)) {
         Text(text = "How you defended it", style = MaterialTheme.typography.headlineSmall)
 
@@ -109,13 +108,7 @@ private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Uni
                 }
             }
             item {
-                PaywallGate(
-                    title = "See Your Recurring Weakness Pattern",
-                    description = "Premium unlocks your cross-session Weakness Memory -- the patterns that keep showing up.",
-                    onUpgrade = onUpgrade,
-                ) {
-                    WeaknessMemorySection()
-                }
+                WeaknessMemorySection()
             }
         }
 

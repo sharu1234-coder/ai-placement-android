@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +48,7 @@ import com.aiplacementos.app.data.remote.AtsCheckReportDto
 import com.aiplacementos.app.data.remote.AtsIssueDto
 import com.aiplacementos.app.data.remote.CategoryBreakdownDto
 import com.aiplacementos.app.ui.common.AppCard
+import com.aiplacementos.app.ui.common.DetailTopBar
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SkeletonCircle
@@ -60,6 +62,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AtsCheckResultScreen(
     checkId: Int,
+    onBack: () -> Unit,
     onOpenCategory: (category: String) -> Unit,
     onOpenSectionAnalysis: () -> Unit,
     onOpenIssues: () -> Unit,
@@ -72,28 +75,71 @@ fun AtsCheckResultScreen(
         factory = viewModelFactory { initializer { AtsCheckResultViewModel(checkId, network.atsCheckRepository) } },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    when (val current = state) {
-        is UiState.Loading -> AtsResultLoadingSkeleton()
-        is UiState.Error -> ErrorState(message = current.message, onRetry = viewModel::load, modifier = Modifier.fillMaxSize())
-        is UiState.Empty -> ErrorState(message = "This report is no longer available.", modifier = Modifier.fillMaxSize())
-        is UiState.Success<AtsCheckReportDto> -> ResultContent(
-            report = current.data,
-            onOpenCategory = onOpenCategory,
-            onOpenSectionAnalysis = onOpenSectionAnalysis,
-            onOpenIssues = onOpenIssues,
-            onOpenImprovementPlan = onOpenImprovementPlan,
-            onOpenHistory = onOpenHistory,
-            onOpenParsedView = onOpenParsedView,
-        )
+    // Matches every other drill-into-item screen reached from a history list (e.g.
+    // AtsCheckIssuesScreen, SkillPassportDetailScreen) -- this was the one result screen in
+    // that family without a back arrow. The share action moves from an inline header Row into
+    // the top bar's actions slot so it survives alongside the new back arrow.
+    Scaffold(
+        topBar = {
+            DetailTopBar(
+                title = "ATS Check Result",
+                onBack = onBack,
+                actions = {
+                    IconButton(onClick = {
+                        val currentState = state
+                        val shareText = if (currentState is UiState.Success<AtsCheckReportDto>) {
+                            "My resume scored ${currentState.data.overallScore}/100 on AI Placement OS's Resume ATS Check."
+                        } else {
+                            "Check out AI Placement OS's Resume ATS Check."
+                        }
+                        context.startActivity(
+                            Intent.createChooser(
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, shareText)
+                                },
+                                null,
+                            ),
+                        )
+                    }) {
+                        Icon(Icons.Filled.Share, contentDescription = "Share")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        when (val current = state) {
+            is UiState.Loading -> AtsResultLoadingSkeleton(modifier = Modifier.padding(padding))
+            is UiState.Error -> ErrorState(
+                message = current.message,
+                onRetry = viewModel::load,
+                modifier = Modifier.fillMaxSize().padding(padding),
+            )
+            is UiState.Empty -> ErrorState(
+                message = "This report is no longer available.",
+                modifier = Modifier.fillMaxSize().padding(padding),
+            )
+            is UiState.Success<AtsCheckReportDto> -> ResultContent(
+                report = current.data,
+                onOpenCategory = onOpenCategory,
+                onOpenSectionAnalysis = onOpenSectionAnalysis,
+                onOpenIssues = onOpenIssues,
+                onOpenImprovementPlan = onOpenImprovementPlan,
+                onOpenHistory = onOpenHistory,
+                onOpenParsedView = onOpenParsedView,
+                modifier = Modifier.padding(padding),
+            )
+        }
     }
 }
 
 /** Silhouettes the score header + issue/recommendation rows this screen renders once loaded,
  * instead of a bare spinner unrelated to what's about to appear. */
 @Composable
-private fun AtsResultLoadingSkeleton() {
-    Column(modifier = Modifier.fillMaxSize().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+private fun AtsResultLoadingSkeleton(modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxSize().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         AppCard(modifier = Modifier.fillMaxWidth()) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 SkeletonCircle(size = 72.dp)
@@ -114,8 +160,8 @@ private fun ResultContent(
     onOpenImprovementPlan: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenParsedView: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val highPriorityIssues = report.issues.filter { it.severity == "high" }.take(3)
@@ -127,33 +173,9 @@ private fun ResultContent(
 
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+        modifier = modifier.fillMaxSize().padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        item {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(text = "ATS Check Result", style = MaterialTheme.typography.headlineSmall)
-                IconButton(onClick = {
-                    val shareText = "My resume scored ${report.overallScore}/100 on AI Placement OS's Resume ATS Check."
-                    context.startActivity(
-                        Intent.createChooser(
-                            Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, shareText)
-                            },
-                            null,
-                        ),
-                    )
-                }) {
-                    Icon(Icons.Filled.Share, contentDescription = "Share")
-                }
-            }
-        }
-
         item { ScoreSummaryCard(report) }
 
         item {

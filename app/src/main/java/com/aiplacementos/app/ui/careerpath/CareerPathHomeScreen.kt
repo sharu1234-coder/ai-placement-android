@@ -22,6 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -97,10 +99,13 @@ private fun CareerPathEmptyContent(savedCount: Int, onSelectRole: () -> Unit, on
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
+            // The page's top-level heading -- lets a screen-reader user jump straight back to
+            // the top of this screen via TalkBack's heading navigation.
             Text(
                 text = "Your Career Journey Starts Here",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
+                modifier = Modifier.semantics { heading() },
             )
             Spacer(modifier = Modifier.height(Spacing.xs))
             Text(
@@ -165,7 +170,14 @@ private fun CareerPathHomeContent(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            Text(text = "Your Career Path", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            // The page's top-level heading -- lets a screen-reader user jump straight back to
+            // the top of this screen via TalkBack's heading navigation.
+            Text(
+                text = "Your Career Path",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.semantics { heading() },
+            )
             Text(
                 text = "Build the skills. Create the projects. Get job-ready.",
                 style = MaterialTheme.typography.bodyMedium,

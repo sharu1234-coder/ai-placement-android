@@ -116,7 +116,8 @@ private fun RoleSelectionContent(
             )
         }
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            // chipGap (not sm) between these -- see Spacing.chipGap's own doc comment.
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap)) {
                 item {
                     FilterChip(
                         selected = selectedCategory == null,

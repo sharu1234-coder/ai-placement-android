@@ -14,10 +14,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -35,7 +37,9 @@ private const val QUESTIONS_PER_INTERVIEW = 5
 fun TextInterviewScreen(jdId: Int, type: String = "technical", onFinish: () -> Unit) {
     val network = networkModule()
     val viewModel: TextInterviewViewModel = viewModel(
-        factory = viewModelFactory { initializer { TextInterviewViewModel(jdId, type, network.interviewRepository) } },
+        factory = viewModelFactory {
+            initializer { TextInterviewViewModel(jdId, type, network.interviewRepository, createSavedStateHandle()) }
+        },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -61,7 +65,10 @@ fun TextInterviewScreen(jdId: Int, type: String = "technical", onFinish: () -> U
 
 @Composable
 private fun QuestionCard(question: InterviewQuestionDto, submitting: Boolean, onSubmit: (String) -> Unit) {
-    var answerText by remember(question.id) { mutableStateOf("") }
+    // rememberSaveable so in-progress answer text survives rotation/process death instead of
+    // being silently dropped mid-question (the interview session itself is separately
+    // recovered via TextInterviewViewModel's SavedStateHandle-backed interviewId).
+    var answerText by rememberSaveable(question.id) { mutableStateOf("") }
 
     Column(
         modifier = Modifier

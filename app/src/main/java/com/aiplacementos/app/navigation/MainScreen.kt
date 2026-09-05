@@ -2,6 +2,7 @@ package com.aiplacementos.app.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -10,13 +11,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -70,6 +71,8 @@ import androidx.navigation.NavHostController
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.home.HomeScreen
 import com.aiplacementos.app.ui.placementpath.PlacementPathScreen
+import com.aiplacementos.app.ui.premium.PremiumStatusUiState
+import com.aiplacementos.app.ui.premium.PremiumStatusViewModel
 import com.aiplacementos.app.ui.progress.ProgressDashboardScreen
 import com.aiplacementos.app.ui.roadmap.RoadmapScreen
 import com.aiplacementos.app.ui.tests.TestCenterScreen
@@ -112,28 +115,35 @@ fun MainScreen(navController: NavHostController) {
     val scope = rememberCoroutineScope()
 
     // Roadmap/Practice/Progress are bottom-nav tabs now -- listing them here too would
-    // duplicate navigation the spec explicitly calls out to avoid. Profile moved here from
-    // the bottom nav; it's reached as a real pushed route (Screen.Profile is also registered
-    // directly in NavGraph for Settings' "Edit Profile" shortcut) so both entry points behave
-    // identically (a normal back button), rather than the bottom tabs' local-state swap.
+    // duplicate navigation the spec explicitly calls out to avoid, so they're deliberately
+    // absent from every section below despite appearing in the reference image's drawer.
+    // Grouping mirrors the reference image's CAREER/PREPARE/BUILD PROOF/ACCOUNT split (Phase
+    // "UI matching" pass) rather than the earlier single oversized CAREER bucket. Placement
+    // Alarms sits inside PREPARE exactly where the reference image places it; Saved Roadmaps
+    // and Notifications aren't in the reference image's drawer at all (it isn't exhaustive) so
+    // they're homed under the nearest thematic group instead of inventing an extra section.
     val drawerSections = listOf(
         DrawerSection(null, listOf(DrawerItem("Home", Icons.Filled.Home) { selectedRoute = Screen.Home.route })),
         DrawerSection(
             "CAREER",
             listOf(
-                DrawerItem("Profile", Icons.Filled.Person) { navController.navigate(Screen.Profile.route) },
                 DrawerItem("Career Twin", Icons.Filled.Psychology, badge = "New") {
                     navController.navigate(Screen.CareerTwin.route)
-                },
-                DrawerItem("Resume", Icons.Filled.Description) { navController.navigate(Screen.ProfileResumeUpload.route) },
-                DrawerItem("Resume ATS Check", Icons.Filled.FindInPage, badge = "New") {
-                    navController.navigate(Screen.AtsCheckLanding.route)
                 },
                 DrawerItem("Career Path", Icons.AutoMirrored.Filled.TrendingUp, badge = "New") {
                     navController.navigate(Screen.CareerPathHome.route)
                 },
-                DrawerItem("Career Decision Lab", Icons.Filled.CompareArrows, badge = "New") {
+                DrawerItem("Career Decision Lab", Icons.AutoMirrored.Filled.CompareArrows, badge = "New") {
                     navController.navigate(Screen.CareerDecisionLab.route)
+                },
+            ),
+        ),
+        DrawerSection(
+            "PREPARE",
+            listOf(
+                DrawerItem("Resume", Icons.Filled.Description) { navController.navigate(Screen.ProfileResumeUpload.route) },
+                DrawerItem("Resume ATS Check", Icons.Filled.FindInPage, badge = "New") {
+                    navController.navigate(Screen.AtsCheckLanding.route)
                 },
                 DrawerItem("Job Description Analyzer", Icons.Filled.WorkOutline) {
                     navController.navigate(Screen.JdAnalyzer.route)
@@ -178,15 +188,11 @@ fun MainScreen(navController: NavHostController) {
                 DrawerItem("Notifications", Icons.Filled.Notifications) {
                     navController.navigate(Screen.NotificationCenter.route)
                 },
-                DrawerItem("Settings", Icons.Filled.Settings) { navController.navigate(Screen.Settings.route) },
+                DrawerItem("Profile", Icons.Filled.Person) { navController.navigate(Screen.Profile.route) },
                 DrawerItem("Subscriptions", Icons.Filled.WorkspacePremium) {
                     navController.navigate(Screen.Subscriptions.route)
                 },
-            ),
-        ),
-        DrawerSection(
-            "SUPPORT",
-            listOf(
+                DrawerItem("Settings", Icons.Filled.Settings) { navController.navigate(Screen.Settings.route) },
                 DrawerItem("Help & Support", Icons.AutoMirrored.Filled.HelpOutline) {
                     navController.navigate(Screen.HelpSupport.route)
                 },
@@ -341,11 +347,13 @@ fun MainScreen(navController: NavHostController) {
 private fun DrawerHeader(data: DrawerHeaderData?) {
     Column(modifier = Modifier.padding(Spacing.md)) {
         InitialsAvatar(name = data?.fullName)
-        Text(
-            text = data?.fullName ?: "Your profile",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = Spacing.sm),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Spacing.sm)) {
+            Text(
+                text = data?.fullName?.let { "Hi, $it 👋" } ?: "Your profile",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            PremiumBadgeSection()
+        }
         if (data?.email != null) {
             Text(
                 text = data.email,
@@ -367,6 +375,34 @@ private fun DrawerHeader(data: DrawerHeaderData?) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = Spacing.xs),
+            )
+        }
+    }
+}
+
+/** Self-contained widget, same "own small ViewModel, renders nothing while loading/not
+ * premium" convention as HomeScreen's TodaysMissionSection -- the drawer header shouldn't
+ * block on or be disrupted by this one fetch. Reads the same fail-closed, server-authoritative
+ * PremiumStatusViewModel every PaywallGate call site already shares. */
+@Composable
+private fun PremiumBadgeSection() {
+    val network = networkModule()
+    val viewModel: PremiumStatusViewModel = viewModel(
+        factory = viewModelFactory { initializer { PremiumStatusViewModel(network.subscriptionRepository) } },
+    )
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val current = state
+    if (current is PremiumStatusUiState.Loaded && current.isPremium) {
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.padding(start = Spacing.sm),
+        ) {
+            Text(
+                text = "Premium",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 2.dp),
             )
         }
     }

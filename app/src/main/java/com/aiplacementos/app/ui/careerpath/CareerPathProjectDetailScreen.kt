@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -81,7 +81,9 @@ private fun ProjectDetailContent(project: CareerPathProjectDto, onStart: () -> U
                 Text(text = "Skills You'll Demonstrate", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(Spacing.xs))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    project.skillsDemonstrated.forEach { skill -> AssistChip(onClick = {}, label = { Text(skill) }) }
+                    // Purely informational tags, not actions -- a chip component with an empty
+                    // onClick left these focusable but inert for keyboard/TalkBack users.
+                    project.skillsDemonstrated.forEach { skill -> InfoBadge(skill) }
                 }
             }
         }
@@ -90,7 +92,7 @@ private fun ProjectDetailContent(project: CareerPathProjectDto, onStart: () -> U
                 Text(text = "Technologies", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(Spacing.xs))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    project.technologies.forEach { tech -> AssistChip(onClick = {}, label = { Text(tech) }) }
+                    project.technologies.forEach { tech -> InfoBadge(tech) }
                 }
             }
         }
@@ -146,5 +148,19 @@ private fun LabeledSection(title: String, body: String) {
         Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(Spacing.xs))
         Text(text = body, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** A purely informational tag (a skill or technology name), not an action -- deliberately not
+ * a chip component, which would be focusable but have nothing to do when tapped. */
+@Composable
+private fun InfoBadge(text: String) {
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+        )
     }
 }

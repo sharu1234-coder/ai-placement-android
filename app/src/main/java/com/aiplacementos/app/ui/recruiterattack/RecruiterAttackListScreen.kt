@@ -46,7 +46,7 @@ private fun statusLabel(session: RecruiterAttackSessionListItemDto): String = wh
 }
 
 @Composable
-fun RecruiterAttackListScreen(onOpenSession: (sessionId: Int) -> Unit, onCreateNew: () -> Unit) {
+fun RecruiterAttackListScreen(onOpenSession: (sessionId: Int, sourceLabel: String) -> Unit, onCreateNew: () -> Unit) {
     val network = networkModule()
     val viewModel: RecruiterAttackListViewModel = viewModel(
         factory = viewModelFactory { initializer { RecruiterAttackListViewModel(network.recruiterAttackRepository) } },
@@ -92,7 +92,7 @@ fun RecruiterAttackListScreen(onOpenSession: (sessionId: Int) -> Unit, onCreateN
 @Composable
 private fun RecruiterAttackSessionList(
     sessions: List<RecruiterAttackSessionListItemDto>,
-    onOpenSession: (Int) -> Unit,
+    onOpenSession: (sessionId: Int, sourceLabel: String) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -108,7 +108,7 @@ private fun RecruiterAttackSessionList(
             )
         }
         items(sessions, key = { it.id }) { session ->
-            AppCard(modifier = Modifier.fillMaxWidth().clickable { onOpenSession(session.id) }) {
+            AppCard(modifier = Modifier.fillMaxWidth().clickable { onOpenSession(session.id, session.sourceLabel) }) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

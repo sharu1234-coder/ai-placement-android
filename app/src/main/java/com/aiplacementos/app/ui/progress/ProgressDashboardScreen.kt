@@ -12,9 +12,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -113,8 +113,17 @@ private fun DashboardContent(dashboard: ProgressDashboardDto) {
                 modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.xs),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                // Purely informational tags, not actions -- a chip component with an empty
+                // onClick left these focusable but inert for keyboard/TalkBack users.
                 dashboard.topWeaknesses.take(3).forEach { skill ->
-                    AssistChip(onClick = {}, label = { Text(skill) })
+                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
+                        Text(
+                            text = skill,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                        )
+                    }
                 }
             }
         }

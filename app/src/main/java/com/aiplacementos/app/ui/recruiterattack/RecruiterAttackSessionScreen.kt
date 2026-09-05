@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -22,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.RecruiterAttackTurnDto
+import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
@@ -32,7 +34,7 @@ import com.aiplacementos.app.ui.theme.Spacing
 private const val TURNS_PER_SESSION = 4
 
 @Composable
-fun RecruiterAttackSessionScreen(sessionId: Int, onFinish: (sessionId: Int) -> Unit) {
+fun RecruiterAttackSessionScreen(sessionId: Int, claimLabel: String, onFinish: (sessionId: Int) -> Unit) {
     val network = networkModule()
     val viewModel: RecruiterAttackSessionViewModel = viewModel(
         factory = viewModelFactory {
@@ -51,6 +53,7 @@ fun RecruiterAttackSessionScreen(sessionId: Int, onFinish: (sessionId: Int) -> U
         is RecruiterAttackSessionUiState.Error ->
             ErrorState(message = current.message, modifier = Modifier.fillMaxSize(), onRetry = viewModel::loadNext)
         is RecruiterAttackSessionUiState.Turn -> TurnCard(
+            claimLabel = claimLabel,
             turn = current.turn,
             submitting = current.submitting,
             onSubmit = { answer -> viewModel.submitAnswer(answer) },
@@ -59,8 +62,10 @@ fun RecruiterAttackSessionScreen(sessionId: Int, onFinish: (sessionId: Int) -> U
 }
 
 @Composable
-private fun TurnCard(turn: RecruiterAttackTurnDto, submitting: Boolean, onSubmit: (String) -> Unit) {
-    var answerText by remember(turn.id) { mutableStateOf("") }
+private fun TurnCard(claimLabel: String, turn: RecruiterAttackTurnDto, submitting: Boolean, onSubmit: (String) -> Unit) {
+    // rememberSaveable so in-progress answer text survives rotation/process death instead of
+    // being silently dropped mid-turn.
+    var answerText by rememberSaveable(turn.id) { mutableStateOf("") }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
@@ -70,6 +75,18 @@ private fun TurnCard(turn: RecruiterAttackTurnDto, submitting: Boolean, onSubmit
             text = "Question ${turn.orderIndex + 1} of $TURNS_PER_SESSION · ${turn.basedOn}",
             style = MaterialTheme.typography.labelMedium,
         )
+        // Persistently visible -- the recruiter's follow-up only makes sense in the context
+        // of the one real claim this whole session is probing.
+        if (claimLabel.isNotBlank()) {
+            AppCard(modifier = Modifier.fillMaxWidth(), containerColor = MaterialTheme.colorScheme.surfaceVariant) {
+                Text(
+                    text = "Your Claim",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(text = claimLabel, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
         Text(text = turn.questionText, style = MaterialTheme.typography.bodyLarge)
 
         OutlinedTextField(

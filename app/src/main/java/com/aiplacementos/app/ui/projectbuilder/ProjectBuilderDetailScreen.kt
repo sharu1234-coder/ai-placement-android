@@ -44,6 +44,7 @@ import com.aiplacementos.app.ui.common.DetailTopBar
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 
@@ -105,6 +106,9 @@ private fun ProjectBuildContent(
                 }
             }
         }
+        if (build.stages.isNotEmpty()) {
+            item { OverallProgressCard(build) }
+        }
         item { GitHubCheckCard(evidence = build.githubEvidence, onCheck = onCheckGithub) }
         if (actionMessage != null) {
             item {
@@ -129,6 +133,27 @@ private fun ProjectBuildContent(
                 PrimaryButton(text = "View Proof", onClick = onViewProof, modifier = Modifier.fillMaxWidth())
             }
         }
+    }
+}
+
+private fun statusLabel(status: String): String = when (status) {
+    "completed" -> "Completed"
+    "in_progress" -> "In Progress"
+    else -> "Not Started"
+}
+
+/** A real count over build.stages -- never a separately-tracked or estimated percentage, so
+ * it can't drift from the actual stage statuses rendered below it. */
+@Composable
+private fun OverallProgressCard(build: ProjectBuildDto) {
+    val completedCount = build.stages.count { it.status == "completed" }
+    val percent = (completedCount * 100) / build.stages.size
+    AppCard(modifier = Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text(text = statusLabel(build.status), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = "$completedCount / ${build.stages.size} stages", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        SkillBar(label = "Overall Progress", percent = percent, modifier = Modifier.padding(top = Spacing.xs))
     }
 }
 

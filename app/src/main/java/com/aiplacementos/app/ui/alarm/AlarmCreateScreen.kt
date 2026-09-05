@@ -142,7 +142,8 @@ fun AlarmCreateScreen(
                 )
 
                 Text(text = "Type", style = MaterialTheme.typography.labelLarge)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                // chipGap (not sm) between these -- see Spacing.chipGap's own doc comment.
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap)) {
                     items(AlarmType.ALL) { candidate ->
                         FilterChip(
                             selected = type == candidate,
@@ -156,7 +157,8 @@ fun AlarmCreateScreen(
                 TimeInput(state = timePickerState)
 
                 Text(text = "Repeat", style = MaterialTheme.typography.labelLarge)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                // chipGap (not sm) between these -- see Spacing.chipGap's own doc comment.
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap)) {
                     items(DAYS) { (day, label, fullName) ->
                         FilterChip(
                             selected = day in selectedDays,

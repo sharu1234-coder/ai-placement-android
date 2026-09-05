@@ -324,7 +324,7 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `recent win surfaces the most recently verified skill, or null when none is verified yet`() {
+    fun `recent win surfaces the most recently verified skill and its current confidence, or null when none is verified yet`() {
         val twin = CareerTwinDto(
             hasRole = true,
             roleSource = "career_path",
@@ -338,10 +338,76 @@ class HomeViewModelTest {
         val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
 
         assertEquals("Python", data.recentWinSkill)
+        assertEquals(95, data.recentWinPercent)
         assertEquals(2, data.verifiedSkillCount)
 
         val noEvidence = (viewModel().uiState.value as UiState.Success<HomeData>).data
         assertNull(noEvidence.recentWinSkill)
+        assertNull(noEvidence.recentWinPercent)
         assertNull(noEvidence.verifiedSkillCount)
+    }
+
+    @Test
+    fun `greeting includes the student's first name when the profile has one, never a full name`() {
+        val profileRepository = FakeProfileRepository().apply {
+            profileResult = profileResult.getOrThrow().copy(fullName = "Sharath Kumar").let { Result.success(it) }
+        }
+        val viewModel = HomeViewModel(
+            FakePlacementPathRepository().apply { currentResult = { path() } },
+            FakeProgressRepository().apply { dashboardResult = Result.success(dashboard()) },
+            FakePlacementAlarmRepository(),
+            FakeRoadmapRepository().apply { currentResult = { null } },
+            FakeCareerPathRepository().apply { currentResult = { null } },
+            FakeAtsCheckRepository(),
+            profileRepository,
+            FakeCareerTwinRepository().apply { careerTwinResult = { noRoleCareerTwin() } },
+        )
+
+        val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
+
+        assertTrue(data.greeting.contains("Sharath"))
+        assertFalse(data.greeting.contains("Kumar"))
+    }
+
+    @Test
+    fun `greeting has no name when the profile has none set`() {
+        val data = (viewModel().uiState.value as UiState.Success<HomeData>).data
+
+        assertFalse(data.greeting.contains(","))
+    }
+
+    @Test
+    fun `biggest gap percent comes from career twin's own skill data, never the dashboard-only fallback`() {
+        val twin = CareerTwinDto(
+            hasRole = true,
+            roleSource = "career_path",
+            biggestGapSkill = "Kafka",
+            skills = listOf(SkillTwinItemDto(skill = "Kafka", weight = 1f, confidencePercent = 43, state = "claimed")),
+        )
+        val withTwinGap = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
+        assertEquals("Kafka", withTwinGap.biggestGap)
+        assertEquals(43, withTwinGap.biggestGapPercent)
+
+        // Falls back to the dashboard's top weakness with no associated percent to show.
+        val dashboardOnly = (viewModel().uiState.value as UiState.Success<HomeData>).data
+        assertEquals("SQL JOINs", dashboardOnly.biggestGap)
+        assertNull(dashboardOnly.biggestGapPercent)
+    }
+
+    @Test
+    fun `next milestone is the smallest real threshold above current readiness, never a fabricated mission count`() {
+        val twin = CareerTwinDto(hasRole = true, roleSource = "career_path", readinessPercent = 78)
+        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
+
+        assertEquals(78, data.readinessPercent)
+        assertEquals(85, data.nextMilestonePercent)
+    }
+
+    @Test
+    fun `next milestone is null once the highest threshold is already cleared`() {
+        val twin = CareerTwinDto(hasRole = true, roleSource = "career_path", readinessPercent = 97)
+        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
+
+        assertNull(data.nextMilestonePercent)
     }
 }

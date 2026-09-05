@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -209,13 +210,15 @@ private fun PersonalAndEducationSection(
 ) {
     // Keyed on profile.id (stable across saves), not the whole profile object -- so a save in
     // a DIFFERENT section (which replaces uiState with a fresh ProfileDto) never resets what
-    // the student is mid-typing here.
-    var fullName by remember(profile.id) { mutableStateOf(profile.fullName.orEmpty()) }
-    var mobileNumber by remember(profile.id) { mutableStateOf(profile.mobileNumber.orEmpty()) }
-    var college by remember(profile.id) { mutableStateOf(profile.college.orEmpty()) }
-    var degree by remember(profile.id) { mutableStateOf(profile.degree.orEmpty()) }
-    var branch by remember(profile.id) { mutableStateOf(profile.branch.orEmpty()) }
-    var graduationYear by remember(profile.id) { mutableStateOf(profile.graduationYear?.toString().orEmpty()) }
+    // the student is mid-typing here. rememberSaveable (not plain remember) so an in-progress
+    // edit also survives a rotation or process death instead of silently reverting to the
+    // last-saved server value.
+    var fullName by rememberSaveable(profile.id) { mutableStateOf(profile.fullName.orEmpty()) }
+    var mobileNumber by rememberSaveable(profile.id) { mutableStateOf(profile.mobileNumber.orEmpty()) }
+    var college by rememberSaveable(profile.id) { mutableStateOf(profile.college.orEmpty()) }
+    var degree by rememberSaveable(profile.id) { mutableStateOf(profile.degree.orEmpty()) }
+    var branch by rememberSaveable(profile.id) { mutableStateOf(profile.branch.orEmpty()) }
+    var graduationYear by rememberSaveable(profile.id) { mutableStateOf(profile.graduationYear?.toString().orEmpty()) }
 
     SectionCard(title = "Personal Information") {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -329,7 +332,8 @@ private fun PreparationGoalsSection(initialGoals: List<String>, saving: Boolean,
 
     SectionCard(title = "Preparation Goals") {
         Column {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            // chipGap (not xs) between these -- see Spacing.chipGap's own doc comment.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap)) {
                 GOALS.forEach { goal ->
                     FilterChip(
                         selected = goal in selected,

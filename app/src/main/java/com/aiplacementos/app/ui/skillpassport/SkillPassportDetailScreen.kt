@@ -12,18 +12,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Construction
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,6 +46,8 @@ import com.aiplacementos.app.ui.common.ExpandableSection
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
+import com.aiplacementos.app.ui.theme.successColor
+import com.aiplacementos.app.ui.theme.warningColor
 
 private fun stateDisplay(state: String): Pair<String, Boolean> = when (state) {
     "verified" -> "Verified" to false
@@ -46,6 +55,24 @@ private fun stateDisplay(state: String): Pair<String, Boolean> = when (state) {
     "supported" -> "Developing" to true
     "stale" -> "Stale" to true
     else -> "Gap" to true // "claimed"
+}
+
+/** "Today" when the ISO timestamp's date matches the device's current date, else the bare
+ * date -- same lightweight, no-new-dependency spirit as EvidenceRow's existing detectedAt
+ * handling below (java.time is already used elsewhere in this module's package). */
+private fun formatLastVerified(isoTimestamp: String): String {
+    val datePart = isoTimestamp.take(10)
+    val today = java.time.LocalDate.now().toString()
+    return if (datePart == today) "Today" else datePart
+}
+
+private fun evidenceIcon(source: String): ImageVector = when (source) {
+    "assessment" -> Icons.AutoMirrored.Filled.Assignment
+    "practice" -> Icons.Filled.FitnessCenter
+    "project" -> Icons.Filled.Construction
+    "interview" -> Icons.Filled.Mic
+    "resume" -> Icons.Filled.Description
+    else -> Icons.Filled.CheckCircle
 }
 
 @Composable
@@ -76,7 +103,7 @@ fun SkillPassportDetailScreen(skill: String, onBack: () -> Unit) {
 
 @Composable
 private fun SkillPassportDetailContent(item: SkillPassportItemDto, modifier: Modifier = Modifier) {
-    val (label, _) = stateDisplay(item.state)
+    val (label, isGap) = stateDisplay(item.state)
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -99,7 +126,18 @@ private fun SkillPassportDetailContent(item: SkillPassportItemDto, modifier: Mod
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(text = "Status: $label", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(Spacing.sm))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StatusBadge(label = label, isGap = isGap)
+                    item.lastVerifiedAt?.let { lastVerifiedAt ->
+                        Text(
+                            text = "Last verified: ${formatLastVerified(lastVerifiedAt)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = Spacing.sm),
+                        )
+                    }
+                }
             }
         }
         item {
@@ -133,11 +171,27 @@ private fun SkillPassportDetailContent(item: SkillPassportItemDto, modifier: Mod
     }
 }
 
+/** A colored pill, not color alone -- the label text itself already carries the status, this
+ * just gives it the same "premium status chip" treatment the reference design uses instead of
+ * plain inline text. */
+@Composable
+private fun StatusBadge(label: String, isGap: Boolean) {
+    val color = if (isGap) warningColor() else successColor()
+    Surface(color = color.copy(alpha = 0.15f), contentColor = color, shape = MaterialTheme.shapes.small) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
+        )
+    }
+}
+
 @Composable
 private fun EvidenceRow(evidence: EvidenceItemDto) {
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
         Icon(
-            imageVector = Icons.Filled.CheckCircle,
+            imageVector = evidenceIcon(evidence.source),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(top = 2.dp, end = Spacing.sm),

@@ -41,11 +41,17 @@ fun ScoreRing(
     displayText: String? = null,
 ) {
     val animatedFraction = remember { Animatable(0f) }
-    LaunchedEffect(percent) {
-        animatedFraction.animateTo(
-            targetValue = (percent.coerceIn(0, 100)) / 100f,
-            animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
-        )
+    val reduceMotion = rememberReduceMotion()
+    LaunchedEffect(percent, reduceMotion) {
+        val target = (percent.coerceIn(0, 100)) / 100f
+        // Matches Skeleton.kt's existing reduced-motion handling: when the system's "Remove
+        // animations" setting is on, jump straight to the final value instead of animating.
+        // Behavior for everyone else is unchanged.
+        if (reduceMotion) {
+            animatedFraction.snapTo(target)
+        } else {
+            animatedFraction.animateTo(target, animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing))
+        }
     }
 
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {

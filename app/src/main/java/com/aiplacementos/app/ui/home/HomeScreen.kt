@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -47,7 +49,6 @@ import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
-import com.aiplacementos.app.ui.common.NextBestActionCard
 import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkeletonText
@@ -56,8 +57,6 @@ import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.mission.TodaysMissionCard
 import com.aiplacementos.app.ui.mission.TodaysMissionUiState
 import com.aiplacementos.app.ui.mission.TodaysMissionViewModel
-import com.aiplacementos.app.ui.nextbestaction.NextBestActionUiState
-import com.aiplacementos.app.ui.nextbestaction.NextBestActionViewModel
 import com.aiplacementos.app.ui.notifications.NotificationSyncSection
 import com.aiplacementos.app.ui.theme.Spacing
 import com.aiplacementos.app.ui.theme.successColor
@@ -160,7 +159,13 @@ private fun HomeContent(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            Text(text = data.greeting, style = MaterialTheme.typography.headlineSmall)
+            // The page's top-level heading -- lets a screen-reader user jump straight back to
+            // the top of this long, heavily-scrolled dashboard via TalkBack's heading navigation.
+            Text(
+                text = data.greeting,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.semantics { heading() },
+            )
             Text(
                 text = data.targetRoleName?.let { "Target Role: $it" } ?: "Let's get you placement-ready.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -170,25 +175,27 @@ private fun HomeContent(
 
         // Home Intelligence core: one readiness number (Career Twin's, once a target role is
         // set), Today's Mission, then the Career Twin-derived signals -- biggest gap, most
-        // recent evidence win, and verified-skill proof count -- followed by the cross-feature
-        // Next Best Action recommendation. Matches the reference image's Home layout order.
+        // recent evidence win, verified-skill proof count, and progress toward the next real
+        // readiness milestone. Matches the reference image's Home layout order.
         item { CareerReadinessCard(data, onOpenCareerTwin) }
 
         item { TodaysMissionSection() }
 
         if (data.biggestGap != null) {
-            item { BiggestGapCard(data.biggestGap, onOpenCareerTwin) }
+            item { BiggestGapCard(data.biggestGap, data.biggestGapPercent, onOpenCareerTwin) }
         }
 
         if (data.recentWinSkill != null) {
-            item { RecentWinCard(data.recentWinSkill, onOpenCareerTwin) }
+            item { RecentWinCard(data.recentWinSkill, data.recentWinPercent, onOpenCareerTwin) }
         }
 
         if (data.verifiedSkillCount != null) {
             item { ProofOfSkillCard(data.verifiedSkillCount, onOpenSkillPassport) }
         }
 
-        item { NextMilestoneSection() }
+        if (data.nextMilestonePercent != null && data.readinessPercent != null) {
+            item { NextMilestoneCard(current = data.readinessPercent, target = data.nextMilestonePercent, onClick = onOpenCareerTwin) }
+        }
 
         item {
             QuickAccessGrid(
@@ -227,7 +234,7 @@ private fun HomeContent(
                 Text(
                     text = "Recommended For You",
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = Spacing.sm),
+                    modifier = Modifier.padding(top = Spacing.sm).semantics { heading() },
                 )
             }
             items(data.recommendedForYou, key = { it }) { tip ->
@@ -242,7 +249,7 @@ private fun HomeContent(
                 Text(
                     text = "Recent Activity",
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = Spacing.sm),
+                    modifier = Modifier.padding(top = Spacing.sm).semantics { heading() },
                 )
             }
             items(
@@ -340,9 +347,11 @@ private fun CareerReadinessCard(data: HomeData, onClick: () -> Unit) {
     }
 }
 
-/** A real, timestamped Evidence Engine state transition -- never a fabricated "well done." */
+/** A real, timestamped Evidence Engine state transition -- never a fabricated "well done."
+ * [confidencePercent] is the skill's current confidence only, never a before/after delta --
+ * no prior score is tracked anywhere to honestly diff against. */
 @Composable
-private fun RecentWinCard(skill: String, onClick: () -> Unit) {
+private fun RecentWinCard(skill: String, confidencePercent: Int?, onClick: () -> Unit) {
     AppCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -362,7 +371,11 @@ private fun RecentWinCard(skill: String, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
                 Text(
-                    text = "$skill just reached Verified status.",
+                    text = if (confidencePercent != null) {
+                        "$skill just reached Verified status, now at $confidencePercent% confidence."
+                    } else {
+                        "$skill just reached Verified status."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
@@ -448,7 +461,7 @@ private fun YourCareerPathCard(careerPath: CareerPathDto, onClick: () -> Unit) {
 @Composable
 private fun TodaysPlanCard(items: List<TodayPlanItem>) {
     Column {
-        Text(text = "Today's Plan", style = MaterialTheme.typography.titleMedium)
+        Text(text = "Today's Plan", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
         AppCard(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
             items.forEachIndexed { index, item ->
                 Row(
@@ -580,7 +593,7 @@ private fun QuickAccessGrid(
     onOpenTests: () -> Unit,
 ) {
     Column {
-        Text(text = "Quick Access", style = MaterialTheme.typography.titleMedium)
+        Text(text = "Quick Access", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -621,9 +634,10 @@ private fun QuickAccessTile(icon: ImageVector, label: String, onClick: () -> Uni
 
 /** Names the single weakest real signal from progress history and offers a way to act on it
  * -- never claims a specific "strong in X, Y" pairing since the dashboard has no strengths
- * field to back that up. */
+ * field to back that up. [confidencePercent] is only available when the gap itself came from
+ * Career Twin's skill list (see HomeViewModel.biggestGapPercent), never guessed. */
 @Composable
-private fun BiggestGapCard(biggestGap: String, onClick: () -> Unit) {
+private fun BiggestGapCard(biggestGap: String, confidencePercent: Int?, onClick: () -> Unit) {
     AppCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -636,12 +650,21 @@ private fun BiggestGapCard(biggestGap: String, onClick: () -> Unit) {
                 modifier = Modifier.size(32.dp),
             )
             Column(modifier = Modifier.padding(start = Spacing.md)) {
-                Text(
-                    text = "Your Biggest Gap",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Your Biggest Gap",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    if (confidencePercent != null) {
+                        Text(
+                            text = "  $confidencePercent%",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                }
                 Text(
                     text = "You need more practice in $biggestGap. Start practicing to close this gap.",
                     style = MaterialTheme.typography.bodySmall,
@@ -699,20 +722,41 @@ private fun TodaysMissionSection() {
     }
 }
 
-/** Same self-contained-widget convention as TodaysMissionSection above -- Next Best Action is
- * a cross-feature ranked recommendation (see next_best_action_service.py's 9-tier priority
- * order), already built as the reusable NextBestActionCard for Career Twin; Home just embeds
- * it via its own small ViewModel instead of folding a ninth source into HomeViewModel's
- * concurrent fetch. A loading/error state here renders nothing rather than disrupting Home. */
+/** How close to the next real readiness threshold (see HomeViewModel.READINESS_MILESTONES,
+ * the same list a crossing-notification fires on). Deliberately never states a specific
+ * "N missions away" -- no per-mission readiness impact is tracked anywhere honest enough to
+ * back that claim, so the progress bar (current/target) is the whole story. */
 @Composable
-private fun NextMilestoneSection() {
-    val network = networkModule()
-    val viewModel: NextBestActionViewModel = viewModel(
-        factory = viewModelFactory { initializer { NextBestActionViewModel(network.nextBestActionRepository) } },
-    )
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val current = state
-    if (current is NextBestActionUiState.Success) {
-        NextBestActionCard(action = current.action)
+private fun NextMilestoneCard(current: Int, target: Int, onClick: () -> Unit) {
+    AppCard(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.EmojiEvents,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp),
+            )
+            Column(modifier = Modifier.padding(start = Spacing.md)) {
+                Text(
+                    text = "Next Milestone",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "Reach $target% Readiness",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        LinearProgressIndicator(
+            progress = { (current.toFloat() / target).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+        )
+        Text(
+            text = "$current% / $target%",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.xs),
+        )
     }
 }

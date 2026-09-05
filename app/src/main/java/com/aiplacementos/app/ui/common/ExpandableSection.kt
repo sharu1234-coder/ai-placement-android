@@ -17,10 +17,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.aiplacementos.app.ui.theme.Spacing
 
 /**
@@ -42,6 +44,12 @@ fun ExpandableSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // heightIn(min = 48.dp) (was just padding(vertical = Spacing.sm), which only
+                // computed to ~40dp with this row's text+icon content -- 8dp under Android's
+                // 48dp touch-target guideline) guarantees the full clickable target regardless
+                // of content height or the user's font-scale setting, without changing the
+                // row's visual padding/design.
+                .heightIn(min = 48.dp)
                 .clickable { expanded = !expanded }
                 .padding(vertical = Spacing.sm)
                 .semantics { contentDescription = if (expanded) "$title, expanded" else "$title, collapsed" },

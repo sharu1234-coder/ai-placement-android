@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,8 +69,10 @@ fun TestTakingScreen(assessmentId: Int, onFinish: () -> Unit) {
 
 @Composable
 private fun QuestionCard(question: QuestionDto, onSubmit: (String) -> Unit) {
-    var selectedOption by remember(question.id) { mutableStateOf<String?>(null) }
-    var freeTextAnswer by remember(question.id) { mutableStateOf("") }
+    // rememberSaveable so an in-progress answer survives rotation/process death instead of
+    // being silently dropped mid-question.
+    var selectedOption by rememberSaveable(question.id) { mutableStateOf<String?>(null) }
+    var freeTextAnswer by rememberSaveable(question.id) { mutableStateOf("") }
 
     Column(
         modifier = Modifier

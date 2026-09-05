@@ -77,7 +77,6 @@ import com.aiplacementos.app.ui.onboarding.OnboardingNameScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingRoleScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingSkillsScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingSuccessScreen
-import com.aiplacementos.app.ui.placementpath.PlacementPathScreen
 import com.aiplacementos.app.ui.placementpath.PlacementPathTopicDetailScreen
 import com.aiplacementos.app.ui.placementpath.SavedRoadmapsScreen
 import com.aiplacementos.app.ui.profile.ProfileScreen
@@ -393,6 +392,7 @@ fun NavGraph(navController: NavHostController) {
         ) { backStackEntry ->
             RoadmapTaskDetailScreen(
                 taskId = backStackEntry.arguments?.getInt("taskId") ?: 0,
+                onBack = { navController.popBackStack() },
                 jdId = backStackEntry.arguments?.getInt("jdId") ?: 0,
             )
         }
@@ -446,14 +446,11 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // Personalized Placement Roadmap ("Placement Path" internally) -- coexists with the
-        // existing day-plan Roadmap tab above; reached only via the Home card, never the
-        // bottom nav, so none of the Roadmap/RoadmapTaskDetail wiring above is touched.
-        composable(Screen.PlacementPath.route) {
-            PlacementPathScreen(
-                onOpenTopic = { topicId -> navController.navigate(placementPathTopicDetailRoute(topicId)) },
-            )
-        }
+        // Personalized Placement Roadmap ("Placement Path" internally) -- the screen itself is
+        // hosted directly by MainScreen's bottom-tab local state (Screen.Roadmap.route), which
+        // is also where its onOpenTopic navigates into this pushed destination. Screen.PlacementPath
+        // (a separate, never-navigated-to route registration) was removed as dead code -- nothing
+        // in the app ever called navigate(Screen.PlacementPath.route).
         composable(
             Screen.PlacementPathTopicDetail.route,
             arguments = listOf(navArgument("topicId") { type = NavType.IntType }),
@@ -520,6 +517,7 @@ fun NavGraph(navController: NavHostController) {
             val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
             JdAnalyzerResultScreen(
                 jdId = jdId,
+                onBack = { navController.popBackStack() },
                 onGenerateRoadmap = {
                     navController.navigate(roadmapUpdatedRoute(jdId)) {
                         popUpTo(Screen.JdAnalyzer.route)
@@ -580,6 +578,7 @@ fun NavGraph(navController: NavHostController) {
             val checkId = backStackEntry.arguments?.getInt("checkId") ?: 0
             AtsCheckResultScreen(
                 checkId = checkId,
+                onBack = { navController.popBackStack() },
                 onOpenCategory = { category -> navController.navigate(atsCheckCategoryDetailRoute(checkId, category)) },
                 onOpenSectionAnalysis = { navController.navigate(atsCheckSectionAnalysisRoute(checkId)) },
                 onOpenIssues = { navController.navigate(atsCheckIssuesRoute(checkId)) },
@@ -820,15 +819,17 @@ fun NavGraph(navController: NavHostController) {
 
         composable(Screen.RecruiterAttackList.route) {
             RecruiterAttackListScreen(
-                onOpenSession = { sessionId -> navController.navigate(recruiterAttackSessionRoute(sessionId)) },
+                onOpenSession = { sessionId, claimLabel ->
+                    navController.navigate(recruiterAttackSessionRoute(sessionId, claimLabel))
+                },
                 onCreateNew = { navController.navigate(Screen.RecruiterAttackCreate.route) },
             )
         }
         composable(Screen.RecruiterAttackCreate.route) {
             RecruiterAttackCreateScreen(
                 onBack = { navController.popBackStack() },
-                onCreated = { sessionId ->
-                    navController.navigate(recruiterAttackSessionRoute(sessionId)) {
+                onCreated = { sessionId, claimLabel ->
+                    navController.navigate(recruiterAttackSessionRoute(sessionId, claimLabel)) {
                         popUpTo(Screen.RecruiterAttackList.route)
                     }
                 },
@@ -836,11 +837,16 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(
             Screen.RecruiterAttackSession.route,
-            arguments = listOf(navArgument("sessionId") { type = NavType.IntType }),
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.IntType },
+                navArgument("claimLabel") { type = NavType.StringType },
+            ),
         ) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getInt("sessionId") ?: 0
+            val claimLabel = backStackEntry.arguments?.getString("claimLabel").orEmpty()
             RecruiterAttackSessionScreen(
                 sessionId = sessionId,
+                claimLabel = claimLabel,
                 onFinish = { id ->
                     navController.navigate(recruiterAttackResultsRoute(id)) {
                         popUpTo(Screen.RecruiterAttackList.route)
@@ -855,7 +861,6 @@ fun NavGraph(navController: NavHostController) {
             val sessionId = backStackEntry.arguments?.getInt("sessionId") ?: 0
             RecruiterAttackResultsScreen(
                 sessionId = sessionId,
-                onUpgrade = { navController.navigate(Screen.Subscriptions.route) },
                 onDone = {
                     navController.navigate(Screen.RecruiterAttackList.route) {
                         popUpTo(Screen.RecruiterAttackList.route) { inclusive = true }

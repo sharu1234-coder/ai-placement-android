@@ -68,8 +68,10 @@ sealed class Screen(val route: String) {
 
     // Personalized Placement Roadmap ("Placement Path" internally -- distinct route prefix
     // from the existing day-plan Roadmap tab/routes above, which this feature deliberately
-    // coexists with rather than replaces). Reached only via the Home card, not the bottom nav.
-    data object PlacementPath : Screen("placement-path")
+    // coexists with rather than replaces). The screen itself is hosted directly by
+    // MainScreen's bottom-tab local state (Screen.Roadmap.route); only its topic-detail
+    // drill-in is a real pushed NavGraph destination. A standalone PlacementPath route used to
+    // be registered here too, but nothing in the app ever navigated to it -- removed as dead code.
     data object PlacementPathTopicDetail : Screen("placement-path/topic-detail/{topicId}")
     data object SavedRoadmaps : Screen("placement-path/saved")
 
@@ -143,7 +145,7 @@ sealed class Screen(val route: String) {
     // reads/writes ProjectBuilder's own stage state.
     data object RecruiterAttackList : Screen("recruiter-attack")
     data object RecruiterAttackCreate : Screen("recruiter-attack/create")
-    data object RecruiterAttackSession : Screen("recruiter-attack/{sessionId}/session")
+    data object RecruiterAttackSession : Screen("recruiter-attack/{sessionId}/session/{claimLabel}")
     data object RecruiterAttackResults : Screen("recruiter-attack/{sessionId}/results")
 
     // Career Decision Lab -- a stateless "what if" simulation comparing 2-3 candidate roles
@@ -178,7 +180,11 @@ fun alarmEditRoute(alarmId: Long): String = "placement-alarm/edit/$alarmId"
 fun interviewHistoryDetailRoute(interviewId: Int): String = "mock-interview/history/$interviewId"
 fun projectBuilderDetailRoute(buildId: Int): String = "project-builder/$buildId/detail"
 fun projectBuilderProofRoute(buildId: Int): String = "project-builder/$buildId/proof"
-fun recruiterAttackSessionRoute(sessionId: Int): String = "recruiter-attack/$sessionId/session"
+// Uri.encode -- a claim label is free text pulled straight from a project title or a resume
+// line, which can contain spaces/slashes/parentheses that would otherwise break path
+// segmentation, same rationale as atsCheckAnalyzingRoute's targetRole.
+fun recruiterAttackSessionRoute(sessionId: Int, claimLabel: String): String =
+    "recruiter-attack/$sessionId/session/${android.net.Uri.encode(claimLabel)}"
 fun recruiterAttackResultsRoute(sessionId: Int): String = "recruiter-attack/$sessionId/results"
 fun arenaSessionRoute(arenaAttemptId: Int, assessmentId: Int, timeLimitSeconds: Int): String =
     "arena/$arenaAttemptId/$assessmentId/$timeLimitSeconds/session"

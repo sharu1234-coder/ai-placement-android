@@ -9,6 +9,12 @@ object Spacing {
     val lg = 24.dp
     val xl = 32.dp
     val xxl = 48.dp
+
+    // Every chip row in the app (FilterChip/SuggestionChip in a Row/LazyRow/FlowRow) used
+    // xs/sm (4-8dp) between Material3's already-small 32dp chips -- a real mis-tap risk for
+    // motor-impaired users. This is deliberately its own named constant, not a reuse of sm,
+    // so it stays easy to audit as the one spacing value chip rows are expected to use.
+    val chipGap = 12.dp
 }
 
 object Elevation {

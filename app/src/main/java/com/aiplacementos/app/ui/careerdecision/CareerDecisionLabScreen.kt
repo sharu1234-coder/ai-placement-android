@@ -11,13 +11,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.SuggestionChipDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -95,7 +94,7 @@ private fun CareerDecisionLabContent() {
                 EmptyState(
                     title = "No Roles Available",
                     message = "There are no catalog roles to compare yet.",
-                    icon = Icons.Filled.CompareArrows,
+                    icon = Icons.AutoMirrored.Filled.CompareArrows,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -179,7 +178,8 @@ private fun CareerDecisionContent(state: CareerDecisionUiState.Ready, viewModel:
 
 @Composable
 private fun RolePickerRow(roles: List<RoleDto>, selectedRoleIds: List<Int>, onToggle: (Int) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+    // chipGap (not sm) between these -- see Spacing.chipGap's own doc comment.
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap)) {
         items(roles, key = { it.id }) { role ->
             FilterChip(
                 selected = role.id in selectedRoleIds,
@@ -195,13 +195,23 @@ private fun RoleComparisonCard(role: CareerDecisionRoleDto) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(text = role.displayRoleName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            SuggestionChip(
-                onClick = {},
-                label = { Text(classificationLabel(role.classification)) },
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    labelColor = if (role.classification == "best_fit") successColor() else if (role.classification == "stretch") warningColor() else MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            )
+            // Purely informational classification badge, not an action -- a chip component
+            // with an empty onClick left this focusable but inert for keyboard/TalkBack users.
+            val classificationColor = if (role.classification == "best_fit") {
+                successColor()
+            } else if (role.classification == "stretch") {
+                warningColor()
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+            Surface(color = classificationColor.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
+                Text(
+                    text = classificationLabel(role.classification),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = classificationColor,
+                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                )
+            }
         }
         SkillBar(
             label = "Readiness",

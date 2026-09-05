@@ -1,5 +1,7 @@
 package com.aiplacementos.app.push
 
+import android.content.Context
+import android.os.PowerManager
 import android.util.Log
 import com.aiplacementos.app.AiPlacementApp
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -46,8 +48,31 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
         // a real push and a server-detected event polled later both land in one feed.
         val receivedAt = message.sentTime.takeIf { it > 0 } ?: System.currentTimeMillis()
         val networkModule = (applicationContext as AiPlacementApp).networkModule
+
+        // FirebaseMessagingService has no goAsync()-equivalent PendingResult the way a
+        // BroadcastReceiver does (see AlarmFiredReceiver/BootRescheduleReceiver, both of which
+        // hold the process open with goAsync() until their coroutine finishes) -- a short-lived
+        // partial wake lock is the analogous protection here. Without it, a bare
+        // CoroutineScope(Dispatchers.IO).launch could be cut off mid-write if the system tears
+        // the process down right after onMessageReceived returns, silently dropping this
+        // notification's local history row (the system-tray banner above still fires either
+        // way, since that part is synchronous).
+        val wakeLock = (applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AiPlacementOS:FcmNotificationRecord")
+        wakeLock.acquire(FCM_RECORD_WAKE_LOCK_TIMEOUT_MS)
         CoroutineScope(Dispatchers.IO).launch {
-            networkModule.notificationRepository.record(title, body, receivedAt)
+            try {
+                networkModule.notificationRepository.record(title, body, receivedAt)
+            } finally {
+                if (wakeLock.isHeld) wakeLock.release()
+            }
         }
+    }
+
+    private companion object {
+        // Comfortably under FCM's own ~10s onMessageReceived execution budget for a
+        // background/killed app -- a safety ceiling in case release() is somehow never
+        // reached, not the expected duration of the DB write itself.
+        const val FCM_RECORD_WAKE_LOCK_TIMEOUT_MS = 10_000L
     }
 }

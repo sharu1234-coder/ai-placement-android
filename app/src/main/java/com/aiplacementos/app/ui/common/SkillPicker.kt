@@ -56,8 +56,9 @@ fun SkillPicker(skills: List<SkillDto>, busy: Boolean, onToggle: (String) -> Uni
         SUGGESTED_SKILLS.forEach { (category, categorySkills) ->
             Column {
                 Text(text = category, style = MaterialTheme.typography.titleSmall)
+                // chipGap (not xs) between these -- see Spacing.chipGap's own doc comment.
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap),
                     modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs),
                 ) {
                     categorySkills.forEach { skill ->
@@ -74,8 +75,9 @@ fun SkillPicker(skills: List<SkillDto>, busy: Boolean, onToggle: (String) -> Uni
         if (customAdded.isNotEmpty()) {
             Column {
                 Text(text = "Your custom skills", style = MaterialTheme.typography.titleSmall)
+                // chipGap (not xs) between these -- see Spacing.chipGap's own doc comment.
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap),
                     modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs),
                 ) {
                     customAdded.forEach { skill ->

@@ -36,6 +36,12 @@ data class ReadinessSubMetric(val label: String, val value: String)
 
 data class TodayPlanItem(val id: Int, val title: String, val taskType: String, val done: Boolean)
 
+/** Threshold readiness percentages a student is notified about crossing -- mirrors the
+ * backend's own _READINESS_MILESTONES (app/services/notification_service.py) exactly, so
+ * "next milestone" on Home always means the same threshold a crossing notification would
+ * actually fire on, never an invented one. */
+private val READINESS_MILESTONES = listOf(50, 70, 85, 95)
+
 data class HomeData(
     val greeting: String,
     // Career Twin's readiness number when a target role/twin is available (the one
@@ -67,20 +73,35 @@ data class HomeData(
     // older progress-history weakness list -- falls back to the latter only when Career Twin
     // has no data (e.g. no target role set yet), same degrade-gracefully rule as readiness.
     val biggestGap: String?,
+    // The biggest gap skill's own confidence, straight from Career Twin's per-skill data --
+    // null whenever biggestGap itself came from the older dashboard weakness list instead
+    // (that list carries no associated percentage), never a guessed number.
+    val biggestGapPercent: Int?,
     // The most recently evidence-verified skill (by Evidence Engine's own last-verified
     // timestamp), or null when nothing has reached "verified" yet -- never a fabricated
     // congratulatory message, only a real state transition already recorded server-side.
     val recentWinSkill: String?,
+    // That same skill's current confidence percent -- the one real number available for it
+    // (there's no tracked "before" score to diff against, so this is never presented as a
+    // delta, only as "now at X%").
+    val recentWinPercent: Int?,
     // Count of skills currently in the "verified" state on the Career Twin. Null (not zero)
     // means "no Career Twin data at all" so the UI can hide the card entirely; zero is a real,
     // honest count that's still worth showing once a target role is set.
     val verifiedSkillCount: Int?,
+    // The smallest READINESS_MILESTONES value still above current readiness, or null when
+    // there's no readiness yet or the highest milestone is already cleared -- never a fake
+    // "X missions away" count, since no real per-mission readiness impact is tracked.
+    val nextMilestonePercent: Int?,
 )
 
-private fun timeOfDayGreeting(): String = when (LocalTime.now().hour) {
-    in 0..11 -> "Good morning"
-    in 12..16 -> "Good afternoon"
-    else -> "Good evening"
+private fun timeOfDayGreeting(name: String?): String {
+    val timeOfDay = when (LocalTime.now().hour) {
+        in 0..11 -> "Good morning"
+        in 12..16 -> "Good afternoon"
+        else -> "Good evening"
+    }
+    return if (name != null) "$timeOfDay, $name!" else timeOfDay
 }
 
 private fun formatAlarmLabel(triggerMillis: Long): String =
@@ -150,7 +171,7 @@ class HomeViewModel(
             // All eight sources are independent -- fetched concurrently instead of one after
             // another, since Home is the app's landing screen and every cold start otherwise
             // pays the sum of all latencies instead of the max.
-            val (path, dashboard, alarms, roadmap, careerPath, resumeHealth, targetRoleName, careerTwin) = coroutineScope {
+            val (path, dashboard, alarms, roadmap, careerPath, resumeHealth, profileNames, careerTwin) = coroutineScope {
                 val pathDeferred = async { runCatching { placementPathRepository.getCurrent() }.getOrNull() }
                 val dashboardDeferred = async { runCatching { progressRepository.getDashboard() }.getOrNull() }
                 val alarmsDeferred = async {
@@ -161,12 +182,15 @@ class HomeViewModel(
                 val resumeHealthDeferred = async {
                     runCatching { atsCheckRepository.listAtsChecks().firstOrNull() }.getOrNull()
                 }
-                val targetRoleNameDeferred = async {
+                // (first name for the greeting, target role name for the subtitle) -- one
+                // profile fetch serving both, same as before this just also kept the name.
+                val profileNamesDeferred = async {
                     runCatching {
                         val profile = profileRepository.getMyProfile()
-                        profile.customTargetRole
+                        val roleName = profile.customTargetRole
                             ?: profileRepository.getRoles().find { it.id == profile.targetRoleId }?.name
-                    }.getOrNull()
+                        profile.fullName?.trim()?.substringBefore(' ')?.takeIf { it.isNotEmpty() } to roleName
+                    }.getOrNull() ?: (null to null)
                 }
                 val careerTwinDeferred = async {
                     runCatching { careerTwinRepository.getCareerTwin() }.getOrNull()?.takeIf { it.hasRole }
@@ -178,10 +202,11 @@ class HomeViewModel(
                     roadmapDeferred.await(),
                     careerPathDeferred.await(),
                     resumeHealthDeferred.await(),
-                    targetRoleNameDeferred.await(),
+                    profileNamesDeferred.await(),
                     careerTwinDeferred.await(),
                 )
             }
+            val (firstName, targetRoleName) = profileNames
 
             val recentActivity = dashboard?.trend.orEmpty().takeLast(3).reversed().map {
                 RecentActivityItem(
@@ -208,15 +233,22 @@ class HomeViewModel(
             // ISO-8601 timestamps sort correctly as strings, same trick relied on elsewhere in
             // this file for streak dates. Never a fabricated "well done"; the transition itself
             // already happened server-side, this just surfaces the newest one.
-            val recentWinSkill = careerTwin?.skills
+            val recentWin = careerTwin?.skills
                 ?.filter { it.state == "verified" && it.lastVerifiedAt != null }
                 ?.maxByOrNull { it.lastVerifiedAt!! }
-                ?.skill
+
+            val readinessPercent = careerTwin?.readinessPercent ?: dashboard?.readinessScore?.let { (it * 100).toInt() }
+            val biggestGapSkill = careerTwin?.biggestGapSkill ?: dashboard?.topWeaknesses?.firstOrNull()
+            // Only populated when the gap itself came from Career Twin's own skill list --
+            // the older dashboard-weakness fallback has no associated percentage to look up.
+            val biggestGapPercent = careerTwin?.biggestGapSkill?.let { gap ->
+                careerTwin.skills.find { it.skill == gap }?.confidencePercent
+            }
 
             _uiState.value = UiState.Success(
                 HomeData(
-                    greeting = timeOfDayGreeting(),
-                    readinessPercent = careerTwin?.readinessPercent ?: dashboard?.readinessScore?.let { (it * 100).toInt() },
+                    greeting = timeOfDayGreeting(firstName),
+                    readinessPercent = readinessPercent,
                     readinessTrendPercent = careerTwin?.readinessTrendPercent,
                     readinessIsEstimate = careerTwin?.isEstimate ?: false,
                     subMetrics = listOfNotNull(
@@ -234,9 +266,12 @@ class HomeViewModel(
                     careerPath = careerPath,
                     resumeHealth = resumeHealth,
                     targetRoleName = targetRoleName,
-                    biggestGap = careerTwin?.biggestGapSkill ?: dashboard?.topWeaknesses?.firstOrNull(),
-                    recentWinSkill = recentWinSkill,
+                    biggestGap = biggestGapSkill,
+                    biggestGapPercent = biggestGapPercent,
+                    recentWinSkill = recentWin?.skill,
+                    recentWinPercent = recentWin?.confidencePercent,
                     verifiedSkillCount = careerTwin?.skills?.count { it.state == "verified" },
+                    nextMilestonePercent = readinessPercent?.let { p -> READINESS_MILESTONES.firstOrNull { it > p } },
                 )
             )
         }

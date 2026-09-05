@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +39,7 @@ import com.aiplacementos.app.data.remote.RequiredSkillDto
 import com.aiplacementos.app.data.remote.SkillGapStatusDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ConfirmationDialog
+import com.aiplacementos.app.ui.common.DetailTopBar
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.ScoreRing
@@ -51,6 +53,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun JdAnalyzerResultScreen(
     jdId: Int,
+    onBack: () -> Unit,
     onGenerateRoadmap: () -> Unit,
     onDeleted: () -> Unit,
     onCareerPathUpdated: (pathId: Int) -> Unit,
@@ -80,22 +83,42 @@ fun JdAnalyzerResultScreen(
         )
     }
 
-    when (val current = state) {
-        is JdAnalyzerResultUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-        is JdAnalyzerResultUiState.Error -> ErrorState(
-            message = current.message,
-            onRetry = viewModel::load,
-            modifier = Modifier.fillMaxSize(),
-        )
-        is JdAnalyzerResultUiState.Success -> ResultContent(
-            plan = current.plan,
-            isGeneratingRoadmap = current.isGeneratingRoadmap,
-            onGenerateRoadmap = { days -> viewModel.generateRoadmap(days, onReady = onGenerateRoadmap) },
-            onDeleteClick = { confirmingDelete = true },
-            isUpdatingCareerPath = current.isUpdatingCareerPath,
-            careerPathUpdateError = current.careerPathUpdateError,
-            onUpdateCareerPath = { viewModel.updateCareerPath(onDone = onCareerPathUpdated) },
-        )
+    // Matches every other drill-into-item screen reached from a history list (e.g.
+    // AtsCheckIssuesScreen, SkillPassportDetailScreen) -- this was the one result screen in
+    // that family without a back arrow. The delete action moves from an inline header Row
+    // into the top bar's actions slot so it survives alongside the new back arrow.
+    Scaffold(
+        topBar = {
+            DetailTopBar(
+                title = "Your Preparation Plan",
+                onBack = onBack,
+                actions = {
+                    if (state is JdAnalyzerResultUiState.Success) {
+                        IconButton(onClick = { confirmingDelete = true }) {
+                            Icon(imageVector = Icons.Filled.Delete, contentDescription = "Delete analysis")
+                        }
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        when (val current = state) {
+            is JdAnalyzerResultUiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize().padding(padding))
+            is JdAnalyzerResultUiState.Error -> ErrorState(
+                message = current.message,
+                onRetry = viewModel::load,
+                modifier = Modifier.fillMaxSize().padding(padding),
+            )
+            is JdAnalyzerResultUiState.Success -> ResultContent(
+                plan = current.plan,
+                isGeneratingRoadmap = current.isGeneratingRoadmap,
+                onGenerateRoadmap = { days -> viewModel.generateRoadmap(days, onReady = onGenerateRoadmap) },
+                isUpdatingCareerPath = current.isUpdatingCareerPath,
+                careerPathUpdateError = current.careerPathUpdateError,
+                onUpdateCareerPath = { viewModel.updateCareerPath(onDone = onCareerPathUpdated) },
+                modifier = Modifier.padding(padding),
+            )
+        }
     }
 }
 
@@ -104,10 +127,10 @@ private fun ResultContent(
     plan: JobPreparationPlanDto,
     isGeneratingRoadmap: Boolean,
     onGenerateRoadmap: (durationDays: Int) -> Unit,
-    onDeleteClick: () -> Unit,
     isUpdatingCareerPath: Boolean,
     careerPathUpdateError: String?,
     onUpdateCareerPath: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -120,26 +143,16 @@ private fun ResultContent(
     val totalInterviewQuestions = plan.interviewPrep.size
     // "Generate Roadmap" is this screen's actual start-preparation action; index computed so
     // the top CTA below scrolls to it regardless of how many conditional sections precede it.
-    val generateRoadmapIndex = 3 + (if (matchPercent != null) 1 else 0) +
+    // Baseline lowered by 1 (was 3) now that the header row moved into the top app bar and is
+    // no longer an item in this LazyColumn.
+    val generateRoadmapIndex = 2 + (if (matchPercent != null) 1 else 0) +
         (if (plan.requiredSkills.isNotEmpty()) 1 else 0) + (if (plan.preparationPlan.isNotEmpty()) 1 else 0)
 
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+        modifier = modifier.fillMaxWidth().padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(text = "Your Preparation Plan", style = MaterialTheme.typography.headlineSmall)
-                IconButton(onClick = onDeleteClick) {
-                    Icon(imageVector = Icons.Filled.Delete, contentDescription = "Delete analysis")
-                }
-            }
-        }
-
         if (matchPercent != null) {
             item { MatchScoreCard(matchPercent) }
         }

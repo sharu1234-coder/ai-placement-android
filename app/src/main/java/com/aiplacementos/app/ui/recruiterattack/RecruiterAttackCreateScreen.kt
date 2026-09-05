@@ -37,7 +37,7 @@ import com.aiplacementos.app.ui.theme.Spacing
 private enum class ClaimSource { PROJECT, RESUME }
 
 @Composable
-fun RecruiterAttackCreateScreen(onBack: () -> Unit, onCreated: (sessionId: Int) -> Unit) {
+fun RecruiterAttackCreateScreen(onBack: () -> Unit, onCreated: (sessionId: Int, sourceLabel: String) -> Unit) {
     val network = networkModule()
     val viewModel: RecruiterAttackCreateViewModel = viewModel(
         factory = viewModelFactory {
@@ -52,7 +52,7 @@ fun RecruiterAttackCreateScreen(onBack: () -> Unit, onCreated: (sessionId: Int) 
 
     val current = state
     LaunchedEffect(current) {
-        if (current is RecruiterAttackCreateUiState.Success) onCreated(current.sessionId)
+        if (current is RecruiterAttackCreateUiState.Success) onCreated(current.sessionId, current.sourceLabel)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {

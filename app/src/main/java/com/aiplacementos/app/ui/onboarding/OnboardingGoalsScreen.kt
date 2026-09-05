@@ -72,7 +72,8 @@ fun OnboardingGoalsScreen(onNext: () -> Unit) {
         ) {
             StepProgressIndicator(step = 6, total = 7)
             Text(text = "What do you want to improve?", style = MaterialTheme.typography.headlineSmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            // chipGap (not xs) between these -- see Spacing.chipGap's own doc comment.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap)) {
                 GOALS.forEach { goal ->
                     FilterChip(
                         selected = goal in selected,

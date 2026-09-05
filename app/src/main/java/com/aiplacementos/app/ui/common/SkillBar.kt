@@ -44,8 +44,17 @@ fun SkillBar(
     }
 
     val animatedFraction = remember { Animatable(0f) }
-    LaunchedEffect(percent) {
-        animatedFraction.animateTo((percent.coerceIn(0, 100)) / 100f, tween(durationMillis = 700))
+    val reduceMotion = rememberReduceMotion()
+    LaunchedEffect(percent, reduceMotion) {
+        val target = (percent.coerceIn(0, 100)) / 100f
+        // Matches Skeleton.kt's existing reduced-motion handling: when the system's "Remove
+        // animations" setting is on, jump straight to the final value instead of animating.
+        // Behavior for everyone else is unchanged.
+        if (reduceMotion) {
+            animatedFraction.snapTo(target)
+        } else {
+            animatedFraction.animateTo(target, tween(durationMillis = 700))
+        }
     }
 
     Column(modifier = modifier.fillMaxWidth()) {

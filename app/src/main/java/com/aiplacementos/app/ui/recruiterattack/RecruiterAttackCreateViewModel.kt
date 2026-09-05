@@ -19,7 +19,7 @@ sealed interface RecruiterAttackCreateUiState {
         val submitting: Boolean = false,
         val submitError: String? = null,
     ) : RecruiterAttackCreateUiState
-    data class Success(val sessionId: Int) : RecruiterAttackCreateUiState
+    data class Success(val sessionId: Int, val sourceLabel: String) : RecruiterAttackCreateUiState
 }
 
 class RecruiterAttackCreateViewModel(
@@ -52,7 +52,7 @@ class RecruiterAttackCreateViewModel(
             _uiState.value = current.copy(submitting = true, submitError = null)
             try {
                 val session = recruiterAttackRepository.startSession("project_build", buildId, null)
-                _uiState.value = RecruiterAttackCreateUiState.Success(session.id)
+                _uiState.value = RecruiterAttackCreateUiState.Success(session.id, session.sourceLabel)
             } catch (e: Exception) {
                 _uiState.value = current.copy(submitting = false, submitError = e.toUserMessage("start this session"))
             }
@@ -71,7 +71,7 @@ class RecruiterAttackCreateViewModel(
             _uiState.value = current.copy(submitting = true, submitError = null)
             try {
                 val session = recruiterAttackRepository.startSession("resume_claim", null, trimmed)
-                _uiState.value = RecruiterAttackCreateUiState.Success(session.id)
+                _uiState.value = RecruiterAttackCreateUiState.Success(session.id, session.sourceLabel)
             } catch (e: Exception) {
                 _uiState.value = current.copy(submitting = false, submitError = e.toUserMessage("start this session"))
             }

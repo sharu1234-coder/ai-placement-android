@@ -19,6 +19,7 @@ plugins {
     // reports and needs to run on every build, including release (where isMinifyEnabled
     // means Crashlytics would otherwise only see obfuscated stack traces).
     alias(libs.plugins.firebase.crashlytics)
+    // See root build.gradle.kts for why com.github.ben-manes.versions is NOT applied here.
 }
 
 val localProperties = Properties().apply {

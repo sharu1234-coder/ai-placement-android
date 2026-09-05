@@ -2,6 +2,8 @@ package com.aiplacementos.app.ui.careertwin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +18,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -138,6 +141,19 @@ private fun CareerTwinContent(twin: CareerTwinDto, onUpgrade: () -> Unit) {
                 }
             }
         }
+        // Real, derived-not-fabricated summary chips: strengths from the same skills list
+        // already rendered in detail below (verified/strong state, highest confidence first),
+        // gaps from the backend's own weak_skill_tags -- never invented categories.
+        val topStrengths = twin.skills
+            .filter { it.state == "verified" || it.state == "strong" }
+            .sortedByDescending { it.confidencePercent }
+            .take(3)
+        if (topStrengths.isNotEmpty()) {
+            item { ChipSummaryRow(title = "Top Strengths", labels = topStrengths.map { it.skill }, isWarning = false) }
+        }
+        if (twin.weakSkillTags.isNotEmpty()) {
+            item { ChipSummaryRow(title = "Biggest Gaps", labels = twin.weakSkillTags, isWarning = true) }
+        }
         if (twin.skills.isEmpty()) {
             item {
                 AppCard {
@@ -185,10 +201,11 @@ private fun CareerTwinContent(twin: CareerTwinDto, onUpgrade: () -> Unit) {
 /** A richer, independently-ranked recommendation than twin.nextActionHint (which only ever
  * looks at the single biggest skill gap) -- see next_best_action_service.py's 9-tier priority
  * order. Fetched via its own small ViewModel rather than folded into CareerTwinViewModel, so
- * NextBestActionCard stays the reusable, independent widget Home will also embed later. A
- * loading/error state here renders nothing rather than disrupting the rest of the Career Twin
- * screen -- the same "a secondary widget failing shouldn't blank the whole screen" philosophy
- * HomeViewModel's per-source runCatching already uses. */
+ * NextBestActionCard stays the reusable, independent widget it was designed as (Home
+ * deliberately shows its own honest milestone-progress card instead, see HomeScreen's
+ * NextMilestoneCard). A loading/error state here renders nothing rather than disrupting the
+ * rest of the Career Twin screen -- the same "a secondary widget failing shouldn't blank the
+ * whole screen" philosophy HomeViewModel's per-source runCatching already uses. */
 @Composable
 private fun NextBestActionSection() {
     val network = networkModule()
@@ -199,6 +216,33 @@ private fun NextBestActionSection() {
     val current = state
     if (current is NextBestActionUiState.Success) {
         NextBestActionCard(action = current.action)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChipSummaryRow(title: String, labels: List<String>, isWarning: Boolean) {
+    Column {
+        Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        FlowRow(
+            modifier = Modifier.padding(top = Spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            // Purely informational tags, not actions -- a chip component with an empty
+            // onClick left these focusable but inert for keyboard/TalkBack users.
+            val labelColor = if (isWarning) warningColor() else successColor()
+            labels.forEach { label ->
+                Surface(color = labelColor.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = labelColor,
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -16,6 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -86,7 +88,14 @@ private fun SkillPassportList(skills: List<SkillPassportItemDto>, onOpenSkill: (
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            Text(text = "Skill Passport", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            // The page's top-level heading -- lets a screen-reader user jump straight back to
+            // the top of this scrollable skill list via TalkBack's heading navigation.
+            Text(
+                text = "Skill Passport",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.semantics { heading() },
+            )
             Text(
                 text = "Proof that you can actually perform each skill -- not just a claim.",
                 style = MaterialTheme.typography.bodyMedium,
