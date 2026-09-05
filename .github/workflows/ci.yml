@@ -17,9 +17,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           distribution: "temurin"
           java-version: "17"
@@ -27,11 +27,11 @@ jobs:
       # Verifies gradle-wrapper.jar's checksum against Gradle's own published list before
       # anything in this job executes it -- catches a tampered wrapper (supply-chain risk),
       # not just a broken one.
-      - uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # Also sets up Gradle's dependency/build cache via the GitHub Actions cache backend
       # (free for both public and private repos), so repeat runs are much faster.
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # Belt-and-suspenders: the executable bit is now set in the git index (verified via
       # `git ls-files -s gradlew`), but this costs nothing and removes any fragility if that
@@ -44,13 +44,40 @@ jobs:
       # committed -- separate secrets per flavor since the two files aren't guaranteed to
       # stay identical (e.g. if dev and prod ever move to separate Firebase projects).
       # GitHub masks secret values in logs automatically.
+      #
+      # Falls back to a committed placeholder when the secrets are absent. That is not a
+      # convenience -- it is the fix for a bug that silently disabled dependency maintenance
+      # on this repo for months. GitHub deliberately withholds repo secrets from
+      # Dependabot-triggered pull_request runs (they live in a separate Dependabot secrets
+      # store), so both variables arrived EMPTY, this step wrote two empty files, and the
+      # build died at processDevDebugGoogleServices with "Malformed root json". Every
+      # Dependabot PR therefore failed CI regardless of what it bumped, which made the signal
+      # permanently red and told nobody anything -- and is why none were ever merged.
+      #
+      # The placeholder carries no credentials; it exists only so the Google Services plugin
+      # can resolve a client for each flavor's package name. Real pushes to master have the
+      # secrets and use the real config, so this changes nothing about a genuine build.
       - name: Write Firebase config (google-services.json)
+        id: firebase_config
         env:
           GOOGLE_SERVICES_JSON_DEV: ${{ secrets.GOOGLE_SERVICES_JSON_DEV }}
           GOOGLE_SERVICES_JSON_PROD: ${{ secrets.GOOGLE_SERVICES_JSON_PROD }}
         run: |
-          printf '%s' "$GOOGLE_SERVICES_JSON_DEV" > app/src/dev/google-services.json
-          printf '%s' "$GOOGLE_SERVICES_JSON_PROD" > app/src/prod/google-services.json
+          if [ -n "$GOOGLE_SERVICES_JSON_DEV" ] && [ -n "$GOOGLE_SERVICES_JSON_PROD" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON_DEV" > app/src/dev/google-services.json
+            printf '%s' "$GOOGLE_SERVICES_JSON_PROD" > app/src/prod/google-services.json
+            echo "placeholder=false" >> "$GITHUB_OUTPUT"
+            echo "Using the real Firebase configuration from repository secrets."
+          else
+            cp .github/google-services-placeholder.json app/src/dev/google-services.json
+            cp .github/google-services-placeholder.json app/src/prod/google-services.json
+            echo "placeholder=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Firebase secrets are unavailable in this context (expected for" \
+                 "Dependabot and fork pull requests). Building against a placeholder" \
+                 "google-services.json: compilation, tests, lint and R8 are all still" \
+                 "verified, but no Firebase-dependent behaviour is exercised and the" \
+                 "release bundle will not be uploaded."
+          fi
 
       # Release signing, written from repo secrets when they exist. Deliberately conditional:
       # with no secrets configured this step writes nothing, hasReleaseSigningConfig stays
@@ -116,8 +143,14 @@ jobs:
 
       # Kept for 14 days so a release candidate can be downloaded and uploaded to Play, and
       # so a failed upload can be diagnosed against the exact bytes CI produced.
+      #
+      # Skipped when the build used the placeholder Firebase config: that bundle compiles and
+      # passes R8, but it points at a project that does not exist, so publishing it would ship
+      # an app whose Firebase features silently fail. Not uploading it at all is safer than
+      # uploading something that looks exactly like a release candidate and is not one.
       - name: Upload release bundle
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ steps.firebase_config.outputs.placeholder == 'false' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: prod-release-bundle
           path: app/build/outputs/bundle/prodRelease/*.aab
