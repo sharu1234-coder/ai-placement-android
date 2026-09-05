@@ -44,6 +44,7 @@ import com.aiplacementos.app.ui.common.DetailTopBar
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.ExpandableSection
 import com.aiplacementos.app.ui.common.SkeletonList
+import com.aiplacementos.app.ui.common.confidenceBandLabel
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 import com.aiplacementos.app.ui.theme.successColor
@@ -120,8 +121,11 @@ private fun SkillPassportDetailContent(item: SkillPassportItemDto, modifier: Mod
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Spacer(modifier = Modifier.width(Spacing.sm))
+                    // Band, not "${confidencePercent}% confidence": the engine only produces
+                    // five discrete confidence values, so a percentage here claimed a
+                    // precision that does not exist. See ui/common/ConfidenceLabels.kt.
                     Text(
-                        text = "${item.confidencePercent}% confidence",
+                        text = confidenceBandLabel(item.confidenceBand),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

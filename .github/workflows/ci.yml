@@ -52,12 +52,33 @@ jobs:
           printf '%s' "$GOOGLE_SERVICES_JSON_DEV" > app/src/dev/google-services.json
           printf '%s' "$GOOGLE_SERVICES_JSON_PROD" > app/src/prod/google-services.json
 
-      # No local.properties / keystore.properties in CI, and none are needed: API_BASE_URL
-      # falls back to its built-in default, and an absent keystore.properties just leaves the
-      # release build type unsigned (see app/build.gradle.kts) -- exactly the existing local
-      # dev behavior, not a special CI path. No release-signing secrets are configured here
-      # (separate from the Firebase config above): this workflow builds and verifies, it
-      # never produces a publishable artifact.
+      # Release signing, written from repo secrets when they exist. Deliberately conditional:
+      # with no secrets configured this step writes nothing, hasReleaseSigningConfig stays
+      # false, and the release build is unsigned -- exactly the previous behavior, so a fork
+      # or a contributor's PR still builds. Once ANDROID_KEYSTORE_BASE64 and its three
+      # passwords are set on the repo, the same workflow starts producing a signed,
+      # Play-uploadable .aab with no further edits.
+      #
+      # The keystore itself is never committed; it arrives base64-encoded through a secret and
+      # is written outside the source tree's tracked paths (keystore.properties is gitignored,
+      # and upload-keystore.jks is covered by the same ignore rule). GitHub masks secret values
+      # in logs, and nothing here echoes them.
+      - name: Write release signing config (only when secrets are configured)
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > upload-keystore.jks
+          {
+            echo "storeFile=upload-keystore.jks"
+            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+          } > keystore.properties
+
       - name: Unit tests
         run: ./gradlew testDevDebugUnitTest testProdDebugUnitTest
 
@@ -82,5 +103,23 @@ jobs:
       # Unsigned, not uploaded anywhere -- this only re-validates that R8/shrinking (item 13)
       # still produces a working build on every change, the same check performed manually
       # when minification was first turned on.
-      - name: Build release APK (unsigned, exercises R8/shrinking)
+      - name: Build release APK (exercises R8/shrinking)
         run: ./gradlew assembleProdRelease
+
+      # The actual publishable artifact. Google Play accepts an Android App Bundle, not an
+      # APK, so until this ran there was no path from a green CI to a release at all -- the
+      # APK step above proves R8 works, it does not prove the thing you upload can be built.
+      # Signed when the signing secrets above are configured, unsigned (but still validated)
+      # otherwise.
+      - name: Build release bundle (.aab)
+        run: ./gradlew bundleProdRelease
+
+      # Kept for 14 days so a release candidate can be downloaded and uploaded to Play, and
+      # so a failed upload can be diagnosed against the exact bytes CI produced.
+      - name: Upload release bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: prod-release-bundle
+          path: app/build/outputs/bundle/prodRelease/*.aab
+          retention-days: 14
+          if-no-files-found: error

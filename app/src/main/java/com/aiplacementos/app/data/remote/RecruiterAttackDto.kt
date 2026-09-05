@@ -60,4 +60,16 @@ data class RecruiterAttackResultsDto(
     val communication: Double,
     @SerialName("overall_score") val overallScore: Double,
     val feedback: String,
+    /**
+     * True when the AI grader failed and the backend fell back to a completion ratio -- a
+     * measure of *how many questions were answered*, not any judgment of how well they were
+     * defended. Every score field above is meaningless in that case, so the UI must show an
+     * honest "couldn't grade this" state rather than rendering those numbers as a real
+     * assessment (see RecruiterAttackResultsScreen).
+     *
+     * Defaults to false so a response from a backend that predates this field deserializes to
+     * "this was really graded", which is the correct reading of an older successful response.
+     * The JSON key is fixed by the backend contract -- do not rename it.
+     */
+    @SerialName("used_fallback") val usedFallback: Boolean = false,
 )

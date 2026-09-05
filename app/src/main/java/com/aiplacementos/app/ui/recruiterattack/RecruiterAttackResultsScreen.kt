@@ -56,25 +56,35 @@ private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Uni
     Column(modifier = Modifier.fillMaxSize().padding(Spacing.md)) {
         Text(text = "How you defended it", style = MaterialTheme.typography.headlineSmall)
 
-        AppCard(
-            modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        // When the grader fell back, every score in `results` is a completion ratio -- "how
+        // many questions you answered" -- not an assessment of the defense. Rendering that
+        // through a confident score ring and four labelled skill bars would present a number
+        // that does not exist as a real measurement, so the whole scored region is replaced by
+        // an honest "not graded" state. No partial credit, no dimmed-but-still-shown score:
+        // there is nothing here to show.
+        if (results.usedFallback) {
+            UngradedNotice()
+        } else {
+            AppCard(
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
             ) {
-                Text(
-                    text = "Overall score",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-                ScoreRing(
-                    percent = (results.overallScore * 100).roundToInt(),
-                    ringColor = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
+                    Text(
+                        text = "Overall score",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    ScoreRing(
+                        percent = (results.overallScore * 100).roundToInt(),
+                        ringColor = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    )
+                }
             }
         }
 
@@ -82,18 +92,20 @@ private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Uni
             modifier = Modifier.weight(1f).fillMaxWidth().padding(top = Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            item {
-                AppCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Breakdown",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = Spacing.sm),
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        SkillBar(label = "Technical defense", percent = (results.technicalDefense * 100).roundToInt())
-                        SkillBar(label = "Project ownership", percent = (results.projectOwnership * 100).roundToInt())
-                        SkillBar(label = "Specificity", percent = (results.specificity * 100).roundToInt())
-                        SkillBar(label = "Communication", percent = (results.communication * 100).roundToInt())
+            if (!results.usedFallback) {
+                item {
+                    AppCard(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Breakdown",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(bottom = Spacing.sm),
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            SkillBar(label = "Technical defense", percent = (results.technicalDefense * 100).roundToInt())
+                            SkillBar(label = "Project ownership", percent = (results.projectOwnership * 100).roundToInt())
+                            SkillBar(label = "Specificity", percent = (results.specificity * 100).roundToInt())
+                            SkillBar(label = "Communication", percent = (results.communication * 100).roundToInt())
+                        }
                     }
                 }
             }
@@ -113,6 +125,34 @@ private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Uni
         }
 
         PrimaryButton(text = "Done", onClick = onDone, modifier = Modifier.fillMaxWidth().padding(top = Spacing.md))
+    }
+}
+
+/**
+ * Shown in place of the score ring and the four breakdown bars when the backend reports
+ * used_fallback. Deliberately shows no number at all -- not a greyed-out score, not a
+ * "provisional" one: the fallback values are a completion ratio, so there is no measurement to
+ * soften. The student's answers themselves are still saved server-side; only the grading of
+ * them failed, which is what this says.
+ */
+@Composable
+private fun UngradedNotice() {
+    AppCard(
+        modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Text(
+            text = "We couldn't grade this session",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Your answers were saved, but the automatic review didn't complete, so there's " +
+                "no score for this attempt. Run the session again to get one.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.xs),
+        )
     }
 }
 

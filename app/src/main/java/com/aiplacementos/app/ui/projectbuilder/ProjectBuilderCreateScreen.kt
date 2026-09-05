@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,8 +33,8 @@ fun ProjectBuilderCreateScreen(onBack: () -> Unit, onCreated: (buildId: Int) -> 
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var title by remember { mutableStateOf("") }
-    var stackSummary by remember { mutableStateOf("") }
+    var title by rememberSaveable { mutableStateOf("") }
+    var stackSummary by rememberSaveable { mutableStateOf("") }
 
     val current = state
     LaunchedEffect(current) {

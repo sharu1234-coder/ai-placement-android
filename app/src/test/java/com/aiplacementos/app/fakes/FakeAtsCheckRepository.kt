@@ -18,7 +18,13 @@ class FakeAtsCheckRepository : AtsCheckRepository {
     var lastCreateTargetRole: String? = null
     var lastGetCheckId: Int? = null
 
+    /** How many analyses were actually requested -- an ATS check is a real, billable
+     * server-side AI run, so "exactly one per user intent" is the property under test. */
+    var createCallCount: Int = 0
+        private set
+
     override suspend fun createAtsCheck(resumeId: Int, targetRole: String?): AtsCheckReportDto {
+        createCallCount++
         lastCreateResumeId = resumeId
         lastCreateTargetRole = targetRole
         if (createDelayMs > 0) delay(createDelayMs)

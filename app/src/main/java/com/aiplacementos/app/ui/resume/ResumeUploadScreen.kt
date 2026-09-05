@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -42,8 +43,8 @@ fun ResumeUploadScreen(onUploaded: () -> Unit) {
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var selectedUri by remember { mutableStateOf<Uri?>(null) }
-    var selectedName by remember { mutableStateOf<String?>(null) }
+    var selectedUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var selectedName by rememberSaveable { mutableStateOf<String?>(null) }
 
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {

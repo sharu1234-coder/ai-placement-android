@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -47,12 +48,12 @@ fun OnboardingEducationScreen(onNext: () -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
 
-    var college by remember { mutableStateOf("") }
-    var degree by remember { mutableStateOf("") }
-    var branch by remember { mutableStateOf("") }
-    var graduationYear by remember { mutableStateOf("") }
+    var college by rememberSaveable { mutableStateOf("") }
+    var degree by rememberSaveable { mutableStateOf("") }
+    var branch by rememberSaveable { mutableStateOf("") }
+    var graduationYear by rememberSaveable { mutableStateOf("") }
     var degreeMenuExpanded by remember { mutableStateOf(false) }
-    var prefilled by remember { mutableStateOf(false) }
+    var prefilled by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state) {
         val profile = (state as? UiState.Success<ProfileDto>)?.data

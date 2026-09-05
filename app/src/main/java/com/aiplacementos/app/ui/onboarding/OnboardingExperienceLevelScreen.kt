@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -48,8 +49,8 @@ fun OnboardingExperienceLevelScreen(onNext: () -> Unit) {
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
-    var selectedLevel by remember { mutableStateOf<String?>(null) }
-    var prefilled by remember { mutableStateOf(false) }
+    var selectedLevel by rememberSaveable { mutableStateOf<String?>(null) }
+    var prefilled by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state) {
         val profile = (state as? UiState.Success<ProfileDto>)?.data

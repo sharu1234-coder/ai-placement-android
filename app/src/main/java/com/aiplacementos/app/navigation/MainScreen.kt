@@ -57,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -103,7 +104,7 @@ private data class DrawerSection(val header: String?, val items: List<DrawerItem
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(navController: NavHostController) {
-    var selectedRoute by remember { mutableStateOf(Screen.Home.route) }
+    var selectedRoute by rememberSaveable { mutableStateOf(Screen.Home.route) }
     val network = networkModule()
     val viewModel: MainScreenViewModel = viewModel(
         factory = viewModelFactory {

@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,8 +39,8 @@ fun OnboardingNameScreen(onNext: () -> Unit) {
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
-    var name by remember { mutableStateOf("") }
-    var prefilled by remember { mutableStateOf(false) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var prefilled by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state) {
         val profile = (state as? UiState.Success<ProfileDto>)?.data

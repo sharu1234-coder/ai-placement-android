@@ -1,6 +1,7 @@
 package com.aiplacementos.app.ui.subscriptions
 
 import android.app.Activity
+import androidx.lifecycle.SavedStateHandle
 import com.aiplacementos.app.MainDispatcherRule
 import com.aiplacementos.app.data.remote.SubscriptionStatusDto
 import com.aiplacementos.app.fakes.FakeSubscriptionRepository
@@ -143,6 +144,85 @@ class SubscriptionsViewModelTest {
 
         assertNull(repository.lastVerifyArgs)
         assertEquals(PurchaseState.Cancelled, viewModel.purchaseState.value)
+    }
+
+    /**
+     * Regression, and the most expensive bug this class can have: Razorpay's Checkout runs in
+     * its own Activity, so this app's process can be killed for memory while the student is
+     * paying. pendingOrderId used to be a plain var, so the recreated ViewModel came back with
+     * no memory of the order it was waiting on -- the real Success result for an
+     * already-charged payment failed the identity check below and was dropped in silence: no
+     * verify() call, no error, no message, money taken and premium never granted. Persisting it
+     * in SavedStateHandle is what makes the recreated instance still recognise its own order.
+     */
+    @Test
+    fun `a checkout that survives process death is still verified after recreation`() {
+        val results = MutableSharedFlow<RazorpayCheckoutBridge.Result>(replay = 1, extraBufferCapacity = 1)
+        val repository = FakeSubscriptionRepository().apply {
+            verifyResult = Result.success(
+                SubscriptionStatusDto(tier = "premium", status = "active", plan = "1_month", expiresAt = null),
+            )
+        }
+        // What SavedStateHandle hands back to the recreated ViewModel: the order id the
+        // pre-death instance had written before launching Razorpay's Activity.
+        val restoredState = SavedStateHandle(mapOf("pendingOrderId" to "order_survivor"))
+        val recreated = SubscriptionsViewModel(
+            repository = repository,
+            checkoutResults = results,
+            openCheckout = { _, _, _, _, _ -> },
+            savedStateHandle = restoredState,
+        )
+
+        // Razorpay's callback lands on the *recreated* MainActivity, after the fact.
+        results.tryEmit(RazorpayCheckoutBridge.Result.Success("order_survivor", "pay_s", "sig_s"))
+
+        assertEquals("order_survivor", repository.lastVerifyArgs?.orderId)
+        assertEquals("pay_s", repository.lastVerifyArgs?.paymentId)
+        val purchaseState = recreated.purchaseState.value
+        assertTrue(purchaseState is PurchaseState.Success)
+        assertEquals("premium", (purchaseState as PurchaseState.Success).status.tier)
+    }
+
+    /** The order id is written to SavedStateHandle at the moment checkout starts -- not only
+     * when it completes -- since process death can happen at any point after that. */
+    @Test
+    fun `starting checkout persists the order id for a later recreation`() {
+        val handle = SavedStateHandle()
+        val repository = FakeSubscriptionRepository().apply {
+            checkoutResult = Result.success(
+                com.aiplacementos.app.data.remote.CheckoutResponseDto("order_persisted", "rzp_test_fake", 19_900, "INR", "1_month"),
+            )
+        }
+        val viewModel = SubscriptionsViewModel(
+            repository = repository,
+            checkoutResults = MutableSharedFlow(extraBufferCapacity = 1),
+            openCheckout = { _, _, _, _, _ -> },
+            savedStateHandle = handle,
+        )
+
+        viewModel.startCheckout(fakeActivity, com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30))
+
+        assertEquals("order_persisted", handle.get<String>("pendingOrderId"))
+    }
+
+    /** The flip side of replay = 1 on the bridge: a normal later visit to Subscriptions (a
+     * brand-new ViewModel with nothing persisted) must discard a replayed old result rather
+     * than re-verifying someone's previous purchase. */
+    @Test
+    fun `a replayed result reaching a fresh ViewModel with no pending order is ignored`() {
+        val results = MutableSharedFlow<RazorpayCheckoutBridge.Result>(replay = 1, extraBufferCapacity = 1)
+        results.tryEmit(RazorpayCheckoutBridge.Result.Success("order_old", "pay_old", "sig_old"))
+        val repository = FakeSubscriptionRepository()
+
+        val fresh = SubscriptionsViewModel(
+            repository = repository,
+            checkoutResults = results,
+            openCheckout = { _, _, _, _, _ -> },
+            savedStateHandle = SavedStateHandle(),
+        )
+
+        assertNull(repository.lastVerifyArgs)
+        assertEquals(PurchaseState.Idle, fresh.purchaseState.value)
     }
 
     @Test

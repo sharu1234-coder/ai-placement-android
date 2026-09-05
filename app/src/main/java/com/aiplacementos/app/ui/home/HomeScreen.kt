@@ -53,6 +53,7 @@ import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkeletonText
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.confidenceBandShortLabel
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.mission.TodaysMissionCard
 import com.aiplacementos.app.ui.mission.TodaysMissionUiState
@@ -182,11 +183,11 @@ private fun HomeContent(
         item { TodaysMissionSection() }
 
         if (data.biggestGap != null) {
-            item { BiggestGapCard(data.biggestGap, data.biggestGapPercent, onOpenCareerTwin) }
+            item { BiggestGapCard(data.biggestGap, data.biggestGapBand, onOpenCareerTwin) }
         }
 
         if (data.recentWinSkill != null) {
-            item { RecentWinCard(data.recentWinSkill, data.recentWinPercent, onOpenCareerTwin) }
+            item { RecentWinCard(data.recentWinSkill, data.recentWinBand, onOpenCareerTwin) }
         }
 
         if (data.verifiedSkillCount != null) {
@@ -285,8 +286,15 @@ private fun CareerReadinessCard(data: HomeData, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         containerColor = MaterialTheme.colorScheme.primaryContainer,
     ) {
+        // The heading follows the metric. On the fallback branch this ring holds the
+        // Placement Path average of the latest test and interview, which is not career
+        // readiness for a role -- labelling both "Career Readiness" made one number silently
+        // mean two different things depending on whether a target role existed.
         Text(
-            text = "Career Readiness",
+            text = when (data.readinessSource) {
+                ReadinessSource.ASSESSMENT_AVERAGE -> "Test & Interview Average"
+                else -> "Career Readiness"
+            },
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
@@ -329,6 +337,15 @@ private fun CareerReadinessCard(data: HomeData, onClick: () -> Unit) {
                 }
             }
         }
+        if (data.readinessSource == ReadinessSource.ASSESSMENT_AVERAGE) {
+            Text(
+                text = "Based on your latest test and interview. Pick a target role to get " +
+                    "evidence-backed career readiness.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+        }
         if (data.readinessIsEstimate) {
             Text(
                 text = "Estimated -- this role's skill list isn't fully verified yet.",
@@ -348,10 +365,12 @@ private fun CareerReadinessCard(data: HomeData, onClick: () -> Unit) {
 }
 
 /** A real, timestamped Evidence Engine state transition -- never a fabricated "well done."
- * [confidencePercent] is the skill's current confidence only, never a before/after delta --
- * no prior score is tracked anywhere to honestly diff against. */
+ * Only shown for a verification inside the last week (see RECENT_WIN_MAX_AGE_DAYS), so
+ * "just reached" is literally true. [confidenceBand] is the skill's current confidence band,
+ * never a before/after delta -- no prior score is tracked anywhere to honestly diff against,
+ * and the underlying confidence has only five values so it is never shown as a percentage. */
 @Composable
-private fun RecentWinCard(skill: String, confidencePercent: Int?, onClick: () -> Unit) {
+private fun RecentWinCard(skill: String, confidenceBand: String?, onClick: () -> Unit) {
     AppCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -371,8 +390,8 @@ private fun RecentWinCard(skill: String, confidencePercent: Int?, onClick: () ->
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
                 Text(
-                    text = if (confidencePercent != null) {
-                        "$skill just reached Verified status, now at $confidencePercent% confidence."
+                    text = if (confidenceBand != null) {
+                        "$skill just reached Verified status — ${confidenceBandShortLabel(confidenceBand).lowercase()} confidence."
                     } else {
                         "$skill just reached Verified status."
                     },
@@ -634,10 +653,11 @@ private fun QuickAccessTile(icon: ImageVector, label: String, onClick: () -> Uni
 
 /** Names the single weakest real signal from progress history and offers a way to act on it
  * -- never claims a specific "strong in X, Y" pairing since the dashboard has no strengths
- * field to back that up. [confidencePercent] is only available when the gap itself came from
- * Career Twin's skill list (see HomeViewModel.biggestGapPercent), never guessed. */
+ * field to back that up. [confidenceBand] is only available when the gap itself came from
+ * Career Twin's skill list (see HomeViewModel.biggestGapBand), never guessed, and is shown as
+ * a band rather than a percentage because the engine has only five confidence values. */
 @Composable
-private fun BiggestGapCard(biggestGap: String, confidencePercent: Int?, onClick: () -> Unit) {
+private fun BiggestGapCard(biggestGap: String, confidenceBand: String?, onClick: () -> Unit) {
     AppCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -657,9 +677,9 @@ private fun BiggestGapCard(biggestGap: String, confidencePercent: Int?, onClick:
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onErrorContainer,
                     )
-                    if (confidencePercent != null) {
+                    if (confidenceBand != null) {
                         Text(
-                            text = "  $confidencePercent%",
+                            text = "  ${confidenceBandShortLabel(confidenceBand)}",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )

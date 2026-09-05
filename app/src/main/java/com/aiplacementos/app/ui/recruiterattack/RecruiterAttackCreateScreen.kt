@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -47,8 +48,8 @@ fun RecruiterAttackCreateScreen(onBack: () -> Unit, onCreated: (sessionId: Int, 
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var source by remember { mutableStateOf(ClaimSource.PROJECT) }
-    var claimText by remember { mutableStateOf("") }
+    var source by rememberSaveable { mutableStateOf(ClaimSource.PROJECT) }
+    var claimText by rememberSaveable { mutableStateOf("") }
 
     val current = state
     LaunchedEffect(current) {

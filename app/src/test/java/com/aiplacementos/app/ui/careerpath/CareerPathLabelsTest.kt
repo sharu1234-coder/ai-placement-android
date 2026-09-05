@@ -1,6 +1,7 @@
 package com.aiplacementos.app.ui.careerpath
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -23,10 +24,22 @@ class CareerPathLabelsTest {
 
     @Test
     fun `skillGapStatusLabel covers all 4 gap statuses`() {
-        assertEquals("Strong", skillGapStatusLabel("strong"))
+        assertEquals("On Your Resume", skillGapStatusLabel("strong"))
         assertEquals("Needs Improvement", skillGapStatusLabel("needs_improvement"))
         assertEquals("Missing", skillGapStatusLabel("missing"))
         assertEquals("Recommended", skillGapStatusLabel("recommended"))
+    }
+
+    @Test
+    fun `the resume-match status is never labelled Strong, which means something stricter elsewhere`() {
+        // Career Path's "strong" wire value means only "this skill is on your resume and
+        // nothing flagged it weak" -- a claim. The Skill Passport and Career Twin also show a
+        // "Strong" label, but theirs comes from the Evidence Engine and requires two or more
+        // sources with at least one the student did not assert about themselves. Rendering
+        // both as "Strong" let the weaker claim borrow the stronger one's credibility on the
+        // same student's screens. This asserts the words stay distinct, so a future tidy-up
+        // that "restores" the shorter label has to fail here first and read this comment.
+        assertNotEquals("Strong", skillGapStatusLabel("strong"))
     }
 
     @Test

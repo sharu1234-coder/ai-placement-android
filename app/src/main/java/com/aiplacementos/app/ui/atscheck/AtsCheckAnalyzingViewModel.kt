@@ -3,6 +3,7 @@ package com.aiplacementos.app.ui.atscheck
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.domain.repository.AtsCheckRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,15 @@ private const val STAGE_DELAY_MS = 900L
 sealed interface AtsCheckAnalyzingUiState {
     data class InProgress(val stageIndex: Int) : AtsCheckAnalyzingUiState
     data class Error(val message: String) : AtsCheckAnalyzingUiState
+
+    /** Terminal. The screen navigates off this state rather than the ViewModel invoking a
+     * navigation callback it captured earlier: the captured lambda closes over the
+     * NavHostController that existed when start() was called, and rememberNavController() hands
+     * out a *new* controller instance after a configuration change, so a callback fired by a
+     * coroutine that outlived a rotation would have been navigating a detached controller.
+     * Same state-driven pattern TextInterviewViewModel and RecruiterAttackSessionViewModel
+     * already use for their own terminal steps. */
+    data class Completed(val checkId: Int) : AtsCheckAnalyzingUiState
 }
 
 /**
@@ -43,8 +53,22 @@ class AtsCheckAnalyzingViewModel(
     private val _uiState = MutableStateFlow<AtsCheckAnalyzingUiState>(AtsCheckAnalyzingUiState.InProgress(0))
     val uiState: StateFlow<AtsCheckAnalyzingUiState> = _uiState
 
-    fun start(onComplete: (checkId: Int) -> Unit) {
-        viewModelScope.launch {
+    // The one analysis currently in flight. AtsCheckAnalyzingScreen kicks this off from a
+    // LaunchedEffect(Unit), and that effect re-runs on every recomposition of a *new*
+    // composition -- which is exactly what a screen rotation produces, while this ViewModel
+    // itself survives. Without this guard a rotation mid-analysis fired a second
+    // POST /ats-check: a second full (paid, server-side AI) resume analysis, a duplicate
+    // report row, and a race between two onComplete callbacks over which checkId the student
+    // is navigated to. Double-tapping "Try Again" on the error state did the same thing.
+    private var runningJob: Job? = null
+
+    /** Idempotent while an analysis is in flight -- a repeat call (rotation re-running the
+     * screen's LaunchedEffect, or an impatient second tap on "Try Again") joins the existing
+     * run instead of starting a competing one. */
+    fun start() {
+        if (runningJob?.isActive == true) return
+        if (_uiState.value is AtsCheckAnalyzingUiState.Completed) return
+        runningJob = viewModelScope.launch {
             _uiState.value = AtsCheckAnalyzingUiState.InProgress(0)
             val networkDeferred = async { runCatching { atsCheckRepository.createAtsCheck(resumeId, targetRole) } }
 
@@ -56,7 +80,7 @@ class AtsCheckAnalyzingViewModel(
             _uiState.value = AtsCheckAnalyzingUiState.InProgress(AtsCheckStageLabels.size - 1)
 
             networkDeferred.await()
-                .onSuccess { report -> onComplete(report.id) }
+                .onSuccess { report -> _uiState.value = AtsCheckAnalyzingUiState.Completed(report.id) }
                 .onFailure { e ->
                     _uiState.value = AtsCheckAnalyzingUiState.Error(e.message ?: "Couldn't analyze your resume.")
                 }

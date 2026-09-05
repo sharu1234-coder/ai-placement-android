@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.aiplacementos.app.data.remote.SkillDto
@@ -44,7 +45,7 @@ val SUGGESTED_SKILLS: List<Pair<String, List<String>>> = listOf(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SkillPicker(skills: List<SkillDto>, busy: Boolean, onToggle: (String) -> Unit, modifier: Modifier = Modifier) {
-    var customSkill by remember { mutableStateOf("") }
+    var customSkill by rememberSaveable { mutableStateOf("") }
     val selectedNames = skills.map { it.name.lowercase() }.toSet()
     val suggestedNamesLower = SUGGESTED_SKILLS.flatMap { it.second }.map { it.lowercase() }.toSet()
     val customAdded = skills.filter { it.name.lowercase() !in suggestedNamesLower }

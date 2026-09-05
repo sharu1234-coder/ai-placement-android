@@ -8,8 +8,15 @@ data class SkillTwinItemDto(
     val skill: String,
     val weight: Float,
     @SerialName("measured_score") val measuredScore: Float? = null,
+    // Only ever one of five values (0/30/45/70/90), one per state -- use it for bar lengths
+    // and ordering, never as displayed text. Show confidenceBand instead.
     @SerialName("confidence_percent") val confidencePercent: Int,
+    // none/low/moderate/high/very_high -- the honest resolution of the value above.
+    // Defaulted so an older backend that doesn't send it still deserializes.
+    @SerialName("confidence_band") val confidenceBand: String = "none",
     val state: String, // claimed/supported/strong/verified/stale
+    // A real verification date -- self-asserted evidence (resume keyword, typed-in project)
+    // never sets this, so it can be null even when evidence exists.
     @SerialName("last_verified_at") val lastVerifiedAt: String? = null,
 )
 

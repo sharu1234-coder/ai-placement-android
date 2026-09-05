@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -164,7 +165,7 @@ private fun OverallProgressCard(build: ProjectBuildDto) {
  * claim than the backend actually made. */
 @Composable
 private fun GitHubCheckCard(evidence: GitHubEvidenceDto?, onCheck: (String) -> Unit) {
-    var repoUrl by remember { mutableStateOf(evidence?.repoUrl.orEmpty()) }
+    var repoUrl by rememberSaveable { mutableStateOf(evidence?.repoUrl.orEmpty()) }
 
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Text(text = "GitHub Verification", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

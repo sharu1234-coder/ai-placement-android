@@ -21,6 +21,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -114,14 +116,17 @@ fun AlarmCreateScreen(
                 initialMinute = existingAlarm?.minute ?: 0,
                 is24Hour = false,
             )
-            var selectedDays by remember {
+            // Explicit listSaver -- see the same note on OnboardingGoalsScreen's `selected`.
+            var selectedDays by rememberSaveable(
+                stateSaver = listSaver<Set<Int>, Int>(save = { it.toList() }, restore = { it.toSet() }),
+            ) {
                 mutableStateOf(
                     existingAlarm?.repeatDays.orEmpty().split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
                 )
             }
-            var title by remember { mutableStateOf(existingAlarm?.title.orEmpty()) }
-            var type by remember { mutableStateOf(existingAlarm?.type ?: AlarmType.CUSTOM) }
-            var notes by remember { mutableStateOf(existingAlarm?.notes.orEmpty()) }
+            var title by rememberSaveable { mutableStateOf(existingAlarm?.title.orEmpty()) }
+            var type by rememberSaveable { mutableStateOf(existingAlarm?.type ?: AlarmType.CUSTOM) }
+            var notes by rememberSaveable { mutableStateOf(existingAlarm?.notes.orEmpty()) }
             val exactAlarmsAllowed = network.alarmScheduler.canScheduleExactAlarms()
 
             Column(

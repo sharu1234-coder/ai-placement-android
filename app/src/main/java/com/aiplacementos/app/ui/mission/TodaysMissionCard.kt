@@ -41,6 +41,33 @@ fun TodaysMissionCard(
             Text(text = "Today's Mission", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(Spacing.sm))
+
+        // A student with no target role gets the next-best-action service's has_recommendation
+        // = false placeholder ("Select a target role to get a personalized next action.") plus
+        // its default estimated_minutes of 10. mission_service._from_recommendation drops the
+        // has_recommendation flag, so MissionDto can't see it -- but that placeholder is the
+        // only case where the backend emits a mission with no tier, so `tier == null` is a
+        // reliable proxy for it on the DTO as it stands today. Without this branch the card
+        // dressed that placeholder up as a real mission: a "WHY?" section, a fabricated
+        // "Estimated: 10 min", and a "Start Mission" button that starts nothing.
+        // NextBestActionCard already gates its own button on action.hasRecommendation; this is
+        // the equivalent gate. If a has_recommendation field is later added to MissionRead,
+        // switch this condition to read it directly.
+        if (mission.tier == null) {
+            Text(
+                text = "Pick a target role to get your first mission",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = "Once we know what you're aiming for, we can work out the single most " +
+                    "useful thing for you to do each day.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return@AppCard
+        }
+
         Text(text = mission.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
         mission.estimatedMinutes?.let { minutes ->
             Text(

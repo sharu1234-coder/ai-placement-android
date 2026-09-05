@@ -26,10 +26,20 @@ object RazorpayCheckoutBridge {
         data object Cancelled : Result
     }
 
-    // extraBufferCapacity = 1 with DROP_OLDEST-like replacement isn't needed here: at most
-    // one checkout is ever in flight (Checkout.open blocks further opens itself), so a single
-    // buffered slot is always enough for the one result that follows.
-    private val _results = MutableSharedFlow<Result>(extraBufferCapacity = 1)
+    // replay = 1 is load-bearing, not a nicety. Razorpay's Checkout runs in its *own* Activity,
+    // so MainActivity can be killed for memory while the student is paying. On return the
+    // process is recreated and onPaymentSuccess fires from the *recreated* MainActivity --
+    // typically before NavGraph has finished resolving its start destination, let alone before
+    // SubscriptionsViewModel exists and has subscribed here. With replay = 0 a SharedFlow drops
+    // any value emitted while it has zero collectors, so that real, already-charged payment was
+    // silently thrown away: no verification call, no error, no message -- money taken, premium
+    // never granted. replay = 1 holds the one result until the recreated ViewModel collects it.
+    //
+    // Safe against stale re-delivery: SubscriptionsViewModel ignores any result whose order id
+    // doesn't match its own persisted pendingOrderId, and a freshly-created ViewModel (a normal
+    // later visit to Subscriptions, not a process-death recovery) has no pendingOrderId at all,
+    // so a replayed result is discarded there rather than re-verified.
+    private val _results = MutableSharedFlow<Result>(replay = 1, extraBufferCapacity = 1)
     val results: SharedFlow<Result> = _results.asSharedFlow()
 
     fun open(activity: Activity, razorpayKeyId: String, razorpayOrderId: String, amountPaise: Int, currency: String) {

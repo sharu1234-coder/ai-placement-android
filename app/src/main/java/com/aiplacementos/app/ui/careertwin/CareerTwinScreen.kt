@@ -34,6 +34,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.CareerTwinDto
 import com.aiplacementos.app.data.remote.SkillTwinItemDto
 import com.aiplacementos.app.ui.common.AppCard
+import com.aiplacementos.app.ui.common.humanizeWeaknessTag
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.ExpandableSection
@@ -111,31 +112,55 @@ private fun CareerTwinContent(twin: CareerTwinDto, onUpgrade: () -> Unit) {
             )
         }
         item {
-            AppCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ScoreRing(percent = twin.readinessPercent ?: 0, size = 96.dp, label = "Readiness")
-                    Spacer(modifier = Modifier.width(Spacing.md))
-                    Column {
-                        Text(
-                            text = "Career Readiness",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        val trend = twin.readinessTrendPercent
-                        if (trend != null) {
-                            val sign = if (trend >= 0) "+" else ""
+            // readinessPercent is null when the backend has a target role but no defined skills
+            // to measure against -- an explicit "we don't know yet", not a score of zero. The
+            // old `?: 0` rendered that unknown as a confident 0% ring (and, further down, a
+            // "See Why You're at 0%" paywall title), which reads as "you are measured, and you
+            // scored nothing". Show the reason instead; ScoreRing only ever gets a real number.
+            val readiness = twin.readinessPercent
+            if (readiness == null) {
+                AppCard(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
+                    Text(
+                        text = "Not enough data yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = twin.reasons.firstOrNull()
+                            ?: "We don't have enough about this role yet to work out a readiness score.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = Spacing.xs),
+                    )
+                }
+            } else {
+                AppCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ScoreRing(percent = readiness, size = 96.dp, label = "Readiness")
+                        Spacer(modifier = Modifier.width(Spacing.md))
+                        Column {
                             Text(
-                                text = "$sign$trend% this week",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (trend >= 0) successColor() else warningColor(),
+                                text = "Career Readiness",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
                             )
-                        }
-                        if (twin.isEstimate) {
-                            Text(
-                                text = "Estimated — this role's skill list isn't fully verified yet.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            val trend = twin.readinessTrendPercent
+                            if (trend != null) {
+                                val sign = if (trend >= 0) "+" else ""
+                                Text(
+                                    text = "$sign$trend% this week",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (trend >= 0) successColor() else warningColor(),
+                                )
+                            }
+                            if (twin.isEstimate) {
+                                Text(
+                                    text = "Estimated — this role's skill list isn't fully verified yet.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
@@ -152,7 +177,20 @@ private fun CareerTwinContent(twin: CareerTwinDto, onUpgrade: () -> Unit) {
             item { ChipSummaryRow(title = "Top Strengths", labels = topStrengths.map { it.skill }, isWarning = false) }
         }
         if (twin.weakSkillTags.isNotEmpty()) {
-            item { ChipSummaryRow(title = "Biggest Gaps", labels = twin.weakSkillTags, isWarning = true) }
+            // "Flagged Weak Areas", not "Biggest Gaps": the card further down is titled
+            // "Biggest Gap" (singular) and is computed from something else entirely --
+            // biggest_gap_skill, the lowest-confidence *role* skill -- whereas these chips come
+            // from weak_skill_tags (interview dimensions and test tags). The two lists routinely
+            // don't overlap, so sharing a name meant a student could see a "Biggest Gap" that
+            // wasn't in "Biggest Gaps". Tags are humanized -- they arrive as machine keys like
+            // "interview:clarity".
+            item {
+                ChipSummaryRow(
+                    title = "Flagged Weak Areas",
+                    labels = twin.weakSkillTags.map(::humanizeWeaknessTag),
+                    isWarning = true,
+                )
+            }
         }
         if (twin.skills.isEmpty()) {
             item {
@@ -168,13 +206,16 @@ private fun CareerTwinContent(twin: CareerTwinDto, onUpgrade: () -> Unit) {
         }
         if (twin.reasons.isNotEmpty()) {
             item {
+                // Same reason as the ring above: with no readiness number, the title must not
+                // invent one. Falls back to score-free wording rather than "0%".
+                val readiness = twin.readinessPercent
                 PaywallGate(
-                    title = "See Why You're at ${twin.readinessPercent ?: 0}%",
+                    title = if (readiness != null) "See Why You're at $readiness%" else "See How Your Readiness Is Worked Out",
                     description = "Premium unlocks the full evidence breakdown behind your readiness score.",
                     onUpgrade = onUpgrade,
                 ) {
                     AppCard {
-                        ExpandableSection(title = "Why ${twin.readinessPercent ?: 0}%?") {
+                        ExpandableSection(title = if (readiness != null) "Why $readiness%?" else "How is this worked out?") {
                             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                                 twin.reasons.forEach { reason ->
                                     Text(text = "•  $reason", style = MaterialTheme.typography.bodyMedium)

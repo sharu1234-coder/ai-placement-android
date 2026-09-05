@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -84,9 +85,9 @@ private fun RoleSelectionContent(
     // request shape that correctly covers both.
     onSelectRole: (roleName: String) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
-    var customRoleText by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
+    var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    var customRoleText by rememberSaveable { mutableStateOf("") }
 
     val filteredRoles = remember(state.roles, selectedCategory, query) {
         state.roles.filter { role ->

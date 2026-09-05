@@ -17,6 +17,7 @@ import com.aiplacementos.app.domain.repository.ProgressRepository
 import com.aiplacementos.app.domain.repository.RoadmapRepository
 import com.aiplacementos.app.domain.streak.currentStreakDays
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.humanizeWeaknessTag
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalTime
@@ -42,6 +43,21 @@ data class TodayPlanItem(val id: Int, val title: String, val taskType: String, v
  * actually fire on, never an invented one. */
 private val READINESS_MILESTONES = listOf(50, 70, 85, 95)
 
+/** How recent an Evidence Engine verification has to be before Home calls it a "Recent Win".
+ * The Evidence Engine only marks evidence stale after 90 days, so without a much tighter
+ * bound here a months-old verification still qualified as something that "just" happened. */
+private const val RECENT_WIN_MAX_AGE_DAYS = 7L
+
+/** Which measurement is behind the number in Home's readiness ring.
+ *
+ * These are not interchangeable: [CAREER_TWIN] is evidence-backed readiness for a chosen
+ * target role, while [ASSESSMENT_AVERAGE] is the Placement Path dashboard's average of the
+ * latest test and interview -- a different question with a different answer. Home falls back
+ * from the first to the second so a student without a target role still sees something, but
+ * the card must say which one it is showing rather than presenting both as "Career Readiness".
+ */
+enum class ReadinessSource { CAREER_TWIN, ASSESSMENT_AVERAGE, NONE }
+
 data class HomeData(
     val greeting: String,
     // Career Twin's readiness number when a target role/twin is available (the one
@@ -49,7 +65,10 @@ data class HomeData(
     // REPLACES the old Placement Path-derived readiness, never a second number alongside it);
     // falls back to the Placement Path dashboard's score only when no Career Twin data exists
     // yet, so Home never regresses to blank for a student who hasn't picked a target role.
+    // Always read alongside readinessSource -- the two branches measure different things.
     val readinessPercent: Int?,
+    val readinessSource: ReadinessSource,
+    // Career Twin only. Null on the fallback branch, which has no comparable history.
     val readinessTrendPercent: Int?,
     val readinessIsEstimate: Boolean,
     val subMetrics: List<ReadinessSubMetric>,
@@ -73,18 +92,18 @@ data class HomeData(
     // older progress-history weakness list -- falls back to the latter only when Career Twin
     // has no data (e.g. no target role set yet), same degrade-gracefully rule as readiness.
     val biggestGap: String?,
-    // The biggest gap skill's own confidence, straight from Career Twin's per-skill data --
-    // null whenever biggestGap itself came from the older dashboard weakness list instead
-    // (that list carries no associated percentage), never a guessed number.
-    val biggestGapPercent: Int?,
+    // The biggest gap skill's own confidence *band*, straight from Career Twin's per-skill
+    // data -- null whenever biggestGap itself came from the older dashboard weakness list
+    // instead (that list carries no associated confidence), never a guessed value. A band
+    // rather than a percent because the engine only produces five confidence values.
+    val biggestGapBand: String?,
     // The most recently evidence-verified skill (by Evidence Engine's own last-verified
     // timestamp), or null when nothing has reached "verified" yet -- never a fabricated
     // congratulatory message, only a real state transition already recorded server-side.
     val recentWinSkill: String?,
-    // That same skill's current confidence percent -- the one real number available for it
-    // (there's no tracked "before" score to diff against, so this is never presented as a
-    // delta, only as "now at X%").
-    val recentWinPercent: Int?,
+    // That same skill's current confidence band -- never a delta, since no "before" value is
+    // tracked anywhere to honestly diff against.
+    val recentWinBand: String?,
     // Count of skills currently in the "verified" state on the Career Twin. Null (not zero)
     // means "no Career Twin data at all" so the UI can hide the card entirely; zero is a real,
     // honest count that's still worth showing once a target role is set.
@@ -124,7 +143,10 @@ private fun buildRecommendations(
     resumeHealth: AtsCheckListItemDto?,
     careerPath: CareerPathDto?,
 ): List<String> {
-    val weaknessTips = dashboard?.topWeaknesses.orEmpty().map { "Your $it is weak -- practice it" }
+    // Humanized -- these tags arrive as machine keys ("interview:clarity") and this string is
+    // shown verbatim to the student.
+    val weaknessTips = dashboard?.topWeaknesses.orEmpty()
+        .map { "Your ${humanizeWeaknessTag(it)} is weak -- practice it" }
     val otherTips = listOfNotNull(
         "You haven't taken any tests yet -- start with a quick practice test."
             .takeIf { dashboard != null && dashboard.completedAssessments == 0 },
@@ -233,22 +255,54 @@ class HomeViewModel(
             // ISO-8601 timestamps sort correctly as strings, same trick relied on elsewhere in
             // this file for streak dates. Never a fabricated "well done"; the transition itself
             // already happened server-side, this just surfaces the newest one.
+            // "just reached" has to actually mean recently. Without the date bound below, the
+            // newest verified skill was shown as a fresh win no matter how old it was -- a
+            // skill verified 89 days ago (still inside the Evidence Engine's 90-day staleness
+            // window) greeted a returning student as though it had happened today.
+            val recentWinCutoff = LocalDate.now().minusDays(RECENT_WIN_MAX_AGE_DAYS)
             val recentWin = careerTwin?.skills
-                ?.filter { it.state == "verified" && it.lastVerifiedAt != null }
+                ?.filter { skill ->
+                    skill.state == "verified" &&
+                        skill.lastVerifiedAt?.let { parseLocalDate(it)?.isAfter(recentWinCutoff) } == true
+                }
                 ?.maxByOrNull { it.lastVerifiedAt!! }
 
-            val readinessPercent = careerTwin?.readinessPercent ?: dashboard?.readinessScore?.let { (it * 100).toInt() }
-            val biggestGapSkill = careerTwin?.biggestGapSkill ?: dashboard?.topWeaknesses?.firstOrNull()
+            // Career Twin's readiness and the Placement Path dashboard score are different
+            // measurements of different things -- evidence-backed readiness for a target role
+            // vs. an average of the latest test and interview. Both used to land in the same
+            // ring under the same "Career Readiness" heading, so the number silently changed
+            // meaning depending on whether a twin existed. The value still falls back (losing
+            // it entirely would leave students with no signal at all), but the source now
+            // travels with it so the card can say which question it is answering.
+            val careerTwinReadiness = careerTwin?.readinessPercent
+            val readinessPercent = careerTwinReadiness
+                ?: dashboard?.readinessScore?.let { (it * 100).toInt() }
+            val readinessSource = when {
+                careerTwinReadiness != null -> ReadinessSource.CAREER_TWIN
+                readinessPercent != null -> ReadinessSource.ASSESSMENT_AVERAGE
+                else -> ReadinessSource.NONE
+            }
+            // humanizeWeaknessTag on the fallback branch: dashboard.topWeaknesses are raw
+            // namespaced machine keys from weakness_service ("interview:clarity"), and this
+            // value goes straight into student-facing copy on Home ("You need more practice in
+            // ..."). Career Twin's biggestGapSkill is already a real skill name; the helper is
+            // a no-op on those, so it's applied uniformly rather than only on one branch.
+            val biggestGapSkill = (careerTwin?.biggestGapSkill ?: dashboard?.topWeaknesses?.firstOrNull())
+                ?.let(::humanizeWeaknessTag)
             // Only populated when the gap itself came from Career Twin's own skill list --
             // the older dashboard-weakness fallback has no associated percentage to look up.
-            val biggestGapPercent = careerTwin?.biggestGapSkill?.let { gap ->
-                careerTwin.skills.find { it.skill == gap }?.confidencePercent
+            val biggestGapBand = careerTwin?.biggestGapSkill?.let { gap ->
+                careerTwin.skills.find { it.skill == gap }?.confidenceBand
             }
 
             _uiState.value = UiState.Success(
                 HomeData(
                     greeting = timeOfDayGreeting(firstName),
                     readinessPercent = readinessPercent,
+                    readinessSource = readinessSource,
+                    // Only Career Twin produces a trend; on the fallback branch there is no
+                    // comparable history, so this stays null rather than borrowing a delta
+                    // computed against a different metric.
                     readinessTrendPercent = careerTwin?.readinessTrendPercent,
                     readinessIsEstimate = careerTwin?.isEstimate ?: false,
                     subMetrics = listOfNotNull(
@@ -267,9 +321,9 @@ class HomeViewModel(
                     resumeHealth = resumeHealth,
                     targetRoleName = targetRoleName,
                     biggestGap = biggestGapSkill,
-                    biggestGapPercent = biggestGapPercent,
+                    biggestGapBand = biggestGapBand,
                     recentWinSkill = recentWin?.skill,
-                    recentWinPercent = recentWin?.confidencePercent,
+                    recentWinBand = recentWin?.confidenceBand,
                     verifiedSkillCount = careerTwin?.skills?.count { it.state == "verified" },
                     nextMilestonePercent = readinessPercent?.let { p -> READINESS_MILESTONES.firstOrNull { it > p } },
                 )

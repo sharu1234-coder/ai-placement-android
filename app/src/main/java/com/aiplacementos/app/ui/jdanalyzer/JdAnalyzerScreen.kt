@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,9 +62,9 @@ fun JdAnalyzerScreen(onOpenAnalysis: (jdId: Int) -> Unit) {
     val analyzing by viewModel.analyzing.collectAsStateWithLifecycle()
     val analyzeError by viewModel.analyzeError.collectAsStateWithLifecycle()
 
-    var jdText by remember { mutableStateOf("") }
-    var companyName by remember { mutableStateOf("") }
-    var jobTitle by remember { mutableStateOf("") }
+    var jdText by rememberSaveable { mutableStateOf("") }
+    var companyName by rememberSaveable { mutableStateOf("") }
+    var jobTitle by rememberSaveable { mutableStateOf("") }
     var pendingDelete by remember { mutableStateOf<JobDescriptionListItemDto?>(null) }
 
     LifecycleResumeEffect(Unit) {

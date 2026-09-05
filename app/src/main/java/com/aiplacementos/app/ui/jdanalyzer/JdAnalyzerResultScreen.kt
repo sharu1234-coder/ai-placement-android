@@ -359,7 +359,12 @@ private fun importanceLabel(gap: SkillGapStatusDto, requiredSkills: List<Require
 @Composable
 private fun GapStatusBadge(status: String, importance: String?) {
     val (label, color) = when (status) {
-        "strong" -> "Strong" to successColor()
+        // "On Your Resume", not "Strong": this status means the JD's skill was matched against
+        // the student's resume and nothing flagged it weak -- a claim, not evidence. The Skill
+        // Passport's "Strong" is evidence-backed and means something stricter; using one word
+        // for both let the weaker claim borrow the stronger one's credibility. See
+        // ui/careerpath/CareerPathLabels.kt for the full note.
+        "strong" -> "On Your Resume" to MaterialTheme.colorScheme.primary
         "needs_improvement" -> "Needs Improvement" to warningColor()
         else -> "Missing" to MaterialTheme.colorScheme.error
     }

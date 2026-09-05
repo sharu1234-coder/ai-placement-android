@@ -20,12 +20,23 @@ import com.aiplacementos.app.fakes.FakeProgressRepository
 import com.aiplacementos.app.fakes.FakeRoadmapRepository
 import com.aiplacementos.app.ui.common.UiState
 import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+
+/** An ISO-8601 UTC timestamp [days] days before now.
+ *
+ * "Recent Win" is bounded to the last week, so these tests have to express age relative to
+ * today. A fixed literal like "2026-02-01T00:00:00Z" would pass on the day it was written and
+ * then quietly change meaning every day afterwards until it fell out of the window entirely --
+ * a test that rots into a false pass and then a confusing failure. */
+private fun isoDaysAgo(days: Long): String =
+    OffsetDateTime.now(ZoneOffset.UTC).minusDays(days).toString()
 
 class HomeViewModelTest {
     @get:Rule
@@ -324,27 +335,51 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `recent win surfaces the most recently verified skill and its current confidence, or null when none is verified yet`() {
+    fun `recent win surfaces the most recently verified skill and its confidence band, or null when none is verified yet`() {
+        // Dates are relative to today on purpose: "Recent Win" is time-bounded now, so
+        // hard-coded calendar dates would silently stop qualifying as the suite ages.
         val twin = CareerTwinDto(
             hasRole = true,
             roleSource = "career_path",
             skills = listOf(
-                SkillTwinItemDto(skill = "SQL", weight = 1f, confidencePercent = 90, state = "verified", lastVerifiedAt = "2026-01-01T00:00:00Z"),
-                SkillTwinItemDto(skill = "Python", weight = 1f, confidencePercent = 95, state = "verified", lastVerifiedAt = "2026-02-01T00:00:00Z"),
-                SkillTwinItemDto(skill = "DSA", weight = 1f, confidencePercent = 40, state = "supported"),
+                SkillTwinItemDto(skill = "SQL", weight = 1f, confidencePercent = 90, confidenceBand = "very_high", state = "verified", lastVerifiedAt = isoDaysAgo(5)),
+                SkillTwinItemDto(skill = "Python", weight = 1f, confidencePercent = 90, confidenceBand = "very_high", state = "verified", lastVerifiedAt = isoDaysAgo(1)),
+                SkillTwinItemDto(skill = "DSA", weight = 1f, confidencePercent = 40, confidenceBand = "moderate", state = "supported"),
             ),
         )
 
         val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
 
         assertEquals("Python", data.recentWinSkill)
-        assertEquals(95, data.recentWinPercent)
+        assertEquals("very_high", data.recentWinBand)
         assertEquals(2, data.verifiedSkillCount)
 
         val noEvidence = (viewModel().uiState.value as UiState.Success<HomeData>).data
         assertNull(noEvidence.recentWinSkill)
-        assertNull(noEvidence.recentWinPercent)
+        assertNull(noEvidence.recentWinBand)
         assertNull(noEvidence.verifiedSkillCount)
+    }
+
+    @Test
+    fun `a verification older than the recent-win window is not announced as something that just happened`() {
+        // Regression: "just reached Verified status" used to be shown for the newest verified
+        // skill regardless of age. The Evidence Engine only marks evidence stale after 90
+        // days, so a student returning after a long break was congratulated for something
+        // that had happened months earlier as though it were today's news. The skill is still
+        // counted as verified -- it just is not a *recent* win.
+        val twin = CareerTwinDto(
+            hasRole = true,
+            roleSource = "career_path",
+            skills = listOf(
+                SkillTwinItemDto(skill = "SQL", weight = 1f, confidencePercent = 90, confidenceBand = "very_high", state = "verified", lastVerifiedAt = isoDaysAgo(60)),
+            ),
+        )
+
+        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
+
+        assertNull(data.recentWinSkill)
+        assertNull(data.recentWinBand)
+        assertEquals(1, data.verifiedSkillCount)
     }
 
     @Test
@@ -377,21 +412,21 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `biggest gap percent comes from career twin's own skill data, never the dashboard-only fallback`() {
+    fun `biggest gap confidence band comes from career twin's own skill data, never the dashboard-only fallback`() {
         val twin = CareerTwinDto(
             hasRole = true,
             roleSource = "career_path",
             biggestGapSkill = "Kafka",
-            skills = listOf(SkillTwinItemDto(skill = "Kafka", weight = 1f, confidencePercent = 43, state = "claimed")),
+            skills = listOf(SkillTwinItemDto(skill = "Kafka", weight = 1f, confidencePercent = 0, confidenceBand = "none", state = "claimed")),
         )
         val withTwinGap = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
         assertEquals("Kafka", withTwinGap.biggestGap)
-        assertEquals(43, withTwinGap.biggestGapPercent)
+        assertEquals("none", withTwinGap.biggestGapBand)
 
-        // Falls back to the dashboard's top weakness with no associated percent to show.
+        // Falls back to the dashboard's top weakness with no associated confidence to show.
         val dashboardOnly = (viewModel().uiState.value as UiState.Success<HomeData>).data
         assertEquals("SQL JOINs", dashboardOnly.biggestGap)
-        assertNull(dashboardOnly.biggestGapPercent)
+        assertNull(dashboardOnly.biggestGapBand)
     }
 
     @Test

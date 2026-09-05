@@ -28,7 +28,7 @@ class AtsCheckAnalyzingViewModelTest {
         }
         val viewModel = AtsCheckAnalyzingViewModel(resumeId = 1, targetRole = null, atsCheckRepository = repository)
 
-        viewModel.start(onComplete = {})
+        viewModel.start()
         advanceTimeBy(950) // just past the first stage's delay
 
         val state = viewModel.uiState.value
@@ -45,18 +45,16 @@ class AtsCheckAnalyzingViewModelTest {
         }
         val viewModel = AtsCheckAnalyzingViewModel(resumeId = 1, targetRole = null, atsCheckRepository = repository)
 
-        var completedId: Int? = null
-        viewModel.start(onComplete = { completedId = it })
+        viewModel.start()
         advanceTimeBy(6_400) // past all 6 timed stages -- lands on the final, network-gated stage
 
         assertEquals(
             AtsCheckAnalyzingUiState.InProgress(AtsCheckStageLabels.size - 1),
             viewModel.uiState.value,
         )
-        assertEquals(null, completedId) // network still hasn't resolved -- must not have navigated yet
 
         advanceUntilIdle() // let the remaining network delay elapse
-        assertEquals(77, completedId)
+        assertEquals(AtsCheckAnalyzingUiState.Completed(77), viewModel.uiState.value)
     }
 
     @Test
@@ -67,27 +65,24 @@ class AtsCheckAnalyzingViewModelTest {
         }
         val viewModel = AtsCheckAnalyzingViewModel(resumeId = 1, targetRole = null, atsCheckRepository = repository)
 
-        var completedId: Int? = null
-        viewModel.start(onComplete = { completedId = it })
+        viewModel.start()
         advanceUntilIdle()
 
-        assertEquals(5, completedId)
+        assertEquals(AtsCheckAnalyzingUiState.Completed(5), viewModel.uiState.value)
     }
 
     @Test
-    fun `a failed check surfaces an error instead of navigating`() = runTest(testDispatcher) {
+    fun `a failed check surfaces an error instead of completing`() = runTest(testDispatcher) {
         val repository = FakeAtsCheckRepository().apply {
             createDelayMs = 0
             createResult = Result.failure(java.io.IOException("no network"))
         }
         val viewModel = AtsCheckAnalyzingViewModel(resumeId = 1, targetRole = null, atsCheckRepository = repository)
 
-        var completed = false
-        viewModel.start(onComplete = { completed = true })
+        viewModel.start()
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value is AtsCheckAnalyzingUiState.Error)
-        assertEquals(false, completed)
     }
 
     @Test
@@ -98,11 +93,73 @@ class AtsCheckAnalyzingViewModelTest {
         }
         val viewModel = AtsCheckAnalyzingViewModel(resumeId = 9, targetRole = "Backend Engineer", atsCheckRepository = repository)
 
-        viewModel.start(onComplete = {})
+        viewModel.start()
         advanceUntilIdle()
 
         assertEquals(9, repository.lastCreateResumeId)
         assertEquals("Backend Engineer", repository.lastCreateTargetRole)
+    }
+
+    /** Regression: the screen kicks start() off from a LaunchedEffect(Unit), which re-runs on
+     * the fresh composition a rotation produces while this ViewModel survives it. Before the
+     * in-flight guard that fired a second POST /ats-check -- a second billable server-side AI
+     * analysis and a duplicate report row for one user action. */
+    @Test
+    fun `a second start while one is already in flight does not create a second analysis`() = runTest(testDispatcher) {
+        val repository = FakeAtsCheckRepository().apply {
+            createDelayMs = 10_000L
+            createResult = Result.success(sampleReport(id = 42))
+        }
+        val viewModel = AtsCheckAnalyzingViewModel(resumeId = 1, targetRole = null, atsCheckRepository = repository)
+
+        viewModel.start()
+        advanceTimeBy(950)
+        viewModel.start() // e.g. the LaunchedEffect re-running after a rotation
+        viewModel.start() // e.g. an impatient second tap on "Try Again"
+        advanceUntilIdle()
+
+        assertEquals(1, repository.createCallCount)
+        assertEquals(AtsCheckAnalyzingUiState.Completed(42), viewModel.uiState.value)
+    }
+
+    /** Once an analysis has completed the screen is navigating away; a late re-entry of the
+     * effect must not silently start a whole second analysis behind that navigation. */
+    @Test
+    fun `start after completion is a no-op`() = runTest(testDispatcher) {
+        val repository = FakeAtsCheckRepository().apply {
+            createDelayMs = 0
+            createResult = Result.success(sampleReport(id = 3))
+        }
+        val viewModel = AtsCheckAnalyzingViewModel(resumeId = 1, targetRole = null, atsCheckRepository = repository)
+
+        viewModel.start()
+        advanceUntilIdle()
+        viewModel.start()
+        advanceUntilIdle()
+
+        assertEquals(1, repository.createCallCount)
+        assertEquals(AtsCheckAnalyzingUiState.Completed(3), viewModel.uiState.value)
+    }
+
+    /** Retry after a real failure must still work -- the guard is "one in flight", not "one ever". */
+    @Test
+    fun `retry after a failure starts a fresh analysis`() = runTest(testDispatcher) {
+        val repository = FakeAtsCheckRepository().apply {
+            createDelayMs = 0
+            createResult = Result.failure(java.io.IOException("no network"))
+        }
+        val viewModel = AtsCheckAnalyzingViewModel(resumeId = 1, targetRole = null, atsCheckRepository = repository)
+
+        viewModel.start()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value is AtsCheckAnalyzingUiState.Error)
+
+        repository.createResult = Result.success(sampleReport(id = 8))
+        viewModel.start()
+        advanceUntilIdle()
+
+        assertEquals(2, repository.createCallCount)
+        assertEquals(AtsCheckAnalyzingUiState.Completed(8), viewModel.uiState.value)
     }
 }
 

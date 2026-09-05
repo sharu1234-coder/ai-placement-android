@@ -15,6 +15,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,8 +49,14 @@ fun OnboardingGoalsScreen(onNext: () -> Unit) {
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
-    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var prefilled by remember { mutableStateOf(false) }
+    // An explicit listSaver rather than the default autoSaver: a Set is only incidentally
+    // Serializable (it depends on which concrete Set implementation the +/- operators happen to
+    // return), and a saver that silently stops working would put us back to losing the
+    // student's goal picks on rotation with no compile-time signal.
+    var selected by rememberSaveable(
+        stateSaver = listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() }),
+    ) { mutableStateOf<Set<String>>(emptySet()) }
+    var prefilled by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state) {
         val profile = (state as? UiState.Success<ProfileDto>)?.data

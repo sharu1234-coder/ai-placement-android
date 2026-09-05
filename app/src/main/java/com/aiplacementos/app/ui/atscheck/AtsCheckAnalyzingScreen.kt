@@ -47,15 +47,24 @@ fun AtsCheckAnalyzingScreen(
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) { viewModel.start(onComplete) }
+    // start() is idempotent while a run is in flight, which matters here: this effect re-runs
+    // on the fresh composition a rotation produces, while the ViewModel survives it.
+    LaunchedEffect(Unit) { viewModel.start() }
+    LaunchedEffect(state) {
+        val current = state
+        if (current is AtsCheckAnalyzingUiState.Completed) onComplete(current.checkId)
+    }
 
     when (val current = state) {
         is AtsCheckAnalyzingUiState.Error -> ErrorState(
             message = current.message,
-            onRetry = { viewModel.start(onComplete) },
+            onRetry = viewModel::start,
             modifier = Modifier.fillMaxSize(),
         )
         is AtsCheckAnalyzingUiState.InProgress -> AnalyzingContent(stageIndex = current.stageIndex)
+        // Terminal -- the effect above is already navigating away; keep the last stage on
+        // screen for that single frame rather than flashing a blank Box.
+        is AtsCheckAnalyzingUiState.Completed -> AnalyzingContent(stageIndex = AtsCheckStageLabels.size - 1)
     }
 }
 

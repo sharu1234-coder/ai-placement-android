@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.aiplacementos.app.ui.common.PrimaryButton
@@ -26,7 +27,7 @@ private enum class RolePhase { PRIMARY, PRIMARY_DONE, SECONDARY }
  * local Compose state (no extra nav routes) per the plan's scope decision. */
 @Composable
 fun OnboardingRoleScreen(onNext: () -> Unit) {
-    var phase by remember { mutableStateOf(RolePhase.PRIMARY) }
+    var phase by rememberSaveable { mutableStateOf(RolePhase.PRIMARY) }
 
     when (phase) {
         RolePhase.PRIMARY -> RoleSelectionScreen(

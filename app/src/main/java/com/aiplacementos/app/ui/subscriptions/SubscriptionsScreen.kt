@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -50,7 +51,16 @@ import java.util.Locale
 fun SubscriptionsScreen() {
     val network = networkModule()
     val viewModel: SubscriptionsViewModel = viewModel(
-        factory = viewModelFactory { initializer { SubscriptionsViewModel(network.subscriptionRepository) } },
+        // createSavedStateHandle() so an in-flight Razorpay order id survives process death --
+        // see SubscriptionsViewModel.pendingOrderId.
+        factory = viewModelFactory {
+            initializer {
+                SubscriptionsViewModel(
+                    repository = network.subscriptionRepository,
+                    savedStateHandle = createSavedStateHandle(),
+                )
+            }
+        },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val purchaseState by viewModel.purchaseState.collectAsStateWithLifecycle()

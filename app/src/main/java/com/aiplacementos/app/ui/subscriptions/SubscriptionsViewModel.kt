@@ -1,6 +1,7 @@
 package com.aiplacementos.app.ui.subscriptions
 
 import android.app.Activity
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.PlanDto
@@ -37,6 +38,10 @@ class SubscriptionsViewModel(
     // Defaults to the real SDK call; tests inject a no-op so they never touch
     // Razorpay's Activity-based Checkout SDK, which needs a real Android runtime.
     private val openCheckout: (Activity, String, String, Int, String) -> Unit = RazorpayCheckoutBridge::open,
+    // Survives process death so an in-flight checkout can still be verified afterwards --
+    // see pendingOrderId below. Defaults to an empty handle so existing call sites and tests
+    // that don't care about restoration construct this exactly as before.
+    private val savedStateHandle: SavedStateHandle = SavedStateHandle(),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<SubscriptionsData>>(UiState.Loading)
     val uiState: StateFlow<UiState<SubscriptionsData>> = _uiState.asStateFlow()
@@ -47,7 +52,19 @@ class SubscriptionsViewModel(
     // The order id this purchase attempt is waiting on -- a bridge result for any other order
     // id (e.g. a stale result surviving process/activity recreation) is ignored rather than
     // processed, since it can't correspond to what's currently in flight.
-    private var pendingOrderId: String? = null
+    //
+    // Backed by SavedStateHandle (not a plain var) because Razorpay's Checkout is a *separate
+    // Activity*: the app's own process can be killed for memory while the student is paying.
+    // With a plain var the recreated ViewModel came back with pendingOrderId == null, so the
+    // real Success result for the payment the student had just been charged for failed the
+    // identity check in handleBridgeResult and was dropped in silence -- no verify() call, no
+    // error, no message, and premium never granted for money already taken. Persisting it means
+    // the recreated instance still recognises its own order and completes verification.
+    private var pendingOrderId: String?
+        get() = savedStateHandle[PENDING_ORDER_ID_KEY]
+        set(value) {
+            savedStateHandle[PENDING_ORDER_ID_KEY] = value
+        }
 
     init {
         load()
@@ -123,5 +140,9 @@ class SubscriptionsViewModel(
 
     fun dismissPurchaseState() {
         _purchaseState.value = PurchaseState.Idle
+    }
+
+    private companion object {
+        const val PENDING_ORDER_ID_KEY = "pendingOrderId"
     }
 }

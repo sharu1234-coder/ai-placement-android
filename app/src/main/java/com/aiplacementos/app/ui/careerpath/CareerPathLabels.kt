@@ -30,8 +30,23 @@ fun statusLabel(status: String): String = when (status) {
     else -> "Not Started"
 }
 
+/**
+ * Career Path / JD gap statuses.
+ *
+ * The "strong" wire value here does NOT mean what "Strong" means on the Skill Passport and
+ * Career Twin. Those come from the Evidence Engine, where `strong` requires evidence from two
+ * or more sources with at least one the student did not simply assert about themselves. This
+ * one means only "this skill appears on your resume and nothing has flagged it as weak" --
+ * a claim with no contradiction, not proof.
+ *
+ * Both were rendered as a green "Strong" badge, so the same word promised two very different
+ * things and the weaker one borrowed the stronger one's credibility -- on the same student's
+ * screens, for the same skill. The wire value is left alone (it is a stable API contract that
+ * several screens filter on); what changes is that this label now says what it actually
+ * knows, and takes a neutral informational colour rather than success green.
+ */
 fun skillGapStatusLabel(status: String): String = when (status) {
-    "strong" -> "Strong"
+    "strong" -> "On Your Resume"
     "needs_improvement" -> "Needs Improvement"
     "missing" -> "Missing"
     "recommended" -> "Recommended"
@@ -40,7 +55,9 @@ fun skillGapStatusLabel(status: String): String = when (status) {
 
 @Composable
 fun skillGapStatusColor(status: String): Color = when (status) {
-    "strong" -> successColor()
+    // Deliberately not successColor(): see skillGapStatusLabel -- a resume mention is not a
+    // verified strength, and colouring it like one is the same overclaim in a second channel.
+    "strong" -> MaterialTheme.colorScheme.primary
     "needs_improvement" -> warningColor()
     "missing" -> MaterialTheme.colorScheme.error
     else -> MaterialTheme.colorScheme.primary
