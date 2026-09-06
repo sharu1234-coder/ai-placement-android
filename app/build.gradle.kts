@@ -55,11 +55,21 @@ val hasReleaseSigningConfig = keystoreProperties.getProperty("storeFile") != nul
 
 android {
     namespace = "com.aiplacementos.app"
-    compileSdk = 35
+    // Compiled against 36, but see targetSdk below -- these are deliberately different.
+    // Raised from 35 because firebase-bom 34.18.0's Crashlytics references
+    // android.os.ProfilingTrigger, which only exists from API 36; on compileSdk 35 R8 fails
+    // the release build outright ("Missing class android.os.ProfilingTrigger"). Compiling
+    // against a newer platform does not change how the app behaves on any device -- that is
+    // targetSdk's job -- it only lets the compiler and R8 see APIs the libraries reference.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.aiplacementos.app"
         minSdk = 26
+        // Deliberately left at 35 while compileSdk moved to 36. targetSdk is the one that
+        // opts the app into a platform's behaviour changes at runtime, so raising it needs
+        // real on-device testing against those changes -- which has not happened. Raise it
+        // as its own change, with device QA, not as a side effect of a dependency bump.
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
@@ -116,9 +126,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 
     buildFeatures {
         compose = true
@@ -199,4 +206,15 @@ dependencies {
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+// Kotlin 2.x removed the android.kotlinOptions DSL (it became a hard error in the compiler
+// plugin, not just a deprecation warning). This is the replacement for the old
+// `kotlinOptions { jvmTarget = "17" }` block that used to sit inside android {} -- same
+// JVM target, expressed through the typed compilerOptions DSL and kept in step with the
+// compileOptions source/target compatibility above.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }

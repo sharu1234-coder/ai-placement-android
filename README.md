@@ -185,16 +185,18 @@ docs in this file's "Firebase setup" section above; this entry covers what was v
   anything or touching Gradle until a third, correctly-matching file arrived, confirmed by
   the same direct check.
 - Google Services plugin `4.5.0`, Crashlytics Gradle plugin `3.0.8`, `firebase-bom` pinned to
-  `34.1.0` — versions confirmed against Google's actual Maven metadata (not a search-engine
+  `34.18.0` — versions confirmed against Google's actual Maven metadata (not a search-engine
   summary, and not copied from Firebase's own quickstart docs, per the explicit instruction
-  not to). **The BoM version is deliberately not the latest (34.18.0 at integration time)**:
-  tried it first, and its transitive `play-services-measurement` was compiled with Kotlin
-  2.2.0 metadata, which this project's Kotlin `2.0.21` compiler can't read (`compileDevDebugKotlin`
-  failed with "Module was compiled with an incompatible version of Kotlin"). Bumping the
-  project's Kotlin version to match would have been a much bigger, riskier change than
-  pinning the BoM to `34.1.0` (the first 34.x release, right after Firebase dropped the -ktx
-  modules) — confirmed that version's transitive dependencies compile cleanly against
-  Kotlin 2.0.21 instead.
+  not to). **This was pinned back to `34.1.0` for a long time and no longer is**: 34.18.0's
+  transitive `play-services-measurement` is compiled with Kotlin 2.2.0 metadata, which the
+  project's then-current Kotlin `2.0.21` compiler could not read (`compileDevDebugKotlin`
+  failed with "Module was compiled with an incompatible version of Kotlin"), and bumping
+  Kotlin was correctly judged the bigger, riskier change at the time. That Kotlin upgrade has
+  since happened (Kotlin `2.3.21`, KSP `2.3.11`, AGP `8.13.2`, Gradle `8.14.3`, Room `2.8.4`),
+  so the BoM is now on the current release. One knock-on: 34.18.0's Crashlytics references
+  `android.os.ProfilingTrigger`, an API 36 class, so `compileSdk` had to move to 36 or R8
+  fails the release build with "Missing class". `targetSdk` stays at 35 — see
+  `app/build.gradle.kts` for why those two are deliberately different.
 - Since BoM 34.x, `-ktx` artifacts are gone (merged into the main modules mid-2025) — used
   `firebase-messaging`/`firebase-crashlytics`/`firebase-analytics`/`firebase-appcheck-*`
   directly, not the old `-ktx` suffixed names.

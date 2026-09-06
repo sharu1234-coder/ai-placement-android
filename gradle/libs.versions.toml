@@ -1,6 +1,6 @@
 [versions]
-agp = "8.7.3"
-kotlin = "2.0.21"
+agp = "8.13.2"
+kotlin = "2.3.21"
 coreKtx = "1.15.0"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
@@ -12,28 +12,30 @@ navigationCompose = "2.8.5"
 # retrofit 2.9.0 requirement resolves up cleanly.
 retrofit = "3.0.0"
 okhttp = "4.12.0"
-# BLOCKED on a Kotlin toolchain upgrade -- do not bump these three in isolation, and do not
-# merge the open Dependabot PRs for them as-is. Tried and measured: 1.11.0 fails
-# compileDevDebugKotlin with "Module was compiled with an incompatible version of Kotlin. The
-# binary version of its metadata is 2.3.0, expected version is 2.0.0" (coroutines 1.11.0
-# reports 2.2.0, and it also pulls kotlin-stdlib 2.3.20). This project is pinned to Kotlin
-# 2.0.21, and `ksp` below must match the Kotlin version exactly, so moving these means moving
-# Kotlin + KSP + almost certainly AGP together as one deliberate change with its own
-# verification pass -- not a dependency bump. This is the same metadata-incompatibility class
-# the room comment below already refers to.
-kotlinxSerializationJson = "1.7.3"
+# Previously BLOCKED: 1.11.0 failed compileDevDebugKotlin with "the binary version of its
+# metadata is 2.3.0, expected version is 2.0.0" against the old Kotlin 2.0.21 pin. That
+# blocker is what the Kotlin 2.3.21 / KSP / AGP / Gradle / Room upgrade above was for, and
+# these now compile -- the metadata versions finally agree.
+kotlinxSerializationJson = "1.11.0"
 retrofitKotlinxSerializationConverter = "1.0.0"
-kotlinxCoroutinesAndroid = "1.9.0"
-kotlinxCoroutinesTest = "1.9.0"
+kotlinxCoroutinesAndroid = "1.11.0"
+kotlinxCoroutinesTest = "1.11.0"
 datastorePreferences = "1.1.1"
-# Room 2.6.1 predates the Kotlin 2.x line entirely (released Dec 2023), so its compiled
-# metadata is safely older than this project's pinned Kotlin 2.0.21 -- no repeat of the
-# firebase-bom/kotlinx-coroutines metadata-incompatibility class of failure (see
-# PRODUCTION_READINESS_FINAL.md's Phase 3 Dependabot classification for that precedent).
-room = "2.6.1"
-# KSP version string is <kotlin-version>-<ksp-release>; must match the pinned Kotlin version
-# exactly (unlike a library dependency, KSP is a compiler plugin tied to the compiler itself).
-ksp = "2.0.21-1.0.28"
+# Bumped from 2.6.1 as part of the Kotlin 2.3 toolchain upgrade, and required by it: KSP 2.x
+# runs processors through the Analysis API (KspAAWorkerAction), and Room 2.6.1's processor
+# predates that -- it fails the build with "[ksp] java.lang.IllegalStateException: unexpected
+# jvm signature V" before generating a single DAO. 2.8.4 is the current stable line and
+# processes cleanly under KSP2. Room's own runtime API surface used here (see data/local/)
+# is unchanged across this range.
+room = "2.8.4"
+# That "<kotlin-version>-<ksp-release>" rule this comment used to state is no longer how KSP
+# is versioned: KSP moved to its own independent version line at 2.3.0 (the last coupled
+# release was 2.2.21-2.0.5), so the version here deliberately does NOT spell out the Kotlin
+# version any more. It is still a compiler plugin rather than an ordinary library, so it does
+# still have to be a release built for the Kotlin line above -- it is just no longer readable
+# off the version string. KSP 2.x also requires a newer AGP than 8.7.3 did: 8.7.3 fails at
+# configuration with "void AndroidComponentsExtension.addKspConfigurations(boolean)".
+ksp = "2.3.11"
 # EncryptedSharedPreferences (androidx.security:security-crypto) was deprecated by Google in
 # April 2025 -- the current recommended pattern for secure local storage is DataStore (already
 # in use here) + Tink for encryption + Android Keystore for key protection, which is what
@@ -42,7 +44,10 @@ ksp = "2.0.21-1.0.28"
 tink = "1.21.0"
 googleServices = "4.5.0"
 firebaseCrashlyticsPlugin = "3.0.8"
-firebaseBom = "34.1.0"
+# Was held at 34.1.0 because 34.18.0's transitive play-services-measurement carries Kotlin
+# 2.2.0 metadata that the old Kotlin 2.0.21 compiler could not read. The Kotlin 2.3.21
+# upgrade removes that constraint, so this is now on the current release.
+firebaseBom = "34.18.0"
 fragment = "1.9.0"
 # Razorpay's own current stable Android Checkout SDK release (com.razorpay:checkout), used
 # for TEST MODE order checkout only -- see PaymentActivity.kt equivalent in
