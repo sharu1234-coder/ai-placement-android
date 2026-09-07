@@ -5,7 +5,7 @@ coreKtx = "1.15.0"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
 composeBom = "2024.12.01"
-navigationCompose = "2.8.5"
+navigationCompose = "2.10.0"
 # 3.0.0 is a major, but verified safe for this project's usage: full suite (674 tests),
 # lint, R8 release APK and the release bundle all pass, and it does NOT drag okhttp to 5.x --
 # the resolved graph keeps okhttp 4.12.0, and retrofit2-kotlinx-serialization-converter's own
