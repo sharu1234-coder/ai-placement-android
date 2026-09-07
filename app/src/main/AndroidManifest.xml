@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -27,6 +28,31 @@
          heads-up notification if it is not granted: lock-screen wake is best-effort here,
          not guaranteed, consistent with the rest of this feature's stated caveats. -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Removed, not requested. Firebase Analytics (play-services-measurement) injects
+         these three into the merged manifest automatically, and all three were shipping in
+         the release APK. Confirmed with `aapt2 dump badging` against the built artifact, then
+         traced to the injecting library in the manifest-merger report; not assumed.
+
+         This app shows no advertising and runs no install-attribution campaigns, so it has no
+         use for the advertising ID. Leaving the permissions in place is not neutral: Play
+         Console's Data Safety form asks whether the app collects the advertising ID, and a
+         manifest declaring AD_ID while the form says "no" is a mismatch Google can reject or
+         take enforcement action over. The audience here is students, some of whom will be
+         minors, which raises the bar further under the Families policy.
+
+         Analytics itself keeps working; only advertising-ID-based attribution is given up. If
+         advertising or paid install attribution is ever introduced, delete these three
+         entries and declare the advertising ID in the Data Safety form in the same change. -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove" />
 
     <!-- android:usesCleartextTraffic is set per product flavor (app/src/dev and
          app/src/prod), not here: dev talks to a plain-HTTP local/LAN backend
