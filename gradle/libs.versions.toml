@@ -11,7 +11,7 @@ navigationCompose = "2.8.5"
 # the resolved graph keeps okhttp 4.12.0, and retrofit2-kotlinx-serialization-converter's own
 # retrofit 2.9.0 requirement resolves up cleanly.
 retrofit = "3.0.0"
-okhttp = "4.12.0"
+okhttp = "5.5.0"
 # Previously BLOCKED: 1.11.0 failed compileDevDebugKotlin with "the binary version of its
 # metadata is 2.3.0, expected version is 2.0.0" against the old Kotlin 2.0.21 pin. That
 # blocker is what the Kotlin 2.3.21 / KSP / AGP / Gradle / Room upgrade above was for, and
