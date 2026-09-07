@@ -41,7 +41,7 @@ ksp = "2.3.11"
 # in use here) + Tink for encryption + Android Keystore for key protection, which is what
 # TokenStore.kt uses this for. tink-android is the standalone Tink library, not tied to the
 # deprecated security-crypto artifact.
-tink = "1.21.0"
+tink = "1.23.0"
 googleServices = "4.5.0"
 firebaseCrashlyticsPlugin = "3.0.8"
 # Was held at 34.1.0 because 34.18.0's transitive play-services-measurement carries Kotlin
