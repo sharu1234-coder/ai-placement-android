@@ -11,6 +11,7 @@ import com.aiplacementos.app.data.remote.CareerDecisionApi
 import com.aiplacementos.app.data.remote.CareerPathApi
 import com.aiplacementos.app.data.remote.CareerTwinApi
 import com.aiplacementos.app.data.remote.InterviewsApi
+import com.aiplacementos.app.data.remote.JobHuntApi
 import com.aiplacementos.app.data.remote.JobsApi
 import com.aiplacementos.app.data.remote.LegalApi
 import com.aiplacementos.app.data.remote.MissionApi
@@ -35,6 +36,7 @@ import com.aiplacementos.app.data.repository.CareerDecisionRepositoryImpl
 import com.aiplacementos.app.data.repository.CareerPathRepositoryImpl
 import com.aiplacementos.app.data.repository.CareerTwinRepositoryImpl
 import com.aiplacementos.app.data.repository.InterviewRepositoryImpl
+import com.aiplacementos.app.data.repository.JobHuntRepositoryImpl
 import com.aiplacementos.app.data.repository.JobRepositoryImpl
 import com.aiplacementos.app.data.repository.LegalRepositoryImpl
 import com.aiplacementos.app.data.repository.MissionRepositoryImpl
@@ -61,6 +63,7 @@ import com.aiplacementos.app.domain.repository.CareerDecisionRepository
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.domain.repository.CareerTwinRepository
 import com.aiplacementos.app.domain.repository.InterviewRepository
+import com.aiplacementos.app.domain.repository.JobHuntRepository
 import com.aiplacementos.app.domain.repository.JobRepository
 import com.aiplacementos.app.domain.repository.LegalRepository
 import com.aiplacementos.app.domain.repository.MissionRepository
@@ -131,6 +134,7 @@ class NetworkModule(context: Context) {
     private val resumesApi: ResumesApi = retrofit.create()
     private val atsCheckApi: AtsCheckApi = retrofit.create()
     private val jobsApi: JobsApi = retrofit.create()
+    private val jobHuntApi: JobHuntApi = retrofit.create()
     private val assessmentsApi: AssessmentsApi = retrofit.create()
     private val interviewsApi: InterviewsApi = retrofit.create()
     private val roadmapApi: RoadmapApi = retrofit.create()
@@ -158,6 +162,7 @@ class NetworkModule(context: Context) {
     val resumeRepository: ResumeRepository = ResumeRepositoryImpl(resumesApi)
     val atsCheckRepository: AtsCheckRepository = AtsCheckRepositoryImpl(atsCheckApi)
     val jobRepository: JobRepository = JobRepositoryImpl(jobsApi)
+    val jobHuntRepository: JobHuntRepository = JobHuntRepositoryImpl(jobHuntApi)
     val assessmentRepository: AssessmentRepository = AssessmentRepositoryImpl(assessmentsApi)
     val interviewRepository: InterviewRepository = InterviewRepositoryImpl(interviewsApi)
     val roadmapRepository: RoadmapRepository = RoadmapRepositoryImpl(roadmapApi)

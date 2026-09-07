@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.BusinessCenter
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.Description
@@ -142,6 +143,9 @@ fun MainScreen(navController: NavHostController) {
         DrawerSection(
             "PREPARE",
             listOf(
+                DrawerItem("Job Hunt", Icons.Filled.BusinessCenter, badge = "New") {
+                    navController.navigate(Screen.JobHunt.route)
+                },
                 DrawerItem("Resume", Icons.Filled.Description) { navController.navigate(Screen.ProfileResumeUpload.route) },
                 DrawerItem("Resume ATS Check", Icons.Filled.FindInPage, badge = "New") {
                     navController.navigate(Screen.AtsCheckLanding.route)

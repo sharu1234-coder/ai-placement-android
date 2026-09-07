@@ -51,6 +51,11 @@ import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackCreateScreen
 import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackListScreen
 import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackResultsScreen
 import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackSessionScreen
+import com.aiplacementos.app.ui.jobhunt.JobDetailScreen
+import com.aiplacementos.app.ui.jobhunt.JobHuntHomeScreen
+import com.aiplacementos.app.ui.jobhunt.JobHuntResultsScreen
+import com.aiplacementos.app.ui.jobhunt.JobHuntSetupScreen
+import com.aiplacementos.app.ui.jobhunt.SavedJobsScreen
 import com.aiplacementos.app.ui.skillpassport.SkillPassportDetailScreen
 import com.aiplacementos.app.ui.skillpassport.SkillPassportScreen
 import com.aiplacementos.app.ui.auth.ForgotPasswordScreen
@@ -780,6 +785,59 @@ fun NavGraph(navController: NavHostController) {
         ) { backStackEntry ->
             val skill = backStackEntry.arguments?.getString("skill").orEmpty()
             SkillPassportDetailScreen(skill = skill, onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.JobHunt.route) {
+            JobHuntHomeScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSetup = { navController.navigate(Screen.JobHuntSetup.route) },
+                onOpenResults = { navController.navigate(Screen.JobHuntResults.route) },
+                onOpenTracker = { navController.navigate(Screen.JobHuntTracker.route) },
+                onOpenResumeUpload = { navController.navigate(Screen.ProfileResumeUpload.route) },
+            )
+        }
+        composable(Screen.JobHuntSetup.route) {
+            JobHuntSetupScreen(
+                onBack = { navController.popBackStack() },
+                // Setup is a step on the way to results, not a place to come back to, so it is
+                // popped off the stack before the results screen is pushed -- otherwise Back
+                // from results would land the student in the form they just completed.
+                onSaved = {
+                    navController.navigate(Screen.JobHuntResults.route) {
+                        popUpTo(Screen.JobHuntSetup.route) { inclusive = true }
+                    }
+                },
+                onOpenResumeUpload = { navController.navigate(Screen.ProfileResumeUpload.route) },
+            )
+        }
+        composable(Screen.JobHuntResults.route) {
+            JobHuntResultsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
+                onOpenSaved = { navController.navigate(Screen.JobHuntSaved.route) },
+                onOpenSetup = { navController.navigate(Screen.JobHuntSetup.route) },
+                onOpenSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
+            )
+        }
+        composable(Screen.JobHuntSaved.route) {
+            SavedJobsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
+            )
+        }
+        composable(Screen.JobHuntTracker.route) {
+            SavedJobsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
+                trackerMode = true,
+            )
+        }
+        composable(
+            Screen.JobHuntDetail.route,
+            arguments = listOf(navArgument("listingId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val listingId = backStackEntry.arguments?.getInt("listingId") ?: 0
+            JobDetailScreen(listingId = listingId, onBack = { navController.popBackStack() })
         }
 
         composable(Screen.ProjectBuilderList.route) {

@@ -125,6 +125,17 @@ sealed class Screen(val route: String) {
     // now (no path params) -- per-skill drill-down reuses this same screen's data.
     data object CareerTwin : Screen("career-twin")
 
+    // Premium Job Hunt -- drawer entry point. Deliberately separate from JdAnalyzer (which
+    // scores a student against one JD they paste in) and from the Prepare Me flow: this one
+    // retrieves real adverts from a job provider and ranks them. Never reads or writes the
+    // job_descriptions/job_matches tables those features own.
+    data object JobHunt : Screen("job-hunt")
+    data object JobHuntSetup : Screen("job-hunt/setup")
+    data object JobHuntResults : Screen("job-hunt/results")
+    data object JobHuntSaved : Screen("job-hunt/saved")
+    data object JobHuntTracker : Screen("job-hunt/applications")
+    data object JobHuntDetail : Screen("job-hunt/jobs/{listingId}")
+
     // Skill Passport -- per-skill evidence deep-dive over the same server-side Evidence
     // Engine Career Twin reads. Independent screens/ViewModels; never calls into Career Twin.
     data object SkillPassport : Screen("skill-passport")
@@ -212,4 +223,6 @@ fun careerPathReadinessRoute(pathId: Int): String = "career-path/$pathId/readine
 
 // Uri.encode -- a skill name can contain spaces/parentheses (e.g. "Databases (SQL)") which
 // would otherwise break path segmentation, same rationale as atsCheckAnalyzingRoute's targetRole.
+fun jobHuntDetailRoute(listingId: Int): String = "job-hunt/jobs/$listingId"
+
 fun skillPassportDetailRoute(skill: String): String = "skill-passport/${android.net.Uri.encode(skill)}"
