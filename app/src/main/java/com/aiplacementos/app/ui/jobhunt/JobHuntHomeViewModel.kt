@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.jobhunt
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.JobHuntHomeDto
 import com.aiplacementos.app.data.remote.JobSearchProfileDto
 import com.aiplacementos.app.domain.repository.JobHuntRepository
 import com.aiplacementos.app.ui.common.isNetworkError
@@ -22,7 +23,16 @@ sealed interface JobHuntHomeUiState {
      * [JobSearchProfileDto.isReadyToSearch] to decide between the setup prompt and the
      * matches feed.
      */
-    data class Success(val profile: JobSearchProfileDto) : JobHuntHomeUiState
+    data class Success(
+        val profile: JobSearchProfileDto,
+        /**
+         * Counts and top recommendations. Null when the summary call failed on its own --
+         * the profile still loaded, and a student whose tiles are missing must still be able
+         * to reach search and setup. Degrading independently, the same pattern Home uses for
+         * its seven other sources.
+         */
+        val home: JobHuntHomeDto? = null,
+    ) : JobHuntHomeUiState
 }
 
 class JobHuntHomeViewModel(private val jobHuntRepository: JobHuntRepository) : ViewModel() {
@@ -33,11 +43,17 @@ class JobHuntHomeViewModel(private val jobHuntRepository: JobHuntRepository) : V
         load()
     }
 
+    fun refresh() = load()
+
     fun load() {
         viewModelScope.launch {
             _uiState.value = JobHuntHomeUiState.Loading
             try {
-                _uiState.value = JobHuntHomeUiState.Success(jobHuntRepository.getProfile())
+                val profile = jobHuntRepository.getProfile()
+                // The summary is a nice-to-have on this screen; the profile is not. A failed
+                // summary must never cost the student their way into setup or search.
+                val home = runCatching { jobHuntRepository.getHome() }.getOrNull()
+                _uiState.value = JobHuntHomeUiState.Success(profile, home)
             } catch (e: Exception) {
                 _uiState.value = JobHuntHomeUiState.Error(
                     e.toUserMessage("load Job Hunt"),

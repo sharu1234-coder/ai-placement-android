@@ -133,3 +133,45 @@ class SavedJobsViewModel(
         _uiState.value = transform(latest)
     }
 }
+
+/**
+ * The provenance line on a tracker row: where this job came from.
+ *
+ * Recorded when the job was saved and never recomputed, so it stays true after the student
+ * changes its status — a job found through a saved search was still found that way once it
+ * reaches the interview stage.
+ *
+ * When the naming saved search has since been deleted, this falls back to the generic label
+ * rather than claiming the job was saved manually. The row keeps its history; it just can no
+ * longer name the search.
+ */
+fun savedJobSourceLabel(source: String, savedSearchName: String?): String = when (source) {
+    "saved_search" ->
+        if (savedSearchName.isNullOrBlank()) "Saved search" else "Saved search: $savedSearchName"
+    "job_alert" -> "Job alert"
+    "recommended" -> "Recommended for you"
+    "manual" -> "Manually saved"
+    // An unrecognised source from a newer backend falls back to the safest true statement
+    // rather than to a raw enum or to a specific claim we cannot support.
+    else -> "Saved"
+}
+
+/**
+ * "Applied on 5 Sep 2026", or null when it has not been applied to.
+ *
+ * Only ever derived from the server's own applied_at. Opening an external apply link does not
+ * set it — the app cannot see whether a student finished an application on someone else's
+ * site, and claiming otherwise would put a false fact in their own tracker.
+ */
+fun appliedOnLabel(appliedAt: String?): String? {
+    if (appliedAt.isNullOrBlank()) return null
+    val date = appliedAt.substringBefore('T')
+    val parts = date.split("-")
+    if (parts.size != 3) return null
+    val months = listOf(
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    )
+    val month = parts[1].toIntOrNull()?.let { months.getOrNull(it - 1) } ?: return null
+    val day = parts[2].toIntOrNull() ?: return null
+    return "Applied on $day $month ${parts[0]}"
+}

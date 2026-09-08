@@ -63,6 +63,8 @@ fun JobDetailScreen(
     /** Where a gap goes next. Defaulted to a no-op so a caller that has no roadmap to offer
      * simply does not show the button, rather than showing one that goes nowhere. */
     onOpenRoadmap: (() -> Unit)? = null,
+    /** Opens the full per-skill breakdown. Null on a caller that has nowhere to send them. */
+    onOpenSkillAnalysis: (() -> Unit)? = null,
 ) {
     val network = networkModule()
     val viewModel: JobDetailViewModel = viewModel(
@@ -108,6 +110,7 @@ fun JobDetailScreen(
                 isSaving = current.isSaving,
                 onToggleSave = viewModel::toggleSave,
                 onOpenRoadmap = onOpenRoadmap,
+                onOpenSkillAnalysis = onOpenSkillAnalysis,
                 onApply = {
                     // Opens the provider's own listing in a browser. The app never hosts an
                     // application form, and never claims to have submitted anything on the
@@ -137,6 +140,7 @@ private fun JobDetailContent(
     onApply: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenRoadmap: (() -> Unit)? = null,
+    onOpenSkillAnalysis: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -202,6 +206,16 @@ private fun JobDetailContent(
         // resume and one demonstrated. Placed after the fit explanation and before the gaps
         // so the student reads their strongest ground first.
         SkillProvenanceCard(match.skillProvenance)
+
+        if (onOpenSkillAnalysis != null) {
+            // The card above is the summary; this opens the per-skill breakdown with the
+            // recruiter's-eye badges and the route into the Roadmap.
+            SecondaryButton(
+                text = "See full skill match analysis",
+                onClick = onOpenSkillAnalysis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         if (match.missingSkills.isNotEmpty()) {
             GapsCard(match, onOpenRoadmap)

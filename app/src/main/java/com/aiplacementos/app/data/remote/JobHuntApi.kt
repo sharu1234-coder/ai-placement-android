@@ -49,4 +49,42 @@ interface JobHuntApi {
 
     @DELETE("job-hunt/saved-searches/{savedSearchId}")
     suspend fun deleteSavedSearch(@Path("savedSearchId") savedSearchId: Int)
+
+    /** Re-runs a stored search and records that it ran. Shares the search endpoint's rate
+     * limit on the server: a saved search is a search, not a second allowance. */
+    @POST("job-hunt/saved-searches/{savedSearchId}/run")
+    suspend fun runSavedSearch(@Path("savedSearchId") savedSearchId: Int): JobSearchResponseDto
+
+    /** Counts and top recommendations from what is already stored. Never calls the provider,
+     * so opening the app costs no quota and no network round trip beyond this one. */
+    @GET("job-hunt/home")
+    suspend fun getHome(): JobHuntHomeDto
+
+    @GET("job-hunt/jobs/{listingId}/skill-analysis")
+    suspend fun getSkillAnalysis(@Path("listingId") listingId: Int): SkillMatchAnalysisDto
+
+    /** Premium on the server. A free student gets 403 with a message naming what stays free. */
+    @GET("job-hunt/jobs/{listingId}/readiness")
+    suspend fun getReadiness(@Path("listingId") listingId: Int): ApplicationReadinessDto
+
+    @GET("job-hunt/alerts")
+    suspend fun listAlerts(): List<JobAlertDto>
+
+    @GET("job-hunt/alerts/quota")
+    suspend fun getAlertQuota(): JobAlertQuotaDto
+
+    @GET("job-hunt/alerts/history")
+    suspend fun getAlertHistory(): List<JobAlertHistoryDto>
+
+    @POST("job-hunt/alerts")
+    suspend fun createAlert(@Body body: JobAlertCreateDto): JobAlertDto
+
+    @PATCH("job-hunt/alerts/{alertId}")
+    suspend fun updateAlert(
+        @Path("alertId") alertId: Int,
+        @Body body: JobAlertUpdateDto,
+    ): JobAlertDto
+
+    @DELETE("job-hunt/alerts/{alertId}")
+    suspend fun deleteAlert(@Path("alertId") alertId: Int)
 }

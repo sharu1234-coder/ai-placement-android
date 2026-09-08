@@ -137,6 +137,9 @@ sealed class Screen(val route: String) {
     data object JobHuntResults : Screen("job-hunt/results?filters={filters}")
     data object JobHuntSaved : Screen("job-hunt/saved")
     data object JobHuntSavedSearches : Screen("job-hunt/saved-searches")
+    data object JobHuntAlerts : Screen("job-hunt/alerts")
+    data object JobHuntSkillAnalysis : Screen("job-hunt/jobs/{listingId}/skill-analysis")
+    data object JobHuntReadiness : Screen("job-hunt/jobs/{listingId}/readiness")
     data object JobHuntTracker : Screen("job-hunt/applications")
     data object JobHuntDetail : Screen("job-hunt/jobs/{listingId}")
 
@@ -232,6 +235,11 @@ fun jobHuntDetailRoute(listingId: Int): String = "job-hunt/jobs/$listingId"
 // Encoded because the JSON contains characters ("{", "\"", "&") that would otherwise be read
 // as route syntax. Passing no filters navigates to the bare route rather than to an encoded
 // empty object, so the common case keeps a clean, shareable URL.
+fun jobHuntSkillAnalysisRoute(listingId: Int): String =
+    "job-hunt/jobs/$listingId/skill-analysis"
+
+fun jobHuntReadinessRoute(listingId: Int): String = "job-hunt/jobs/$listingId/readiness"
+
 fun jobHuntResultsRoute(filtersJson: String? = null): String =
     if (filtersJson.isNullOrBlank()) {
         "job-hunt/results"

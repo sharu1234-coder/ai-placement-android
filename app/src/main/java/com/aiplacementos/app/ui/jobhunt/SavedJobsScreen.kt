@@ -177,6 +177,36 @@ private fun SavedJobRow(
                 )
             }
 
+            // Where this job came from, and when it was applied to. Both are facts recorded
+            // at the time; neither is recomputed, so the row keeps telling the truth about
+            // its own history after the student changes its stage.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(
+                    text = savedJobSourceLabel(saved.source, saved.sourceSavedSearchName),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                appliedOnLabel(saved.appliedAt)?.let { applied ->
+                    Text(
+                        text = applied,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            // Only when the server actually computed one, and versioned, so a student can see
+            // which engine produced the number sitting in their tracker.
+            saved.match?.let { match ->
+                Text(
+                    text = "Match ${match.matchPercent()}% (${match.scoreVersion})",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             // The stage row scrolls horizontally rather than wrapping: at a large font scale
             // five chips will not fit on one line on a small phone, and a clipped final stage
             // would be unreachable.

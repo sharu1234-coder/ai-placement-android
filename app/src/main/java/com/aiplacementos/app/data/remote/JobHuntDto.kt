@@ -159,6 +159,8 @@ data class JobSearchRequestDto(
     @SerialName("max_days_old") val maxDaysOld: Int? = null,
     val page: Int = 1,
     @SerialName("page_size") val pageSize: Int = 20,
+    // best_match | newest | salary. Re-orders the same scored set; never re-scores it.
+    val sort: String = "best_match",
 )
 
 @Serializable
@@ -184,6 +186,11 @@ data class JobSearchResponseDto(
 data class SaveJobRequestDto(
     @SerialName("listing_id") val listingId: Int,
     val status: String = "saved",
+    // Which screen the tap came from. Only the client knows, and it is a display label rather
+    // than an entitlement or an ownership claim, so it is safe for the client to assert.
+    // recommended | saved_search | job_alert | manual
+    val source: String = "manual",
+    @SerialName("source_saved_search_id") val sourceSavedSearchId: Int? = null,
 )
 
 @Serializable
@@ -205,6 +212,12 @@ data class SavedJobDto(
     val listing: JobListingDto,
     // null when this student has no computed match for the listing yet.
     val match: JobHuntMatchDto? = null,
+    // How this job reached the student, recorded at save time and never recomputed.
+    val source: String = "manual",
+    @SerialName("source_saved_search_id") val sourceSavedSearchId: Int? = null,
+    // Null when that saved search has since been deleted. The row keeps its provenance; the
+    // UI falls back to the generic label rather than claiming the job was saved manually.
+    @SerialName("source_saved_search_name") val sourceSavedSearchName: String? = null,
 )
 
 @Serializable
@@ -223,7 +236,169 @@ data class SavedSearchDto(
     val filters: JobSearchRequestDto = JobSearchRequestDto(),
     @SerialName("notify_enabled") val notifyEnabled: Boolean = false,
     @SerialName("last_run_at") val lastRunAt: String? = null,
+    @SerialName("last_success_at") val lastSuccessAt: String? = null,
+    // Set when a run failed. Distinct from lastRunAt so the UI can tell a search that went
+    // quiet because the market is quiet from one that went quiet because we could not ask.
+    @SerialName("last_error_at") val lastErrorAt: String? = null,
     // null means "never run", which the UI must not render as zero results.
     @SerialName("last_result_count") val lastResultCount: Int? = null,
+    @SerialName("has_alert") val hasAlert: Boolean = false,
     @SerialName("created_at") val createdAt: String,
 )
+
+// -- Skill match analysis --------------------------------------------------------------------
+
+/**
+ * One row of the Skill Match Analysis screen.
+ *
+ * Both fields arrive from the server and neither is derived from the other on the client.
+ * `status` says where the claim comes from; `strength` says how it reads to a recruiter. They
+ * are related but not identical -- a resume-only skill is a real match on a CV screen and only
+ * a claim to us -- and deriving one from the other here would put that rule in two places.
+ */
+@Serializable
+data class SkillMatchRowDto(
+    val skill: String,
+    // verified_evidence | on_resume | missing | unclear
+    val status: String,
+    // strong_match | match | skill_gap | unclear
+    val strength: String,
+    @SerialName("evidence_state") val evidenceState: String? = null,
+    val detail: String? = null,
+)
+
+@Serializable
+data class SkillMatchAnalysisDto(
+    @SerialName("total_score") val totalScore: Float,
+    @SerialName("score_version") val scoreVersion: String = "",
+    val rows: List<SkillMatchRowDto> = emptyList(),
+    @SerialName("verified_skill_count") val verifiedSkillCount: Int = 0,
+    // Null when there is nothing actionable. Never a filler value to keep the card populated.
+    @SerialName("biggest_gap_skill") val biggestGapSkill: String? = null,
+) {
+    fun matchPercent(): Int = (totalScore * 100).toInt().coerceIn(0, 100)
+}
+
+// -- Application readiness -------------------------------------------------------------------
+
+@Serializable
+data class ReadinessDimensionDto(
+    val key: String,
+    val label: String,
+    // Null when this dimension could not be judged. The UI must render null as "not checked",
+    // never as an empty bar -- a 0% bar says the student failed something they never attempted.
+    val score: Float? = null,
+    val detail: String,
+)
+
+@Serializable
+data class ReadinessGapDto(
+    val kind: String,
+    val skill: String? = null,
+    val title: String,
+    val detail: String,
+    // roadmap | skill_passport | resume | interview | education
+    val action: String,
+)
+
+@Serializable
+data class ApplicationReadinessDto(
+    @SerialName("listing_id") val listingId: Int,
+    val overall: Float? = null,
+    val band: String? = null,
+    val dimensions: List<ReadinessDimensionDto> = emptyList(),
+    @SerialName("unknown_dimensions") val unknownDimensions: List<String> = emptyList(),
+    @SerialName("biggest_gap") val biggestGap: ReadinessGapDto? = null,
+    val tips: List<String> = emptyList(),
+) {
+    /** Null rather than 0 when nothing could be judged, so the ring can show its own empty
+     * state instead of a confident-looking zero. */
+    fun overallPercent(): Int? = overall?.let { (it * 100).toInt().coerceIn(0, 100) }
+}
+
+// -- Home ------------------------------------------------------------------------------------
+
+@Serializable
+data class JobHuntHomeDto(
+    // Counts over this student's own rows. Never a claim about the job market as a whole.
+    @SerialName("new_jobs") val newJobs: Int = 0,
+    @SerialName("best_matches") val bestMatches: Int = 0,
+    val applied: Int = 0,
+    val saved: Int = 0,
+    @SerialName("target_role_title") val targetRoleTitle: String? = null,
+    @SerialName("is_ready_to_search") val isReadyToSearch: Boolean = false,
+    val recommended: List<JobResultDto> = emptyList(),
+)
+
+// -- Job alerts --------------------------------------------------------------------------------
+
+@Serializable
+data class JobAlertDto(
+    val id: Int,
+    val name: String,
+    @SerialName("saved_search_id") val savedSearchId: Int? = null,
+    @SerialName("saved_search_name") val savedSearchName: String? = null,
+    val filters: JobSearchRequestDto = JobSearchRequestDto(),
+    // daily | weekly
+    val frequency: String = "daily",
+    // 0 = Monday. Only meaningful for a weekly alert.
+    @SerialName("day_of_week") val dayOfWeek: Int? = null,
+    @SerialName("hour_local") val hourLocal: Int = 9,
+    @SerialName("quiet_hours_start") val quietHoursStart: Int? = null,
+    @SerialName("quiet_hours_end") val quietHoursEnd: Int? = null,
+    // The consent itself. Defaults to off on the server too.
+    @SerialName("is_enabled") val isEnabled: Boolean = false,
+    @SerialName("last_run_at") val lastRunAt: String? = null,
+    @SerialName("last_success_at") val lastSuccessAt: String? = null,
+    @SerialName("last_error_at") val lastErrorAt: String? = null,
+    // success | no_new_jobs | provider_error | not_configured | skipped_quiet_hours
+    @SerialName("last_run_status") val lastRunStatus: String? = null,
+    // Null means never run. Never zero, which would read as "we looked and found nothing".
+    @SerialName("last_new_job_count") val lastNewJobCount: Int? = null,
+    @SerialName("created_at") val createdAt: String = "",
+)
+
+@Serializable
+data class JobAlertCreateDto(
+    val name: String,
+    @SerialName("saved_search_id") val savedSearchId: Int? = null,
+    val filters: JobSearchRequestDto? = null,
+    val frequency: String = "daily",
+    @SerialName("day_of_week") val dayOfWeek: Int? = null,
+    @SerialName("hour_local") val hourLocal: Int = 9,
+    @SerialName("quiet_hours_start") val quietHoursStart: Int? = null,
+    @SerialName("quiet_hours_end") val quietHoursEnd: Int? = null,
+    @SerialName("is_enabled") val isEnabled: Boolean = false,
+)
+
+@Serializable
+data class JobAlertUpdateDto(
+    val name: String? = null,
+    val frequency: String? = null,
+    @SerialName("day_of_week") val dayOfWeek: Int? = null,
+    @SerialName("hour_local") val hourLocal: Int? = null,
+    @SerialName("quiet_hours_start") val quietHoursStart: Int? = null,
+    @SerialName("quiet_hours_end") val quietHoursEnd: Int? = null,
+    @SerialName("is_enabled") val isEnabled: Boolean? = null,
+    // Explicit, because null means "unchanged" on the two fields above and there would
+    // otherwise be no way to remove a quiet window once set.
+    @SerialName("clear_quiet_hours") val clearQuietHours: Boolean = false,
+)
+
+@Serializable
+data class JobAlertHistoryDto(
+    val id: Int,
+    @SerialName("alert_id") val alertId: Int,
+    @SerialName("alert_name") val alertName: String? = null,
+    val listing: JobListingDto,
+    @SerialName("notified_at") val notifiedAt: String,
+)
+
+@Serializable
+data class JobAlertQuotaDto(
+    val used: Int = 0,
+    val limit: Int = 1,
+    @SerialName("is_premium") val isPremium: Boolean = false,
+) {
+    val hasRoom: Boolean get() = used < limit
+}

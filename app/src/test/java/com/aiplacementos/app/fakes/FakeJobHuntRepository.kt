@@ -1,5 +1,13 @@
 package com.aiplacementos.app.fakes
 
+import com.aiplacementos.app.data.remote.ApplicationReadinessDto
+import com.aiplacementos.app.data.remote.JobAlertCreateDto
+import com.aiplacementos.app.data.remote.JobAlertDto
+import com.aiplacementos.app.data.remote.JobAlertHistoryDto
+import com.aiplacementos.app.data.remote.JobAlertQuotaDto
+import com.aiplacementos.app.data.remote.JobAlertUpdateDto
+import com.aiplacementos.app.data.remote.JobHuntHomeDto
+import com.aiplacementos.app.data.remote.SkillMatchAnalysisDto
 import com.aiplacementos.app.data.remote.JobResultDto
 import com.aiplacementos.app.data.remote.JobSearchProfileDto
 import com.aiplacementos.app.data.remote.JobSearchProfileUpdateDto
@@ -32,6 +40,20 @@ class FakeJobHuntRepository : JobHuntRepository {
      * were actually saved rather than the ones it hoped were. */
     var lastCreatedSavedSearch: Pair<String, JobSearchRequestDto>? = null
 
+    var runSavedSearchResult: (suspend (Int) -> JobSearchResponseDto)? = null
+    var homeResult: (suspend () -> JobHuntHomeDto)? = null
+    var skillAnalysisResult: (suspend (Int) -> SkillMatchAnalysisDto)? = null
+    var readinessResult: (suspend (Int) -> ApplicationReadinessDto)? = null
+    var alertsResult: (suspend () -> List<JobAlertDto>)? = null
+    var alertQuotaResult: (suspend () -> JobAlertQuotaDto)? = null
+    var alertHistoryResult: (suspend () -> List<JobAlertHistoryDto>)? = null
+    var createAlertResult: (suspend (JobAlertCreateDto) -> JobAlertDto)? = null
+    var updateAlertResult: (suspend (Int, JobAlertUpdateDto) -> JobAlertDto)? = null
+    var deleteAlertResult: (suspend (Int) -> Unit)? = null
+    /** What the last saveJob call was told about provenance, so a test can assert the source
+     * actually travelled rather than hoping it did. */
+    var lastSaveSource: Pair<String, Int?>? = null
+
     // Recorded calls, so a test can assert what was actually sent rather than only what came
     // back -- e.g. that a filter tab really pushed employment_type into the request.
     var lastSearchRequest: JobSearchRequestDto? = null
@@ -61,8 +83,14 @@ class FakeJobHuntRepository : JobHuntRepository {
     override suspend fun getJob(listingId: Int): JobResultDto =
         requireNotNull(getJobResult) { "getJobResult not configured" }(listingId)
 
-    override suspend fun saveJob(listingId: Int, status: String): SavedJobDto {
+    override suspend fun saveJob(
+        listingId: Int,
+        status: String,
+        source: String,
+        sourceSavedSearchId: Int?,
+    ): SavedJobDto {
         savedListingIds += listingId
+        lastSaveSource = source to sourceSavedSearchId
         return requireNotNull(saveJobResult) { "saveJobResult not configured" }(listingId, status)
     }
 
@@ -110,4 +138,36 @@ class FakeJobHuntRepository : JobHuntRepository {
         requireNotNull(deleteSavedSearchResult) { "deleteSavedSearchResult not configured" }(
             savedSearchId,
         )
+
+    override suspend fun runSavedSearch(savedSearchId: Int): JobSearchResponseDto =
+        requireNotNull(runSavedSearchResult) { "runSavedSearchResult not configured" }(
+            savedSearchId,
+        )
+
+    override suspend fun getHome(): JobHuntHomeDto =
+        requireNotNull(homeResult) { "homeResult not configured" }()
+
+    override suspend fun getSkillAnalysis(listingId: Int): SkillMatchAnalysisDto =
+        requireNotNull(skillAnalysisResult) { "skillAnalysisResult not configured" }(listingId)
+
+    override suspend fun getReadiness(listingId: Int): ApplicationReadinessDto =
+        requireNotNull(readinessResult) { "readinessResult not configured" }(listingId)
+
+    override suspend fun listAlerts(): List<JobAlertDto> =
+        requireNotNull(alertsResult) { "alertsResult not configured" }()
+
+    override suspend fun getAlertQuota(): JobAlertQuotaDto =
+        requireNotNull(alertQuotaResult) { "alertQuotaResult not configured" }()
+
+    override suspend fun getAlertHistory(): List<JobAlertHistoryDto> =
+        requireNotNull(alertHistoryResult) { "alertHistoryResult not configured" }()
+
+    override suspend fun createAlert(body: JobAlertCreateDto): JobAlertDto =
+        requireNotNull(createAlertResult) { "createAlertResult not configured" }(body)
+
+    override suspend fun updateAlert(alertId: Int, body: JobAlertUpdateDto): JobAlertDto =
+        requireNotNull(updateAlertResult) { "updateAlertResult not configured" }(alertId, body)
+
+    override suspend fun deleteAlert(alertId: Int) =
+        requireNotNull(deleteAlertResult) { "deleteAlertResult not configured" }(alertId)
 }

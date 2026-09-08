@@ -54,7 +54,11 @@ import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackSessionScreen
 import com.aiplacementos.app.ui.jobhunt.JobDetailScreen
 import com.aiplacementos.app.ui.jobhunt.JobHuntHomeScreen
 import com.aiplacementos.app.ui.jobhunt.JobHuntResultsScreen
+import com.aiplacementos.app.ui.jobhunt.ApplicationReadinessScreen
+import com.aiplacementos.app.ui.jobhunt.JobAlertsScreen
 import com.aiplacementos.app.ui.jobhunt.JobFilters
+import com.aiplacementos.app.ui.jobhunt.ReadinessGapDestination
+import com.aiplacementos.app.ui.jobhunt.SkillMatchAnalysisScreen
 import com.aiplacementos.app.ui.jobhunt.JobHuntSetupScreen
 import com.aiplacementos.app.ui.jobhunt.SavedSearchesScreen
 import com.aiplacementos.app.ui.jobhunt.SavedJobsScreen
@@ -797,6 +801,9 @@ fun NavGraph(navController: NavHostController) {
                 onOpenSetup = { navController.navigate(Screen.JobHuntSetup.route) },
                 onOpenResults = { navController.navigate(Screen.JobHuntResults.route) },
                 onOpenTracker = { navController.navigate(Screen.JobHuntTracker.route) },
+                onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
+                onOpenSavedSearches = { navController.navigate(Screen.JobHuntSavedSearches.route) },
+                onOpenAlerts = { navController.navigate(Screen.JobHuntAlerts.route) },
                 onOpenResumeUpload = { navController.navigate(Screen.ProfileResumeUpload.route) },
             )
         }
@@ -840,6 +847,48 @@ fun NavGraph(navController: NavHostController) {
                 onOpenSavedSearches = { navController.navigate(Screen.JobHuntSavedSearches.route) },
             )
         }
+        composable(Screen.JobHuntAlerts.route) {
+            JobAlertsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
+                onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
+            )
+        }
+        composable(
+            Screen.JobHuntSkillAnalysis.route,
+            arguments = listOf(navArgument("listingId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val listingId = backStackEntry.arguments?.getInt("listingId") ?: 0
+            SkillMatchAnalysisScreen(
+                listingId = listingId,
+                onBack = { navController.popBackStack() },
+                onOpenRoadmap = { navController.navigate(Screen.Roadmap.route) },
+                onOpenReadiness = { navController.navigate(jobHuntReadinessRoute(listingId)) },
+            )
+        }
+        composable(
+            Screen.JobHuntReadiness.route,
+            arguments = listOf(navArgument("listingId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val listingId = backStackEntry.arguments?.getInt("listingId") ?: 0
+            ApplicationReadinessScreen(
+                listingId = listingId,
+                onBack = { navController.popBackStack() },
+                onOpenSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
+                onFixGap = { destination ->
+                    // Each gap kind routes to the feature that actually closes it, rather
+                    // than to one catch-all screen that would be wrong for most of them.
+                    val route = when (destination) {
+                        ReadinessGapDestination.SkillPassport -> Screen.SkillPassport.route
+                        ReadinessGapDestination.Resume -> Screen.AtsCheckLanding.route
+                        ReadinessGapDestination.Interview -> Screen.MockInterviewCategory.route
+                        ReadinessGapDestination.Profile -> Screen.Profile.route
+                        ReadinessGapDestination.Roadmap -> Screen.Roadmap.route
+                    }
+                    navController.navigate(route)
+                },
+            )
+        }
         composable(Screen.JobHuntSavedSearches.route) {
             SavedSearchesScreen(
                 onBack = { navController.popBackStack() },
@@ -874,6 +923,9 @@ fun NavGraph(navController: NavHostController) {
                 listingId = listingId,
                 onBack = { navController.popBackStack() },
                 onOpenRoadmap = { navController.navigate(Screen.Roadmap.route) },
+                onOpenSkillAnalysis = {
+                    navController.navigate(jobHuntSkillAnalysisRoute(listingId))
+                },
             )
         }
 

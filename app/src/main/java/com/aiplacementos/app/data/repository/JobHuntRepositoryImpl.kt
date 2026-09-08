@@ -1,6 +1,14 @@
 package com.aiplacementos.app.data.repository
 
 import com.aiplacementos.app.data.remote.JobHuntApi
+import com.aiplacementos.app.data.remote.ApplicationReadinessDto
+import com.aiplacementos.app.data.remote.JobAlertCreateDto
+import com.aiplacementos.app.data.remote.JobAlertDto
+import com.aiplacementos.app.data.remote.JobAlertHistoryDto
+import com.aiplacementos.app.data.remote.JobAlertQuotaDto
+import com.aiplacementos.app.data.remote.JobAlertUpdateDto
+import com.aiplacementos.app.data.remote.JobHuntHomeDto
+import com.aiplacementos.app.data.remote.SkillMatchAnalysisDto
 import com.aiplacementos.app.data.remote.JobResultDto
 import com.aiplacementos.app.data.remote.JobSearchProfileDto
 import com.aiplacementos.app.data.remote.JobSearchProfileUpdateDto
@@ -27,8 +35,20 @@ class JobHuntRepositoryImpl(private val jobHuntApi: JobHuntApi) : JobHuntReposit
 
     override suspend fun getJob(listingId: Int): JobResultDto = jobHuntApi.getJob(listingId)
 
-    override suspend fun saveJob(listingId: Int, status: String): SavedJobDto =
-        jobHuntApi.saveJob(SaveJobRequestDto(listingId = listingId, status = status))
+    override suspend fun saveJob(
+        listingId: Int,
+        status: String,
+        source: String,
+        sourceSavedSearchId: Int?,
+    ): SavedJobDto =
+        jobHuntApi.saveJob(
+            SaveJobRequestDto(
+                listingId = listingId,
+                status = status,
+                source = source,
+                sourceSavedSearchId = sourceSavedSearchId,
+            ),
+        )
 
     override suspend fun listSaved(statuses: List<String>?): List<SavedJobDto> =
         jobHuntApi.listSaved(statuses)
@@ -57,4 +77,29 @@ class JobHuntRepositoryImpl(private val jobHuntApi: JobHuntApi) : JobHuntReposit
 
     override suspend fun deleteSavedSearch(savedSearchId: Int) =
         jobHuntApi.deleteSavedSearch(savedSearchId)
+
+    override suspend fun runSavedSearch(savedSearchId: Int): JobSearchResponseDto =
+        jobHuntApi.runSavedSearch(savedSearchId)
+
+    override suspend fun getHome(): JobHuntHomeDto = jobHuntApi.getHome()
+
+    override suspend fun getSkillAnalysis(listingId: Int): SkillMatchAnalysisDto =
+        jobHuntApi.getSkillAnalysis(listingId)
+
+    override suspend fun getReadiness(listingId: Int): ApplicationReadinessDto =
+        jobHuntApi.getReadiness(listingId)
+
+    override suspend fun listAlerts(): List<JobAlertDto> = jobHuntApi.listAlerts()
+
+    override suspend fun getAlertQuota(): JobAlertQuotaDto = jobHuntApi.getAlertQuota()
+
+    override suspend fun getAlertHistory(): List<JobAlertHistoryDto> = jobHuntApi.getAlertHistory()
+
+    override suspend fun createAlert(body: JobAlertCreateDto): JobAlertDto =
+        jobHuntApi.createAlert(body)
+
+    override suspend fun updateAlert(alertId: Int, body: JobAlertUpdateDto): JobAlertDto =
+        jobHuntApi.updateAlert(alertId, body)
+
+    override suspend fun deleteAlert(alertId: Int) = jobHuntApi.deleteAlert(alertId)
 }
