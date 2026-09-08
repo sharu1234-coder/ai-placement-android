@@ -57,7 +57,13 @@ import com.aiplacementos.app.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun JobDetailScreen(listingId: Int, onBack: () -> Unit) {
+fun JobDetailScreen(
+    listingId: Int,
+    onBack: () -> Unit,
+    /** Where a gap goes next. Defaulted to a no-op so a caller that has no roadmap to offer
+     * simply does not show the button, rather than showing one that goes nowhere. */
+    onOpenRoadmap: (() -> Unit)? = null,
+) {
     val network = networkModule()
     val viewModel: JobDetailViewModel = viewModel(
         factory = viewModelFactory {
@@ -101,6 +107,7 @@ fun JobDetailScreen(listingId: Int, onBack: () -> Unit) {
                 isSaved = current.savedJobId != null,
                 isSaving = current.isSaving,
                 onToggleSave = viewModel::toggleSave,
+                onOpenRoadmap = onOpenRoadmap,
                 onApply = {
                     // Opens the provider's own listing in a browser. The app never hosts an
                     // application form, and never claims to have submitted anything on the
@@ -129,6 +136,7 @@ private fun JobDetailContent(
     onToggleSave: () -> Unit,
     onApply: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenRoadmap: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -196,7 +204,7 @@ private fun JobDetailContent(
         SkillProvenanceCard(match.skillProvenance)
 
         if (match.missingSkills.isNotEmpty()) {
-            GapsCard(match)
+            GapsCard(match, onOpenRoadmap)
         }
 
         if (listing.isStale) {
@@ -360,7 +368,7 @@ private fun WhyYouFitCard(match: JobHuntMatchDto) {
 }
 
 @Composable
-private fun GapsCard(match: JobHuntMatchDto) {
+private fun GapsCard(match: JobHuntMatchDto, onOpenRoadmap: (() -> Unit)? = null) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Your gaps",
@@ -390,6 +398,16 @@ private fun GapsCard(match: JobHuntMatchDto) {
                     modifier = Modifier.padding(start = Spacing.sm),
                 )
             }
+        }
+        if (onOpenRoadmap != null) {
+            // A gap that only names itself leaves the student with a problem and no next
+            // step. The roadmap is where closing one is actually planned, so the card ends by
+            // pointing there instead of stopping at the diagnosis.
+            SecondaryButton(
+                text = "Plan how to close these",
+                onClick = onOpenRoadmap,
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+            )
         }
     }
 }

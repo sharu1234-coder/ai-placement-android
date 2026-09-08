@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
@@ -50,6 +51,9 @@ fun JobCard(
     onToggleSave: () -> Unit,
     modifier: Modifier = Modifier,
     isSaving: Boolean = false,
+    /** Null on surfaces where hiding a job makes no sense -- the saved list and the tracker,
+     * where the student already chose to keep it. */
+    onDismiss: (() -> Unit)? = null,
 ) {
     AppCard(modifier = modifier.fillMaxWidth().clickable(onClick = onOpen)) {
         Row(verticalAlignment = Alignment.Top) {
@@ -69,6 +73,16 @@ fun JobCard(
                 }
             }
             MatchBadge(match)
+            if (onDismiss != null) {
+                IconButton(onClick = onDismiss, enabled = !isSaving) {
+                    Icon(
+                        Icons.Filled.Close,
+                        // Says what happens, not just what the glyph is.
+                        contentDescription = "Hide this job",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         val facts = listOfNotNull(

@@ -18,18 +18,23 @@ import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.ManageSearch
+import androidx.compose.material.icons.filled.SavedSearch
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,15 +75,20 @@ fun JobHuntResultsScreen(
     onOpenSaved: () -> Unit,
     onOpenSetup: () -> Unit,
     onOpenSubscriptions: () -> Unit,
+    onOpenSavedSearches: () -> Unit = {},
+    initialFilters: JobFilters = JobFilters(),
 ) {
     val network = networkModule()
     val viewModel: JobHuntSearchViewModel = viewModel(
-        factory = viewModelFactory { initializer { JobHuntSearchViewModel(network.jobHuntRepository) } },
+        factory = viewModelFactory {
+            initializer { JobHuntSearchViewModel(network.jobHuntRepository, initialFilters) }
+        },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     // rememberSaveable: a rotation while the sheet is open should not close it.
     var showFilters by rememberSaveable { mutableStateOf(false) }
+    var showSaveSearch by rememberSaveable { mutableStateOf(false) }
     val activeFilters = (state as? JobSearchUiState.Success)?.filters ?: JobFilters()
 
     val actionError = (state as? JobSearchUiState.Success)?.actionError
@@ -107,6 +117,17 @@ fun JobHuntResultsScreen(
                             },
                         )
                     }
+                    IconButton(
+                        onClick = { showSaveSearch = true },
+                        // Nothing to name until at least one filter is set; saving "no
+                        // filters" as a named search would be a row that says nothing.
+                        enabled = activeFilters.activeCount > 0,
+                    ) {
+                        Icon(Icons.Filled.SavedSearch, contentDescription = "Save this search")
+                    }
+                    IconButton(onClick = onOpenSavedSearches) {
+                        Icon(Icons.Filled.ManageSearch, contentDescription = "Saved searches")
+                    }
                     IconButton(onClick = onOpenSaved) {
                         Icon(Icons.Filled.Bookmarks, contentDescription = "Saved jobs")
                     }
@@ -127,6 +148,15 @@ fun JobHuntResultsScreen(
                     showFilters = false
                 },
                 onDismiss = { showFilters = false },
+            )
+        }
+        if (showSaveSearch) {
+            SaveSearchDialog(
+                onDismiss = { showSaveSearch = false },
+                onSave = { name ->
+                    viewModel.saveCurrentSearch(name)
+                    showSaveSearch = false
+                },
             )
         }
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -165,6 +195,41 @@ fun JobHuntResultsScreen(
             }
         }
     }
+}
+
+/**
+ * Names the filters currently in effect so they can be re-run later.
+ *
+ * The name is required: an unnamed saved search is a row the student cannot tell apart from
+ * the next one, and a generated name ("Search 3") is the same problem with extra steps.
+ */
+@Composable
+private fun SaveSearchDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save this search") },
+        text = {
+            Column {
+                Text(
+                    text = "Give it a name so you can run it again later.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(120) },
+                    label = { Text("Name") },
+                    placeholder = { Text("e.g. Remote Python roles") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(name) }, enabled = name.isNotBlank()) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable
@@ -222,7 +287,27 @@ private fun ResultsList(
                 isSaving = result.listing.id in state.savingListingIds,
                 onOpen = { onOpenJob(result.listing.id) },
                 onToggleSave = { viewModel.toggleSave(result.listing.id) },
+                onDismiss = { viewModel.dismiss(result.listing.id) },
             )
+        }
+
+        item {
+            if (state.canLoadMore) {
+                SecondaryButton(
+                    text = "Load more jobs",
+                    onClick = viewModel::loadMore,
+                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+                )
+            } else if (state.isLoadingMore) {
+                // A determinate control would have to invent a progress figure; this states
+                // the fact and nothing more.
+                Text(
+                    text = "Loading more jobs…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+                )
+            }
         }
 
         item {
@@ -281,7 +366,7 @@ private fun ResultsList(
  * no retry at all.
  */
 @Composable
-private fun FailureState(
+internal fun FailureState(
     failure: JobSearchFailure,
     onRetry: () -> Unit,
     onOpenSetup: () -> Unit,

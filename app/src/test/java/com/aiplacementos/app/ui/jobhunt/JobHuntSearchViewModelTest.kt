@@ -6,6 +6,7 @@ import com.aiplacementos.app.data.remote.JobListingDto
 import com.aiplacementos.app.data.remote.JobResultDto
 import com.aiplacementos.app.data.remote.JobSearchResponseDto
 import com.aiplacementos.app.data.remote.SavedJobDto
+import com.aiplacementos.app.data.remote.SavedSearchDto
 import com.aiplacementos.app.fakes.FakeJobHuntRepository
 import com.aiplacementos.app.fakes.httpException
 import java.net.SocketTimeoutException
@@ -375,5 +376,191 @@ class JobHuntSearchFilterTest {
 
         val state = vm.uiState.value as JobSearchUiState.Success
         assertEquals("Pune", state.filters.location)
+    }
+}
+
+class JobHuntPaginationTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    private fun page(ids: List<Int>, total: Int? = null) = JobSearchResponseDto(
+        results = ids.map { sampleResult(id = it) },
+        totalAvailable = total,
+        provider = "fake",
+        attributionText = "Jobs by Fake",
+        fetchedAt = "2026-09-08T10:00:00",
+        scoreVersion = "v2",
+    )
+
+    @Test
+    fun `a full first page with more available offers another`() {
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = { page((1..20).toList(), total = 45) }
+        }
+        val state = JobHuntSearchViewModel(repository).uiState.value as JobSearchUiState.Success
+        assertTrue(state.canLoadMore)
+    }
+
+    @Test
+    fun `a short page ends pagination even when no total is reported`() {
+        // Several providers genuinely report no total. A short page is then the only signal
+        // we have, and guessing "probably more" would show a button that returns nothing.
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = { page(listOf(1, 2, 3), total = null) }
+        }
+        val state = JobHuntSearchViewModel(repository).uiState.value as JobSearchUiState.Success
+        assertFalse(state.canLoadMore)
+    }
+
+    @Test
+    fun `loading more appends rather than replacing`() {
+        var call = 0
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = {
+                call++
+                if (call == 1) page((1..20).toList(), total = 40) else page((21..40).toList(), total = 40)
+            }
+        }
+        val vm = JobHuntSearchViewModel(repository)
+        vm.loadMore()
+
+        val state = vm.uiState.value as JobSearchUiState.Success
+        assertEquals(40, state.results.size)
+        assertEquals(2, state.page)
+        assertFalse("everything is loaded, so stop offering more", state.canLoadMore)
+    }
+
+    @Test
+    fun `a listing repeated across pages is not shown twice`() {
+        // The same advert can legitimately land on two pages when the provider's own ordering
+        // shifts between requests.
+        var call = 0
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = {
+                call++
+                if (call == 1) page((1..20).toList(), total = 100) else page((18..37).toList(), total = 100)
+            }
+        }
+        val vm = JobHuntSearchViewModel(repository)
+        vm.loadMore()
+
+        val ids = (vm.uiState.value as JobSearchUiState.Success).results.map { it.listing.id }
+        assertEquals(ids.size, ids.toSet().size)
+    }
+
+    @Test
+    fun `a failed page keeps the pages already on screen`() {
+        var call = 0
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = {
+                call++
+                if (call == 1) page((1..20).toList(), total = 100) else throw RuntimeException("boom")
+            }
+        }
+        val vm = JobHuntSearchViewModel(repository)
+        vm.loadMore()
+
+        val state = vm.uiState.value as JobSearchUiState.Success
+        assertEquals(20, state.results.size)
+        assertTrue(state.actionError != null)
+        assertFalse(state.isLoadingMore)
+    }
+
+    @Test
+    fun `pagination stops at the backend's own page cap`() {
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = { page((1..20).toList(), total = 10_000) }
+        }
+        val vm = JobHuntSearchViewModel(repository)
+        repeat(12) { vm.loadMore() }
+
+        val state = vm.uiState.value as JobSearchUiState.Success
+        assertTrue("never past page 10", state.page <= 10)
+        assertFalse(state.canLoadMore)
+    }
+
+    @Test
+    fun `filters are carried into every page, not just the first`() {
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = { page((1..20).toList(), total = 100) }
+        }
+        val vm = JobHuntSearchViewModel(repository)
+        vm.applyFilters(JobFilters(location = "Pune"))
+        vm.loadMore()
+
+        assertEquals("Pune", repository.lastSearchRequest!!.location)
+        assertEquals(2, repository.lastSearchRequest!!.page)
+    }
+}
+
+class JobHuntDismissTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `dismissing removes the card and records the decision server-side`() {
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = { response(listOf(sampleResult(id = 1), sampleResult(id = 2))) }
+            saveJobResult = { _, _ -> savedJob() }
+        }
+        val vm = JobHuntSearchViewModel(repository)
+        vm.dismiss(1)
+
+        val state = vm.uiState.value as JobSearchUiState.Success
+        assertEquals(listOf(2), state.results.map { it.listing.id })
+        assertEquals(listOf(1), repository.savedListingIds)
+    }
+
+    @Test
+    fun `a failed dismiss leaves the card in place`() {
+        // Hiding it locally after the server refused would make the job reappear on the next
+        // search with no explanation.
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = { response(listOf(sampleResult(id = 1))) }
+            saveJobResult = { _, _ -> throw RuntimeException("boom") }
+        }
+        val vm = JobHuntSearchViewModel(repository)
+        vm.dismiss(1)
+
+        val state = vm.uiState.value as JobSearchUiState.Success
+        assertEquals(listOf(1), state.results.map { it.listing.id })
+        assertTrue(state.actionError != null)
+    }
+}
+
+class SaveCurrentSearchTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `saving records the filters actually in effect, tab included`() {
+        // The tab is part of what the student can see is applied. Saving the sheet alone
+        // would reproduce a subtly wider search than the one on screen.
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = { response(listOf(sampleResult())) }
+            createSavedSearchResult = { name, filters ->
+                SavedSearchDto(id = 1, name = name, filters = filters, createdAt = "2026-09-08T10:00:00")
+            }
+        }
+        val vm = JobHuntSearchViewModel(repository)
+        vm.applyFilters(JobFilters(location = "Pune"))
+        vm.onTabSelected(JobFilterTab.Remote)
+        vm.saveCurrentSearch("  Remote in Pune  ")
+
+        val (name, filters) = repository.lastCreatedSavedSearch!!
+        assertEquals("Remote in Pune", name)
+        assertEquals("Pune", filters.location)
+        assertEquals("remote", filters.workMode)
+    }
+
+    @Test
+    fun `a blank name saves nothing`() {
+        val repository = FakeJobHuntRepository().apply {
+            searchResult = { response(listOf(sampleResult())) }
+        }
+        val vm = JobHuntSearchViewModel(repository)
+        vm.saveCurrentSearch("   ")
+
+        assertNull(repository.lastCreatedSavedSearch)
     }
 }

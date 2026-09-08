@@ -8,6 +8,7 @@ import com.aiplacementos.app.domain.repository.JobHuntRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.Serializable
 import kotlinx.coroutines.launch
 
 /** The quick filter chips across the top of the results screen. */
@@ -28,6 +29,7 @@ enum class JobFilterTab(val label: String) {
  * it is selling. A free user who applies them gets the server's PremiumRequired response,
  * which the screen already renders as an upgrade prompt rather than an error.
  */
+@Serializable
 data class JobFilters(
     val keywords: String? = null,
     val location: String? = null,
@@ -66,6 +68,23 @@ data class JobFilters(
     )
 }
 
+/**
+ * The inverse of [JobFilters.toRequest], for replaying a saved search.
+ *
+ * Page and page size are deliberately dropped: they describe one fetch, not what the student
+ * was looking for, and restoring "page 4" from a saved search would open on results whose
+ * first three pages they never saw.
+ */
+fun JobSearchRequestDto.toFilters(): JobFilters = JobFilters(
+    keywords = keywords,
+    location = location,
+    workMode = workMode,
+    employmentType = employmentType,
+    experienceLevel = experienceLevel,
+    salaryMin = salaryMin,
+    maxDaysOld = maxDaysOld,
+)
+
 sealed interface JobSearchUiState {
     data object Loading : JobSearchUiState
 
@@ -87,21 +106,33 @@ sealed interface JobSearchUiState {
          * blocking the whole list. */
         val savingListingIds: Set<Int> = emptySet(),
         val savedListingIds: Map<Int, Int> = emptyMap(),
+        /** The page currently loaded. Results from earlier pages are kept and appended to. */
+        val page: Int = 1,
+        val isLoadingMore: Boolean = false,
+        /** True only when we have positive evidence another page exists -- see [canLoadMore]. */
+        val hasMore: Boolean = false,
         /** Non-null when a save failed. Shown as a transient message; the list is untouched. */
         val actionError: String? = null,
     ) : JobSearchUiState {
         /** True when the search genuinely completed and matched nothing. Distinct from every
          * [Failed] state -- the screen must never show "no jobs found" for a failure. */
         val isEmpty: Boolean get() = results.isEmpty()
+
+        val canLoadMore: Boolean get() = hasMore && !isLoadingMore
     }
 }
 
-class JobHuntSearchViewModel(private val jobHuntRepository: JobHuntRepository) : ViewModel() {
+class JobHuntSearchViewModel(
+    private val jobHuntRepository: JobHuntRepository,
+    /** Filters to open with, when the student arrived by re-running a saved search. Empty for
+     * a plain visit, which is the same thing as "no filters applied". */
+    initialFilters: JobFilters = JobFilters(),
+) : ViewModel() {
     private val _uiState = MutableStateFlow<JobSearchUiState>(JobSearchUiState.Loading)
     val uiState: StateFlow<JobSearchUiState> = _uiState.asStateFlow()
 
     private var activeTab: JobFilterTab = JobFilterTab.All
-    private var filters: JobFilters = JobFilters()
+    private var filters: JobFilters = initialFilters
 
     init {
         search()
@@ -132,6 +163,46 @@ class JobHuntSearchViewModel(private val jobHuntRepository: JobHuntRepository) :
 
     fun retry() = search()
 
+    /**
+     * Fetch the next page and append it.
+     *
+     * Appending rather than replacing, and never re-sorting the accumulated list: the server
+     * ranks within a page, and re-sorting across pages client-side would reorder rows the
+     * student has already scrolled past. A duplicate listing id is dropped, because the same
+     * advert can legitimately appear on two pages if the provider's own ordering shifts
+     * between requests.
+     */
+    fun loadMore() {
+        val current = _uiState.value as? JobSearchUiState.Success ?: return
+        if (!current.canLoadMore) return
+
+        viewModelScope.launch {
+            _uiState.value = current.copy(isLoadingMore = true, actionError = null)
+            val nextPage = current.page + 1
+            try {
+                val response = jobHuntRepository.search(effectiveRequest().copy(page = nextPage))
+                val seen = current.results.map { it.listing.id }.toSet()
+                val appended = current.results + response.results.filterNot { it.listing.id in seen }
+                _uiState.value = current.copy(
+                    results = appended,
+                    page = nextPage,
+                    isLoadingMore = false,
+                    hasMore = hasMoreAfter(nextPage, appended.size, response.totalAvailable, response.results.size),
+                    savedListingIds = current.savedListingIds + response.results
+                        .filter { it.savedJobId != null }
+                        .associate { it.listing.id to it.savedJobId!! },
+                )
+            } catch (e: Exception) {
+                // A failed page must not destroy the pages already on screen. The list stays,
+                // and the failure is reported as a transient action error.
+                _uiState.value = current.copy(
+                    isLoadingMore = false,
+                    actionError = e.toJobSearchFailure().message,
+                )
+            }
+        }
+    }
+
     private fun search() {
         viewModelScope.launch {
             _uiState.value = JobSearchUiState.Loading
@@ -148,6 +219,8 @@ class JobHuntSearchViewModel(private val jobHuntRepository: JobHuntRepository) :
                     savedListingIds = response.results
                         .filter { it.savedJobId != null }
                         .associate { it.listing.id to it.savedJobId!! },
+                    page = 1,
+                    hasMore = hasMoreAfter(1, response.results.size, response.totalAvailable, response.results.size),
                 )
             } catch (e: Exception) {
                 _uiState.value = JobSearchUiState.Failed(e.toJobSearchFailure())
@@ -167,6 +240,30 @@ class JobHuntSearchViewModel(private val jobHuntRepository: JobHuntRepository) :
      * silently unfiltered results, which is the honest outcome even though it is the less
      * convenient one.
      */
+    /**
+     * Whether another page is worth asking for.
+     *
+     * Two independent signals, and both must be respected. A provider that reports a total
+     * tells us directly; one that does not (totalAvailable is null, which several providers
+     * genuinely are) leaves only the shape of the last response, so a short page is taken as
+     * the end. Guessing "probably more" without either signal would show the student a Load
+     * more button that always returns nothing.
+     *
+     * The hard page cap mirrors the backend's own (1..10) rather than being discovered by
+     * getting a 422 back.
+     */
+    private fun hasMoreAfter(
+        page: Int,
+        loadedCount: Int,
+        totalAvailable: Int?,
+        lastPageSize: Int,
+    ): Boolean {
+        if (page >= MAX_PAGE) return false
+        if (lastPageSize == 0) return false
+        if (totalAvailable != null) return loadedCount < totalAvailable
+        return lastPageSize >= DEFAULT_PAGE_SIZE
+    }
+
     private fun effectiveRequest(): JobSearchRequestDto {
         val base = filters.toRequest()
         return when (activeTab) {
@@ -209,6 +306,66 @@ class JobHuntSearchViewModel(private val jobHuntRepository: JobHuntRepository) :
                 }
             }
         }
+    }
+
+    /**
+     * Hide a job the student is not interested in.
+     *
+     * Recorded server-side as the "dismissed" status rather than only removed from this list,
+     * so the decision survives a refresh and a reinstall. Removed from the visible results
+     * immediately: a dismissal that leaves the card sitting there reads as a failed tap, and
+     * the student taps again.
+     */
+    fun dismiss(listingId: Int) {
+        val current = _uiState.value as? JobSearchUiState.Success ?: return
+        if (listingId in current.savingListingIds) return
+
+        viewModelScope.launch {
+            _uiState.value = current.copy(savingListingIds = current.savingListingIds + listingId)
+            try {
+                jobHuntRepository.saveJob(listingId, status = "dismissed")
+                val after = _uiState.value as? JobSearchUiState.Success ?: return@launch
+                _uiState.value = after.copy(
+                    results = after.results.filterNot { it.listing.id == listingId },
+                    savingListingIds = after.savingListingIds - listingId,
+                )
+            } catch (e: Exception) {
+                val after = _uiState.value as? JobSearchUiState.Success ?: return@launch
+                // The card stays put on failure. Removing it locally after the server refused
+                // would make the job reappear on the next search with no explanation.
+                _uiState.value = after.copy(
+                    savingListingIds = after.savingListingIds - listingId,
+                    actionError = e.toJobSearchFailure().message,
+                )
+            }
+        }
+    }
+
+    /**
+     * Save the filters currently in effect under a name.
+     *
+     * Saves what the student can see is applied -- the sheet's filters plus whatever the quick
+     * tab adds -- rather than the sheet alone, so re-running it reproduces this exact result
+     * set rather than a subtly wider one.
+     */
+    fun saveCurrentSearch(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                jobHuntRepository.createSavedSearch(trimmed, effectiveRequest())
+                updateSuccess { it.copy(actionError = "Saved \"$trimmed\"") }
+            } catch (e: Exception) {
+                updateSuccess { it.copy(actionError = e.toJobSearchFailure().message) }
+            }
+        }
+    }
+
+    private companion object {
+        // Both mirror app/api/job_hunt.py's JobSearchRequest bounds, so the client stops at
+        // the same place the server does instead of discovering it via a 422.
+        const val MAX_PAGE = 10
+        const val DEFAULT_PAGE_SIZE = 20
     }
 
     fun clearActionError() = updateSuccess { it.copy(actionError = null) }

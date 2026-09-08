@@ -54,7 +54,9 @@ import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackSessionScreen
 import com.aiplacementos.app.ui.jobhunt.JobDetailScreen
 import com.aiplacementos.app.ui.jobhunt.JobHuntHomeScreen
 import com.aiplacementos.app.ui.jobhunt.JobHuntResultsScreen
+import com.aiplacementos.app.ui.jobhunt.JobFilters
 import com.aiplacementos.app.ui.jobhunt.JobHuntSetupScreen
+import com.aiplacementos.app.ui.jobhunt.SavedSearchesScreen
 import com.aiplacementos.app.ui.jobhunt.SavedJobsScreen
 import com.aiplacementos.app.ui.skillpassport.SkillPassportDetailScreen
 import com.aiplacementos.app.ui.skillpassport.SkillPassportScreen
@@ -109,6 +111,8 @@ import com.aiplacementos.app.ui.support.HelpSupportScreen
  * re-fires on the still-Completed state and immediately re-navigates forward again --
  * silently duplicating the next screen on the stack every time Back is pressed.
  */
+import kotlinx.serialization.json.Json
+
 @Composable
 fun NavGraph(navController: NavHostController) {
     // Session restore: previously every cold start went to Login regardless of whether a
@@ -810,13 +814,42 @@ fun NavGraph(navController: NavHostController) {
                 onOpenResumeUpload = { navController.navigate(Screen.ProfileResumeUpload.route) },
             )
         }
-        composable(Screen.JobHuntResults.route) {
+        composable(
+            Screen.JobHuntResults.route,
+            arguments = listOf(
+                navArgument("filters") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) { backStackEntry ->
+            // A malformed or stale argument opens an unfiltered search rather than crashing
+            // the screen. The filters are a convenience; losing them is recoverable, and the
+            // student can see immediately that nothing is applied.
+            val initialFilters = backStackEntry.arguments?.getString("filters")
+                ?.let { runCatching { Json.decodeFromString<JobFilters>(it) }.getOrNull() }
+                ?: JobFilters()
             JobHuntResultsScreen(
+                initialFilters = initialFilters,
                 onBack = { navController.popBackStack() },
                 onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
                 onOpenSaved = { navController.navigate(Screen.JobHuntSaved.route) },
                 onOpenSetup = { navController.navigate(Screen.JobHuntSetup.route) },
                 onOpenSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
+                onOpenSavedSearches = { navController.navigate(Screen.JobHuntSavedSearches.route) },
+            )
+        }
+        composable(Screen.JobHuntSavedSearches.route) {
+            SavedSearchesScreen(
+                onBack = { navController.popBackStack() },
+                onRunSearch = { filters ->
+                    navController.navigate(jobHuntResultsRoute(Json.encodeToString(filters))) {
+                        // Replace this screen: coming "back" from results the student just
+                        // asked for should return to the jobs list, not to the picker.
+                        popUpTo(Screen.JobHuntSavedSearches.route) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Screen.JobHuntSaved.route) {
@@ -837,7 +870,11 @@ fun NavGraph(navController: NavHostController) {
             arguments = listOf(navArgument("listingId") { type = NavType.IntType }),
         ) { backStackEntry ->
             val listingId = backStackEntry.arguments?.getInt("listingId") ?: 0
-            JobDetailScreen(listingId = listingId, onBack = { navController.popBackStack() })
+            JobDetailScreen(
+                listingId = listingId,
+                onBack = { navController.popBackStack() },
+                onOpenRoadmap = { navController.navigate(Screen.Roadmap.route) },
+            )
         }
 
         composable(Screen.ProjectBuilderList.route) {

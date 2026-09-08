@@ -25,6 +25,12 @@ class FakeJobHuntRepository : JobHuntRepository {
     var updateSavedResult: (suspend (Int, String?, String?, String?) -> SavedJobDto)? = null
     var deleteSavedResult: (suspend (Int) -> Unit)? = null
     var savedSearchesResult: (suspend () -> List<SavedSearchDto>)? = null
+    var listSavedSearchesResult: (suspend () -> List<SavedSearchDto>)? = null
+    var createSavedSearchResult: (suspend (String, JobSearchRequestDto) -> SavedSearchDto)? = null
+    var deleteSavedSearchResult: (suspend (Int) -> Unit)? = null
+    /** What the last createSavedSearch call was given, so a test can assert the filters that
+     * were actually saved rather than the ones it hoped were. */
+    var lastCreatedSavedSearch: Pair<String, JobSearchRequestDto>? = null
 
     // Recorded calls, so a test can assert what was actually sent rather than only what came
     // back -- e.g. that a filter tab really pushed employment_type into the request.
@@ -87,11 +93,21 @@ class FakeJobHuntRepository : JobHuntRepository {
         name: String,
         filters: JobSearchRequestDto,
         notifyEnabled: Boolean,
-    ): SavedSearchDto = throw NotImplementedError("not exercised by these tests")
+    ): SavedSearchDto {
+        lastCreatedSavedSearch = name to filters
+        return requireNotNull(createSavedSearchResult) { "createSavedSearchResult not configured" }(
+            name,
+            filters,
+        )
+    }
 
-    override suspend fun listSavedSearches(): List<SavedSearchDto> =
-        requireNotNull(savedSearchesResult) { "savedSearchesResult not configured" }()
+    override suspend fun listSavedSearches(): List<SavedSearchDto> {
+        val configured = listSavedSearchesResult ?: savedSearchesResult
+        return requireNotNull(configured) { "listSavedSearchesResult not configured" }()
+    }
 
     override suspend fun deleteSavedSearch(savedSearchId: Int) =
-        throw NotImplementedError("not exercised by these tests")
+        requireNotNull(deleteSavedSearchResult) { "deleteSavedSearchResult not configured" }(
+            savedSearchId,
+        )
 }

@@ -131,8 +131,12 @@ sealed class Screen(val route: String) {
     // job_descriptions/job_matches tables those features own.
     data object JobHunt : Screen("job-hunt")
     data object JobHuntSetup : Screen("job-hunt/setup")
-    data object JobHuntResults : Screen("job-hunt/results")
+    // Optional `filters` argument carries a whole JobFilters as JSON, so re-running a saved
+    // search is a plain navigation rather than a shared mutable holder between two screens.
+    // Absent means "no filters", which is exactly what a normal visit wants.
+    data object JobHuntResults : Screen("job-hunt/results?filters={filters}")
     data object JobHuntSaved : Screen("job-hunt/saved")
+    data object JobHuntSavedSearches : Screen("job-hunt/saved-searches")
     data object JobHuntTracker : Screen("job-hunt/applications")
     data object JobHuntDetail : Screen("job-hunt/jobs/{listingId}")
 
@@ -224,5 +228,15 @@ fun careerPathReadinessRoute(pathId: Int): String = "career-path/$pathId/readine
 // Uri.encode -- a skill name can contain spaces/parentheses (e.g. "Databases (SQL)") which
 // would otherwise break path segmentation, same rationale as atsCheckAnalyzingRoute's targetRole.
 fun jobHuntDetailRoute(listingId: Int): String = "job-hunt/jobs/$listingId"
+
+// Encoded because the JSON contains characters ("{", "\"", "&") that would otherwise be read
+// as route syntax. Passing no filters navigates to the bare route rather than to an encoded
+// empty object, so the common case keeps a clean, shareable URL.
+fun jobHuntResultsRoute(filtersJson: String? = null): String =
+    if (filtersJson.isNullOrBlank()) {
+        "job-hunt/results"
+    } else {
+        "job-hunt/results?filters=${android.net.Uri.encode(filtersJson)}"
+    }
 
 fun skillPassportDetailRoute(skill: String): String = "skill-passport/${android.net.Uri.encode(skill)}"
