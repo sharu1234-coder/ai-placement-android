@@ -54,6 +54,7 @@ import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,7 +122,9 @@ fun JobDetailScreen(
                         viewModel.markApplied()
                     } catch (_: ActivityNotFoundException) {
                         // No browser to handle it. Silently marking it applied would be a lie,
-                        // so nothing is recorded.
+                        // so nothing is recorded -- but the tap has to say something, or the
+                        // button just looks broken.
+                        viewModel.reportNoBrowser()
                     }
                 },
                 modifier = Modifier.padding(padding),
@@ -458,16 +461,43 @@ fun formatSalary(listing: JobListingDto): String? {
         min != null -> "$currency${compact(min)}+"
         else -> "Up to $currency${compact(max!!)}"
     }
+    // The period belongs to the figure, so it goes on before "est." qualifies the whole thing:
+    // "₹500/hr est.", not "₹500 est./hr".
+    val figure = body + salaryPeriodSuffix(listing.salaryPeriod)
     // "est." is not decoration: it is the difference between a figure the employer published
     // and one the provider modelled.
-    return if (listing.salaryIsPredicted) "$body est." else body
+    return if (listing.salaryIsPredicted) "$figure est." else figure
+}
+
+/**
+ * "/hr", "/mo", "/wk", "/day" — or nothing at all for an annual figure.
+ *
+ * Careerjet advertises salaries by hour, day, week, month or year and sends the period
+ * alongside the number. Dropping it made "₹500 an hour" and "₹500 a year" render identically
+ * as "₹500" — the same ~2000x misstatement the backend adapter refuses to make when it
+ * declines to bucket an unrecognised period into "year".
+ *
+ * A null period is left unsuffixed rather than labelled: it means the provider did not say,
+ * and writing "per year" there would be the guess this exists to avoid. Adzuna, the other
+ * provider, always sends "year", so unsuffixed is correct for everything it returns.
+ */
+fun salaryPeriodSuffix(period: String?): String = when (period) {
+    "hour" -> "/hr"
+    "day" -> "/day"
+    "week" -> "/wk"
+    "month" -> "/mo"
+    // "year" and anything unrecognised read as the annual figure this market quotes by default.
+    else -> ""
 }
 
 /** Indian-convention compaction: salaries here are quoted in lakhs per annum. */
 private fun compact(value: Int): String = when {
     value >= 100_000 -> {
         val lakhs = value / 100_000.0
-        if (lakhs % 1.0 == 0.0) "${lakhs.toInt()}L" else String.format("%.1fL", lakhs)
+        // Locale.ROOT, not the device locale: String.format would otherwise render the
+        // decimal separator as a comma on a French or German handset, so the same salary
+        // would read "7,5L" here and "7.5L" everywhere the app builds the string itself.
+        if (lakhs % 1.0 == 0.0) "${lakhs.toInt()}L" else String.format(Locale.ROOT, "%.1fL", lakhs)
     }
     value >= 1_000 -> "${value / 1_000}K"
     else -> value.toString()

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.WorkOutline
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aiplacementos.app.data.remote.JobHuntEntitlementDto
 import com.aiplacementos.app.data.remote.JobHuntHomeDto
 import com.aiplacementos.app.data.remote.JobSearchProfileDto
 import com.aiplacementos.app.ui.common.AppCard
@@ -71,6 +73,7 @@ fun JobHuntHomeScreen(
     onOpenResults: () -> Unit,
     onOpenTracker: () -> Unit,
     onOpenResumeUpload: () -> Unit,
+    onOpenSubscriptions: () -> Unit = {},
     onOpenJob: (Int) -> Unit = {},
     onOpenSavedSearches: () -> Unit = {},
     onOpenAlerts: () -> Unit = {},
@@ -119,6 +122,8 @@ fun JobHuntHomeScreen(
                 is JobHuntHomeUiState.Success -> FindJobsContent(
                     profile = current.profile,
                     home = current.home,
+                    entitlement = current.entitlement,
+                    onOpenSubscriptions = onOpenSubscriptions,
                     onOpenSetup = onOpenSetup,
                     onOpenResults = onOpenResults,
                     onOpenResumeUpload = onOpenResumeUpload,
@@ -135,6 +140,8 @@ fun JobHuntHomeScreen(
 private fun FindJobsContent(
     profile: JobSearchProfileDto,
     home: JobHuntHomeDto?,
+    entitlement: JobHuntEntitlementDto?,
+    onOpenSubscriptions: () -> Unit,
     onOpenSetup: () -> Unit,
     onOpenResults: () -> Unit,
     onOpenResumeUpload: () -> Unit,
@@ -149,6 +156,10 @@ private fun FindJobsContent(
             .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
+        if (entitlement != null) {
+            FreeSearchBanner(entitlement = entitlement, onOpenSubscriptions = onOpenSubscriptions)
+        }
+
         AppCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
             Text(
                 text = if (profile.isReadyToSearch) "Your matches are ready" else "Jobs that match you",
@@ -389,6 +400,91 @@ private fun StatTile(label: String, value: Int, modifier: Modifier = Modifier) {
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+
+/**
+ * Says up front what this student's next search will cost them.
+ *
+ * Three genuinely different things to say, and the point of showing any of them is that a
+ * student should not discover a boundary by hitting it:
+ *
+ *   * a subscriber is told nothing about limits, because none apply to them;
+ *   * a free student who still has their search is told it is there, and that it is free --
+ *     this is an offer, not a warning, so it does not carry an upgrade button;
+ *   * a free student who has used it is told so, with the upgrade beside it.
+ *
+ * None of this decides anything. The server re-derives entitlement on the search request, so
+ * this text being wrong, stale or absent changes what the student reads and never what they are
+ * allowed to do -- which is why the caller renders nothing at all when the entitlement call
+ * failed, rather than guessing either way.
+ */
+@Composable
+private fun FreeSearchBanner(
+    entitlement: JobHuntEntitlementDto,
+    onOpenSubscriptions: () -> Unit,
+) {
+    if (entitlement.unlimited) return
+
+    val used = entitlement.requiresPremium
+    AppCard(
+        containerColor = if (used) {
+            MaterialTheme.colorScheme.tertiaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = if (used) Icons.Filled.WorkspacePremium else Icons.Filled.AutoAwesome,
+                contentDescription = null,
+                tint = if (used) {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(24.dp),
+            )
+            Text(
+                text = if (used) {
+                    "You've used your free Job Hunt search"
+                } else {
+                    "Try Job Hunt once for free"
+                },
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = if (used) {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.padding(start = Spacing.sm).semantics { heading() },
+            )
+        }
+        Text(
+            text = if (used) {
+                "Unlock unlimited personalised job searches with Premium. Everything you've " +
+                    "already saved stays yours."
+            } else {
+                "Your first search is on us. We'll match real listings against your role, " +
+                    "skills and location."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (used) {
+                MaterialTheme.colorScheme.onTertiaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.padding(top = Spacing.xs),
+        )
+        if (used) {
+            PrimaryButton(
+                text = "Upgrade to Premium",
+                onClick = onOpenSubscriptions,
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
             )
         }
     }

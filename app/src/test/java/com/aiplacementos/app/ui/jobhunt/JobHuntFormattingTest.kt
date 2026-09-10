@@ -17,6 +17,7 @@ private fun listing(
     salaryMin: Int? = null,
     salaryMax: Int? = null,
     currency: String? = "INR",
+    period: String? = null,
     predicted: Boolean = false,
 ) = JobListingDto(
     id = 1,
@@ -26,6 +27,7 @@ private fun listing(
     salaryMin = salaryMin,
     salaryMax = salaryMax,
     salaryCurrency = currency,
+    salaryPeriod = period,
     salaryIsPredicted = predicted,
     fetchedAt = "2026-09-07T10:00:00",
 )
@@ -74,6 +76,39 @@ class FormatSalaryTest {
     fun `a missing currency does not print a stray symbol`() {
         val result = formatSalary(listing(salaryMin = 900_000, currency = null))
         assertEquals("9L+", result)
+    }
+
+    @Test
+    fun `an hourly rate is not shown as though it were the annual figure`() {
+        // Careerjet advertises by the hour, the day, the week and the month, and sends the
+        // period with the number. It used to be dropped, so ₹500 an hour and ₹500 a year
+        // rendered identically -- a figure wrong by a factor of about two thousand, in the
+        // one place a student decides whether a job is worth applying for.
+        assertEquals("₹500+/hr", formatSalary(listing(salaryMin = 500, period = "hour")))
+        assertEquals("₹40K+/mo", formatSalary(listing(salaryMin = 40_000, period = "month")))
+        assertEquals("₹12K+/wk", formatSalary(listing(salaryMin = 12_000, period = "week")))
+        assertEquals("₹2K+/day", formatSalary(listing(salaryMin = 2_000, period = "day")))
+    }
+
+    @Test
+    fun `an annual salary carries no suffix, because that is how this market quotes them`() {
+        assertEquals("₹9L+", formatSalary(listing(salaryMin = 900_000, period = "year")))
+    }
+
+    @Test
+    fun `an unstated period is left unlabelled rather than assumed to be annual in words`() {
+        // Null means the provider did not say. Writing "per year" there would be exactly the
+        // guess the backend adapter refuses to make.
+        assertEquals("₹9L+", formatSalary(listing(salaryMin = 900_000, period = null)))
+        assertEquals("₹9L+", formatSalary(listing(salaryMin = 900_000, period = "fortnight")))
+    }
+
+    @Test
+    fun `an estimate that is also hourly says both things`() {
+        assertEquals(
+            "₹500+/hr est.",
+            formatSalary(listing(salaryMin = 500, period = "hour", predicted = true)),
+        )
     }
 }
 

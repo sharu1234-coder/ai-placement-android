@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -81,7 +82,17 @@ fun JobHuntResultsScreen(
     val network = networkModule()
     val viewModel: JobHuntSearchViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { JobHuntSearchViewModel(network.jobHuntRepository, initialFilters) }
+            initializer {
+                // createSavedStateHandle() so the search's operation id outlives a killed
+                // process. Coming back from process death re-runs the same search, and without
+                // a surviving id the server would read that as a second one -- which for a free
+                // student means losing their one search to an Android lifecycle event.
+                JobHuntSearchViewModel(
+                    network.jobHuntRepository,
+                    initialFilters,
+                    createSavedStateHandle(),
+                )
+            }
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -174,6 +185,7 @@ fun JobHuntResultsScreen(
                     onRetry = viewModel::retry,
                     onOpenSetup = onOpenSetup,
                     onOpenSubscriptions = onOpenSubscriptions,
+                    onBack = onBack,
                 )
 
                 is JobSearchUiState.Success -> if (current.isEmpty) {
@@ -371,6 +383,7 @@ internal fun FailureState(
     onRetry: () -> Unit,
     onOpenSetup: () -> Unit,
     onOpenSubscriptions: () -> Unit,
+    onBack: () -> Unit = {},
 ) {
     when (failure) {
         is JobSearchFailure.Unavailable -> EmptyState(
@@ -400,6 +413,57 @@ internal fun FailureState(
             SecondaryButton(
                 text = "Back to all jobs",
                 onClick = onRetry,
+                modifier = Modifier.padding(top = Spacing.sm),
+            )
+        }
+
+        is JobSearchFailure.FreeLimitReached -> Column(
+            modifier = Modifier.fillMaxSize().padding(Spacing.lg),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Its own branch rather than reusing PremiumRequired above, because the two say
+            // different things. That one means "this filter is Premium, search is free without
+            // it" and its escape hatch is to search again unfiltered. This one means the free
+            // search is spent, and searching again is exactly what is not available -- so the
+            // secondary action goes back rather than retrying into the same refusal.
+            Icon(
+                imageVector = Icons.Filled.WorkspacePremium,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp).padding(bottom = Spacing.sm),
+            )
+            Text(
+                text = "You've used your free Job Hunt search",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                // The server's own sentence, not one composed here. It is the side that knows
+                // the plan and the wording, and duplicating the copy client-side is how the two
+                // end up saying different things.
+                text = failure.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+            Text(
+                text = "Unlock unlimited personalised job searches with Premium.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = Spacing.sm),
+            )
+            PrimaryButton(
+                text = "Upgrade to Premium",
+                onClick = onOpenSubscriptions,
+                modifier = Modifier.padding(top = Spacing.md),
+            )
+            SecondaryButton(
+                text = "Maybe later",
+                // Back, not retry. The feature is not broken and the rest of it still works --
+                // saved jobs, the tracker, everything already fetched -- so this returns the
+                // student to it rather than trapping them on a dead end.
+                onClick = onBack,
                 modifier = Modifier.padding(top = Spacing.sm),
             )
         }

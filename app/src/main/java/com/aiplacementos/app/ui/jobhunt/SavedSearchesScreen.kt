@@ -88,6 +88,7 @@ fun SavedSearchesScreen(
                     // an upgrade, so both fall back to a plain retry rather than a dead end.
                     onOpenSetup = viewModel::retry,
                     onOpenSubscriptions = viewModel::retry,
+                    onBack = onBack,
                 )
 
                 is SavedSearchesUiState.Success -> if (current.isEmpty) {

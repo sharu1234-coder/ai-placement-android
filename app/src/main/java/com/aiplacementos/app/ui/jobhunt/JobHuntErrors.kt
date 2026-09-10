@@ -1,8 +1,10 @@
 package com.aiplacementos.app.ui.jobhunt
 
+import com.aiplacementos.app.data.remote.JobHuntLimitEnvelopeDto
 import com.aiplacementos.app.ui.common.isNetworkError
 import com.aiplacementos.app.ui.common.isTimeoutError
 import com.aiplacementos.app.ui.common.toUserMessage
+import kotlinx.serialization.json.Json
 import retrofit2.HttpException
 
 /**
@@ -21,6 +23,13 @@ import retrofit2.HttpException
  *   504 -- the provider was too slow. Immediate retry is reasonable.
  *   502 -- the provider is down or returned something unusable.
  *   403 -- an advanced filter was used without Premium. Not a failure of the search at all.
+ *   402 -- a free student's one Job Hunt search is already used. Also not a failure: the
+ *          search was refused, not attempted, and buying Premium is what changes it. It is a
+ *          separate code from 403 on purpose -- both are "you need Premium" but they lead to
+ *          different screens, and telling them apart by reading the message text would make a
+ *          copy edit a bug.
+ *   409 -- the request id named a different operation. Only reachable from a client bug or a
+ *          replayed key; the fix is a fresh search, not a retry of this one.
  */
 sealed interface JobSearchFailure {
     val message: String
@@ -42,13 +51,54 @@ sealed interface JobSearchFailure {
         override val isRetryable: Boolean get() = false
     }
 
+    /**
+     * The free Job Hunt search has been used, and this student has no subscription.
+     *
+     * Not retryable, and deliberately not phrased as an error: nothing went wrong and nothing
+     * is broken. The screen renders this as the upgrade prompt with a "Maybe later" beside it,
+     * never as a failure state with a Retry button -- a retry would be refused identically, and
+     * offering one would make a deliberate product boundary look like a bug.
+     */
+    data class FreeLimitReached(override val message: String) : JobSearchFailure {
+        override val isRetryable: Boolean get() = false
+    }
+
     /** The student has not chosen a role or resume yet, so there is nothing to search on. */
     data class SetupRequired(override val message: String) : JobSearchFailure {
         override val isRetryable: Boolean get() = false
     }
 }
 
+/**
+ * Lenient by construction: this parses an *error* body, and an error handler that throws is
+ * worse than the error it was handling. Unknown keys are ignored so a server that adds a field
+ * does not break the client, and every field on the DTO has a default so a shape that drifted
+ * still yields a usable message.
+ */
+private val errorJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
+/**
+ * The server's own wording for a 402, or null.
+ *
+ * Preferred over a hardcoded string because the server owns this copy -- it is the side that
+ * knows the plan, the wording and the language. The fallback exists because an error body can
+ * be missing, truncated or unparseable, and "you have used your free search" is still true
+ * whatever the body said. `code` is checked rather than trusted blindly, so a 402 from
+ * somewhere unexpected does not get rendered as if it were this one.
+ */
+private fun HttpException.freeLimitMessage(): String? = runCatching {
+    val body = response()?.errorBody()?.string().orEmpty()
+    val detail = errorJson.decodeFromString<JobHuntLimitEnvelopeDto>(body).detail
+    detail.message.takeIf { it.isNotBlank() && detail.code == "JOB_HUNT_FREE_LIMIT_REACHED" }
+}.getOrNull()
+
 fun Throwable.toJobSearchFailure(): JobSearchFailure = when {
+    this is HttpException && code() == 402 -> JobSearchFailure.FreeLimitReached(
+        freeLimitMessage() ?: "You've used your free Job Hunt search.",
+    )
+    this is HttpException && code() == 409 -> JobSearchFailure.Transient(
+        "That search couldn't be repeated. Please start a new search.",
+    )
     this is HttpException && code() == 503 -> JobSearchFailure.Unavailable(
         "Job Hunt isn't available yet. We're working on bringing real job listings to you.",
     )

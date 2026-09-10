@@ -6,6 +6,7 @@ import com.aiplacementos.app.data.remote.JobAlertDto
 import com.aiplacementos.app.data.remote.JobAlertHistoryDto
 import com.aiplacementos.app.data.remote.JobAlertQuotaDto
 import com.aiplacementos.app.data.remote.JobAlertUpdateDto
+import com.aiplacementos.app.data.remote.JobHuntEntitlementDto
 import com.aiplacementos.app.data.remote.JobHuntHomeDto
 import com.aiplacementos.app.data.remote.JobResultDto
 import com.aiplacementos.app.data.remote.JobSearchProfileDto
@@ -31,7 +32,19 @@ interface JobHuntRepository {
     suspend fun updateProfile(update: JobSearchProfileUpdateDto): JobSearchProfileDto
     suspend fun getRoleSuggestions(resumeId: Int): List<String>
 
-    suspend fun search(request: JobSearchRequestDto): JobSearchResponseDto
+    /**
+     * [idempotencyKey] names one search *operation*, so its retries and its extra pages are
+     * recognised as the same thing the student asked for once. Optional: a null key means
+     * "this request stands alone", which is the correct default and never the permissive one.
+     */
+    suspend fun search(
+        request: JobSearchRequestDto,
+        idempotencyKey: String? = null,
+    ): JobSearchResponseDto
+
+    /** What the student is allowed to do next, decided server-side. UX only -- the search
+     * endpoint re-derives it and is the only thing that actually enforces anything. */
+    suspend fun getEntitlement(): JobHuntEntitlementDto
     suspend fun getJob(listingId: Int): JobResultDto
 
     /** [source] records which screen the tap came from, for tracker provenance. It is a
@@ -58,7 +71,10 @@ interface JobHuntRepository {
     ): SavedSearchDto
     suspend fun listSavedSearches(): List<SavedSearchDto>
     suspend fun deleteSavedSearch(savedSearchId: Int)
-    suspend fun runSavedSearch(savedSearchId: Int): JobSearchResponseDto
+    suspend fun runSavedSearch(
+        savedSearchId: Int,
+        idempotencyKey: String? = null,
+    ): JobSearchResponseDto
 
     suspend fun getHome(): JobHuntHomeDto
     suspend fun getSkillAnalysis(listingId: Int): SkillMatchAnalysisDto

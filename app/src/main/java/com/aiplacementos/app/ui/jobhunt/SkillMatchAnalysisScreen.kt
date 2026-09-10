@@ -81,6 +81,7 @@ fun SkillMatchAnalysisScreen(
                 onRetry = viewModel::retry,
                 onOpenSetup = viewModel::retry,
                 onOpenSubscriptions = viewModel::retry,
+                onBack = onBack,
             )
 
             is SkillMatchUiState.Success -> AnalysisContent(

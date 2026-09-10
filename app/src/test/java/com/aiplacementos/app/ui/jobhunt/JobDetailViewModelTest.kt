@@ -123,4 +123,31 @@ class JobDetailViewModelTest {
         assertTrue(repository.savedListingIds.isEmpty())
         assertEquals(7, repository.lastUpdatedSavedJobId)
     }
+
+    @Test
+    fun `a device with no browser is told, and the job is not marked applied`() {
+        // The Apply button used to swallow ActivityNotFoundException entirely: the tap did
+        // nothing and said nothing, which reads as a frozen screen. Recording the application
+        // anyway would be the other, worse fix -- nothing was opened, so nothing was applied
+        // to.
+        val repository = FakeJobHuntRepository().apply { getJobResult = { sampleResult(id = it) } }
+        val vm = JobDetailViewModel(repository, listingId = 3)
+
+        vm.reportNoBrowser()
+
+        val state = vm.uiState.value as JobDetailUiState.Success
+        assertNotNull(state.actionError)
+        assertNull("no application may be recorded", repository.lastUpdatedStatus)
+    }
+
+    @Test
+    fun `the message clears so it does not reappear on the next recomposition`() {
+        val repository = FakeJobHuntRepository().apply { getJobResult = { sampleResult(id = it) } }
+        val vm = JobDetailViewModel(repository, listingId = 3)
+        vm.reportNoBrowser()
+
+        vm.clearActionError()
+
+        assertNull((vm.uiState.value as JobDetailUiState.Success).actionError)
+    }
 }

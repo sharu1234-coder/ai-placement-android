@@ -1,5 +1,6 @@
 package com.aiplacementos.app.ui.jobhunt
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.JobResultDto
@@ -8,6 +9,7 @@ import com.aiplacementos.app.domain.repository.JobHuntRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.UUID
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.launch
 
@@ -127,6 +129,10 @@ class JobHuntSearchViewModel(
     /** Filters to open with, when the student arrived by re-running a saved search. Empty for
      * a plain visit, which is the same thing as "no filters applied". */
     initialFilters: JobFilters = JobFilters(),
+    /** Backs the idempotency key so it survives process death. Optional so tests and previews
+     * can construct this without one; a null handle simply means the key lives in memory, and
+     * the server behaves correctly either way. */
+    private val savedStateHandle: SavedStateHandle? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<JobSearchUiState>(JobSearchUiState.Loading)
     val uiState: StateFlow<JobSearchUiState> = _uiState.asStateFlow()
@@ -134,18 +140,60 @@ class JobHuntSearchViewModel(
     private var activeTab: JobFilterTab = JobFilterTab.All
     private var filters: JobFilters = initialFilters
 
+    /**
+     * The id of the search operation currently on screen.
+     *
+     * One tap on "Find Jobs" is one operation, and everything that follows from it -- the first
+     * request, a retry after a dropped connection, the next page -- carries this same id, so the
+     * server charges the student once for the thing they did once. Choosing a *new* tab or
+     * applying different filters is a different thing to have done, so it mints a new id.
+     *
+     * Kept in SavedStateHandle rather than a plain field because the case it exists for is
+     * precisely the one that destroys plain fields: Android killing the process mid-request and
+     * the screen re-running the same search on the way back. Without this, a free student who
+     * lost their connection at the wrong moment would come back to "your free search is used"
+     * having never seen a result.
+     *
+     * It is a convenience, never an authorisation. The server binds it to the search parameters
+     * and to the caller's own profile, so the worst a wrong id can do is fail to deduplicate.
+     */
+    private var operationId: String
+        get() {
+            savedStateHandle?.get<String>(OPERATION_ID_KEY)?.let { return it }
+            return inMemoryOperationId ?: newOperationId()
+        }
+        set(value) {
+            inMemoryOperationId = value
+            savedStateHandle?.set(OPERATION_ID_KEY, value)
+        }
+
+    private var inMemoryOperationId: String? = null
+
+    private fun newOperationId(): String =
+        // Prefixed so a key is recognisable in a server log, and trimmed to stay inside the
+        // 64-character limit the server enforces.
+        "and-${UUID.randomUUID()}".take(64).also { operationId = it }
+
     init {
+        // A fresh id for the search this screen opens with -- unless the process was killed and
+        // is coming back, in which case the stored one is reused and the trip does not cost a
+        // second search.
+        if (savedStateHandle?.get<String>(OPERATION_ID_KEY) == null) newOperationId()
         search()
     }
 
     fun onTabSelected(tab: JobFilterTab) {
         if (tab == activeTab) return
         activeTab = tab
+        // A different tab is a different search, so it is a different operation. Reusing the id
+        // would make the server refuse it as a conflicting replay rather than run it.
+        newOperationId()
         search()
     }
 
     fun applyFilters(newFilters: JobFilters) {
         filters = newFilters
+        newOperationId()
         // A work-mode or employment-type choice in the sheet is the same axis the quick tabs
         // control. Leaving a stale tab selected would show "Remote" highlighted while the
         // sheet searched for something else, so the tab resets to All and the sheet becomes
@@ -158,9 +206,18 @@ class JobHuntSearchViewModel(
 
     fun clearFilters() {
         filters = JobFilters()
+        newOperationId()
         search()
     }
 
+    /**
+     * Re-run the search that just failed, as the same operation.
+     *
+     * The id is deliberately *not* regenerated. A retry after "the job service isn't
+     * responding" is the student asking for the same thing again, and the server treats a
+     * previously failed operation as still owed -- so this costs nothing extra. Minting a new
+     * id here would turn every tap of a Retry button into a fresh search.
+     */
     fun retry() = search()
 
     /**
@@ -180,7 +237,13 @@ class JobHuntSearchViewModel(
             _uiState.value = current.copy(isLoadingMore = true, actionError = null)
             val nextPage = current.page + 1
             try {
-                val response = jobHuntRepository.search(effectiveRequest().copy(page = nextPage))
+                // Same operation id: a page is part of the search the student asked for, not a
+                // new one. The server excludes page and page_size from the fingerprint for
+                // exactly this reason.
+                val response = jobHuntRepository.search(
+                    effectiveRequest().copy(page = nextPage),
+                    idempotencyKey = operationId,
+                )
                 val seen = current.results.map { it.listing.id }.toSet()
                 val appended = current.results + response.results.filterNot { it.listing.id in seen }
                 _uiState.value = current.copy(
@@ -207,7 +270,7 @@ class JobHuntSearchViewModel(
         viewModelScope.launch {
             _uiState.value = JobSearchUiState.Loading
             try {
-                val response = jobHuntRepository.search(effectiveRequest())
+                val response = jobHuntRepository.search(effectiveRequest(), operationId)
                 _uiState.value = JobSearchUiState.Success(
                     results = response.results,
                     totalAvailable = response.totalAvailable,
@@ -366,6 +429,7 @@ class JobHuntSearchViewModel(
         // the same place the server does instead of discovering it via a 422.
         const val MAX_PAGE = 10
         const val DEFAULT_PAGE_SIZE = 20
+        const val OPERATION_ID_KEY = "job_hunt_operation_id"
     }
 
     fun clearActionError() = updateSuccess { it.copy(actionError = null) }

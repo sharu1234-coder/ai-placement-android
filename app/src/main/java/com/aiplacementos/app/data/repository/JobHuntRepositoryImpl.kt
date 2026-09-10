@@ -7,6 +7,7 @@ import com.aiplacementos.app.data.remote.JobAlertDto
 import com.aiplacementos.app.data.remote.JobAlertHistoryDto
 import com.aiplacementos.app.data.remote.JobAlertQuotaDto
 import com.aiplacementos.app.data.remote.JobAlertUpdateDto
+import com.aiplacementos.app.data.remote.JobHuntEntitlementDto
 import com.aiplacementos.app.data.remote.JobHuntHomeDto
 import com.aiplacementos.app.data.remote.SkillMatchAnalysisDto
 import com.aiplacementos.app.data.remote.JobResultDto
@@ -30,8 +31,12 @@ class JobHuntRepositoryImpl(private val jobHuntApi: JobHuntApi) : JobHuntReposit
     override suspend fun getRoleSuggestions(resumeId: Int): List<String> =
         jobHuntApi.getRoleSuggestions(resumeId).suggestedRoleFamilies
 
-    override suspend fun search(request: JobSearchRequestDto): JobSearchResponseDto =
-        jobHuntApi.search(request)
+    override suspend fun search(
+        request: JobSearchRequestDto,
+        idempotencyKey: String?,
+    ): JobSearchResponseDto = jobHuntApi.search(request, idempotencyKey)
+
+    override suspend fun getEntitlement(): JobHuntEntitlementDto = jobHuntApi.getEntitlement()
 
     override suspend fun getJob(listingId: Int): JobResultDto = jobHuntApi.getJob(listingId)
 
@@ -78,8 +83,10 @@ class JobHuntRepositoryImpl(private val jobHuntApi: JobHuntApi) : JobHuntReposit
     override suspend fun deleteSavedSearch(savedSearchId: Int) =
         jobHuntApi.deleteSavedSearch(savedSearchId)
 
-    override suspend fun runSavedSearch(savedSearchId: Int): JobSearchResponseDto =
-        jobHuntApi.runSavedSearch(savedSearchId)
+    override suspend fun runSavedSearch(
+        savedSearchId: Int,
+        idempotencyKey: String?,
+    ): JobSearchResponseDto = jobHuntApi.runSavedSearch(savedSearchId, idempotencyKey)
 
     override suspend fun getHome(): JobHuntHomeDto = jobHuntApi.getHome()
 

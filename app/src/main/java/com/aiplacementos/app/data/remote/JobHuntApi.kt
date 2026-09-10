@@ -3,6 +3,7 @@ package com.aiplacementos.app.data.remote
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -19,8 +20,26 @@ interface JobHuntApi {
     @GET("job-hunt/profile/role-suggestions")
     suspend fun getRoleSuggestions(@Query("resume_id") resumeId: Int): RoleSuggestionsDto
 
+    /**
+     * [idempotencyKey] identifies one *operation* -- one tap on "Find Jobs" -- rather than one
+     * request. Sending the same key for a retry of that tap (a dropped connection, a recreated
+     * activity, a killed process) tells the server this is the same search it may already have
+     * run, so a flaky connection does not cost a free student their one search. Retrofit omits
+     * the header entirely when the value is null, which the server reads as "its own operation".
+     *
+     * It cannot grant anything. The server binds it to a fingerprint of the search parameters
+     * and to the caller's own profile, so the only thing a key can do is make a repeat cheaper.
+     */
     @POST("job-hunt/search")
-    suspend fun search(@Body body: JobSearchRequestDto): JobSearchResponseDto
+    suspend fun search(
+        @Body body: JobSearchRequestDto,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): JobSearchResponseDto
+
+    /** Whether this student may run a search, and what to say if not. Reading it costs nothing
+     * and grants nothing -- POST /search decides for itself. */
+    @GET("job-hunt/entitlement")
+    suspend fun getEntitlement(): JobHuntEntitlementDto
 
     @GET("job-hunt/jobs/{listingId}")
     suspend fun getJob(@Path("listingId") listingId: Int): JobResultDto
@@ -53,7 +72,10 @@ interface JobHuntApi {
     /** Re-runs a stored search and records that it ran. Shares the search endpoint's rate
      * limit on the server: a saved search is a search, not a second allowance. */
     @POST("job-hunt/saved-searches/{savedSearchId}/run")
-    suspend fun runSavedSearch(@Path("savedSearchId") savedSearchId: Int): JobSearchResponseDto
+    suspend fun runSavedSearch(
+        @Path("savedSearchId") savedSearchId: Int,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): JobSearchResponseDto
 
     /** Counts and top recommendations from what is already stored. Never calls the provider,
      * so opening the app costs no quota and no network round trip beyond this one. */

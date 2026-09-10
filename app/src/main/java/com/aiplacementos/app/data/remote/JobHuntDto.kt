@@ -402,3 +402,48 @@ data class JobAlertQuotaDto(
 ) {
     val hasRoom: Boolean get() = used < limit
 }
+
+/**
+ * What the server says this student is allowed to do next.
+ *
+ * Read once when the Job Hunt screen opens so it can say "try one free search" before the tap
+ * rather than presenting a button that turns out to be refused. It is a UX input and nothing
+ * more: the server re-derives every one of these facts on the request that actually runs a
+ * search, so caching this, ignoring it, or editing it in memory changes nothing about what is
+ * permitted. See app/services/job_hunt/entitlement.py.
+ */
+@Serializable
+data class JobHuntEntitlementDto(
+    // "free" | "premium"
+    val tier: String = "free",
+    val unlimited: Boolean = false,
+    @SerialName("free_uses_total") val freeUsesTotal: Int = 1,
+    @SerialName("free_uses_remaining") val freeUsesRemaining: Int = 0,
+    @SerialName("has_used_free_search") val hasUsedFreeSearch: Boolean = false,
+    // True only when the *next* search would be refused, so a subscriber who used their free
+    // search long ago is never shown an upgrade prompt.
+    @SerialName("requires_premium") val requiresPremium: Boolean = false,
+    @SerialName("last_free_use_at") val lastFreeUseAt: String? = null,
+)
+
+/**
+ * The body that comes back with 402 when a free student's one search is gone.
+ *
+ * [code] is the stable contract the client branches on; [message] is prose the server may
+ * reword at any time. Branching on the sentence instead would make a copy edit a bug.
+ *
+ * Every field has a default because this is parsed from an error body: a response shape that
+ * drifted must degrade to a usable fallback message, not throw inside an error handler.
+ */
+@Serializable
+data class JobHuntLimitDetailDto(
+    val code: String = "",
+    val message: String = "",
+    @SerialName("requires_premium") val requiresPremium: Boolean = true,
+)
+
+/** FastAPI wraps every error body in `detail`. */
+@Serializable
+data class JobHuntLimitEnvelopeDto(
+    val detail: JobHuntLimitDetailDto = JobHuntLimitDetailDto(),
+)

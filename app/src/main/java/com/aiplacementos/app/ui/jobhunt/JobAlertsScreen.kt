@@ -125,6 +125,7 @@ fun JobAlertsScreen(
                 onRetry = viewModel::retry,
                 onOpenSetup = viewModel::retry,
                 onOpenSubscriptions = onOpenSubscriptions,
+                onBack = onBack,
             )
 
             is JobAlertsUiState.Success -> AlertsContent(

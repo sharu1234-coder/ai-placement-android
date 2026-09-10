@@ -6,6 +6,7 @@ import com.aiplacementos.app.data.remote.JobAlertDto
 import com.aiplacementos.app.data.remote.JobAlertHistoryDto
 import com.aiplacementos.app.data.remote.JobAlertQuotaDto
 import com.aiplacementos.app.data.remote.JobAlertUpdateDto
+import com.aiplacementos.app.data.remote.JobHuntEntitlementDto
 import com.aiplacementos.app.data.remote.JobHuntHomeDto
 import com.aiplacementos.app.data.remote.SkillMatchAnalysisDto
 import com.aiplacementos.app.data.remote.JobResultDto
@@ -27,6 +28,16 @@ class FakeJobHuntRepository : JobHuntRepository {
     var updateProfileResult: (suspend (JobSearchProfileUpdateDto) -> JobSearchProfileDto)? = null
     var roleSuggestionsResult: (suspend (Int) -> List<String>)? = null
     var searchResult: (suspend (JobSearchRequestDto) -> JobSearchResponseDto)? = null
+    var entitlementResult: (suspend () -> JobHuntEntitlementDto)? = null
+
+    /**
+     * Every Idempotency-Key the view model has sent, in order.
+     *
+     * Recorded rather than just the latest one, because what the tests need to assert is the
+     * *relationship* between successive requests -- a retry and its original must share a key,
+     * a new filter set must not -- and only the sequence shows that.
+     */
+    val sentIdempotencyKeys = mutableListOf<String?>()
     var getJobResult: (suspend (Int) -> JobResultDto)? = null
     var saveJobResult: (suspend (Int, String) -> SavedJobDto)? = null
     var listSavedResult: (suspend (List<String>?) -> List<SavedJobDto>)? = null
@@ -75,10 +86,17 @@ class FakeJobHuntRepository : JobHuntRepository {
     override suspend fun getRoleSuggestions(resumeId: Int): List<String> =
         requireNotNull(roleSuggestionsResult) { "roleSuggestionsResult not configured" }(resumeId)
 
-    override suspend fun search(request: JobSearchRequestDto): JobSearchResponseDto {
+    override suspend fun search(
+        request: JobSearchRequestDto,
+        idempotencyKey: String?,
+    ): JobSearchResponseDto {
         lastSearchRequest = request
+        sentIdempotencyKeys += idempotencyKey
         return requireNotNull(searchResult) { "searchResult not configured" }(request)
     }
+
+    override suspend fun getEntitlement(): JobHuntEntitlementDto =
+        requireNotNull(entitlementResult) { "entitlementResult not configured" }()
 
     override suspend fun getJob(listingId: Int): JobResultDto =
         requireNotNull(getJobResult) { "getJobResult not configured" }(listingId)
@@ -139,10 +157,15 @@ class FakeJobHuntRepository : JobHuntRepository {
             savedSearchId,
         )
 
-    override suspend fun runSavedSearch(savedSearchId: Int): JobSearchResponseDto =
-        requireNotNull(runSavedSearchResult) { "runSavedSearchResult not configured" }(
+    override suspend fun runSavedSearch(
+        savedSearchId: Int,
+        idempotencyKey: String?,
+    ): JobSearchResponseDto {
+        sentIdempotencyKeys += idempotencyKey
+        return requireNotNull(runSavedSearchResult) { "runSavedSearchResult not configured" }(
             savedSearchId,
         )
+    }
 
     override suspend fun getHome(): JobHuntHomeDto =
         requireNotNull(homeResult) { "homeResult not configured" }()

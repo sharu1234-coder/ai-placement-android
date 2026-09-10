@@ -805,6 +805,7 @@ fun NavGraph(navController: NavHostController) {
                 onOpenSavedSearches = { navController.navigate(Screen.JobHuntSavedSearches.route) },
                 onOpenAlerts = { navController.navigate(Screen.JobHuntAlerts.route) },
                 onOpenResumeUpload = { navController.navigate(Screen.ProfileResumeUpload.route) },
+                onOpenSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
             )
         }
         composable(Screen.JobHuntSetup.route) {

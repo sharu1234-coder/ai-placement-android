@@ -88,6 +88,7 @@ fun ApplicationReadinessScreen(
                 onRetry = viewModel::retry,
                 onOpenSetup = viewModel::retry,
                 onOpenSubscriptions = onOpenSubscriptions,
+                onBack = onBack,
             )
 
             is ReadinessUiState.Success -> ReadinessContent(

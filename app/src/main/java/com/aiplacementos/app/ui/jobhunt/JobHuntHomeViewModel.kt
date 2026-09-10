@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.jobhunt
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.JobHuntEntitlementDto
 import com.aiplacementos.app.data.remote.JobHuntHomeDto
 import com.aiplacementos.app.data.remote.JobSearchProfileDto
 import com.aiplacementos.app.domain.repository.JobHuntRepository
@@ -32,6 +33,14 @@ sealed interface JobHuntHomeUiState {
          * its seven other sources.
          */
         val home: JobHuntHomeDto? = null,
+        /**
+         * What the server says this student may do next, so the screen can say "one free
+         * search" before the tap instead of after the refusal. Null when the call failed on
+         * its own -- and null is rendered as *no claim at all* rather than as either answer,
+         * because guessing "you still have a free search" would set up a refusal the student
+         * was told would not come, and guessing the opposite would hide a search they own.
+         */
+        val entitlement: JobHuntEntitlementDto? = null,
     ) : JobHuntHomeUiState
 }
 
@@ -53,7 +62,11 @@ class JobHuntHomeViewModel(private val jobHuntRepository: JobHuntRepository) : V
                 // The summary is a nice-to-have on this screen; the profile is not. A failed
                 // summary must never cost the student their way into setup or search.
                 val home = runCatching { jobHuntRepository.getHome() }.getOrNull()
-                _uiState.value = JobHuntHomeUiState.Success(profile, home)
+                // Same rule as the summary above: this is a label on a button, not a gate. The
+                // server decides entitlement on the search request itself, so a student whose
+                // entitlement call failed can still tap Find Jobs and get the right answer.
+                val entitlement = runCatching { jobHuntRepository.getEntitlement() }.getOrNull()
+                _uiState.value = JobHuntHomeUiState.Success(profile, home, entitlement)
             } catch (e: Exception) {
                 _uiState.value = JobHuntHomeUiState.Error(
                     e.toUserMessage("load Job Hunt"),

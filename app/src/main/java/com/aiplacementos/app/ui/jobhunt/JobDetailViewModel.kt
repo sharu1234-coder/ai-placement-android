@@ -84,6 +84,16 @@ class JobDetailViewModel(
         }
     }
 
+    /** No app on the device can open the advert's link.
+     *
+     * Rare, but the alternative was worse than rare: the Apply button did nothing at all and
+     * said nothing, which is indistinguishable from a frozen screen. The application is still
+     * not recorded -- nothing was opened, so nothing was applied to.
+     */
+    fun reportNoBrowser() = updateSuccess {
+        it.copy(actionError = "No app on this device can open the job link.")
+    }
+
     fun clearActionError() = updateSuccess { it.copy(actionError = null) }
 
     private fun updateSuccess(transform: (JobDetailUiState.Success) -> JobDetailUiState.Success) {
