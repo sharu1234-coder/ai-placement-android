@@ -66,6 +66,11 @@ fun JobDetailScreen(
     onOpenRoadmap: (() -> Unit)? = null,
     /** Opens the full per-skill breakdown. Null on a caller that has nowhere to send them. */
     onOpenSkillAnalysis: (() -> Unit)? = null,
+    /**
+     * Opens Career Strategy for this advert: apply now, or fix something first, and what the
+     * decisive thing actually is. Null where there is nowhere to send them.
+     */
+    onOpenStrategy: (() -> Unit)? = null,
 ) {
     val network = networkModule()
     val viewModel: JobDetailViewModel = viewModel(
@@ -112,6 +117,7 @@ fun JobDetailScreen(
                 onToggleSave = viewModel::toggleSave,
                 onOpenRoadmap = onOpenRoadmap,
                 onOpenSkillAnalysis = onOpenSkillAnalysis,
+                onOpenStrategy = onOpenStrategy,
                 onApply = {
                     // Opens the provider's own listing in a browser. The app never hosts an
                     // application form, and never claims to have submitted anything on the
@@ -144,6 +150,7 @@ private fun JobDetailContent(
     modifier: Modifier = Modifier,
     onOpenRoadmap: (() -> Unit)? = null,
     onOpenSkillAnalysis: (() -> Unit)? = null,
+    onOpenStrategy: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -216,6 +223,18 @@ private fun JobDetailContent(
             SecondaryButton(
                 text = "See full skill match analysis",
                 onClick = onOpenSkillAnalysis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        if (onOpenStrategy != null) {
+            // The decision layer, one level up from the match: whether this advert is worth an
+            // application today and what -- if anything -- to settle first. Deliberately placed
+            // after the gaps rather than before them, because "here is what is missing" is the
+            // context that makes "here is what to do about it" mean something.
+            SecondaryButton(
+                text = "What does this job mean for my strategy?",
+                onClick = onOpenStrategy,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

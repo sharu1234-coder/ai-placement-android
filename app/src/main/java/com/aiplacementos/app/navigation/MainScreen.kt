@@ -129,6 +129,9 @@ fun MainScreen(navController: NavHostController) {
         DrawerSection(
             "CAREER",
             listOf(
+                DrawerItem("Career Strategy", Icons.AutoMirrored.Filled.TrendingUp, badge = "New") {
+                    navController.navigate(Screen.CareerStrategy.route)
+                },
                 DrawerItem("Career Twin", Icons.Filled.Psychology, badge = "New") {
                     navController.navigate(Screen.CareerTwin.route)
                 },
@@ -327,6 +330,7 @@ fun MainScreen(navController: NavHostController) {
                         onOpenPractice = { selectedRoute = Screen.Practice.route },
                         onOpenTests = { selectedRoute = Screen.Tests.route },
                         onOpenCareerTwin = { navController.navigate(Screen.CareerTwin.route) },
+                        onOpenCareerStrategy = { navController.navigate(Screen.CareerStrategy.route) },
                         onOpenSkillPassport = { navController.navigate(Screen.SkillPassport.route) },
                     )
                     // Swapped from the pre-fix mapping (see the bottomTabs comment above):

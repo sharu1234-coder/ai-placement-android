@@ -42,6 +42,7 @@ import com.aiplacementos.app.ui.careerpath.CareerPathResumeConnectionScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathRoleSelectionScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathSavedRolesScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathSkillDetailScreen
+import com.aiplacementos.app.ui.careerstrategy.CareerStrategyScreen
 import com.aiplacementos.app.ui.careertwin.CareerTwinScreen
 import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderCreateScreen
 import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderDetailScreen
@@ -784,6 +785,32 @@ fun NavGraph(navController: NavHostController) {
                 onUpgrade = { navController.navigate(Screen.Subscriptions.route) },
             )
         }
+        composable(Screen.CareerStrategy.route) {
+            CareerStrategyScreen(
+                onSelectRole = { navController.navigate(Screen.CareerPathRoleSelection.route) },
+                onUpgrade = { navController.navigate(Screen.Subscriptions.route) },
+                onOpenDestination = { destination ->
+                    navController.navigate(careerStrategyDestinationRoute(destination))
+                },
+            )
+        }
+        composable(
+            Screen.CareerStrategyForJob.route,
+            arguments = listOf(navArgument("listingId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            // Only the id crosses the boundary. The verdict about this job is the server's and
+            // is fetched fresh -- passing a decision through a navigation argument would let a
+            // stale one survive a process death and outlive the data it was computed from.
+            val listingId = backStackEntry.arguments?.getInt("listingId") ?: 0
+            CareerStrategyScreen(
+                listingId = listingId,
+                onSelectRole = { navController.navigate(Screen.CareerPathRoleSelection.route) },
+                onUpgrade = { navController.navigate(Screen.Subscriptions.route) },
+                onOpenDestination = { destination ->
+                    navController.navigate(careerStrategyDestinationRoute(destination))
+                },
+            )
+        }
         composable(Screen.SkillPassport.route) {
             SkillPassportScreen(onOpenSkill = { skill -> navController.navigate(skillPassportDetailRoute(skill)) })
         }
@@ -926,6 +953,9 @@ fun NavGraph(navController: NavHostController) {
                 onOpenRoadmap = { navController.navigate(Screen.Roadmap.route) },
                 onOpenSkillAnalysis = {
                     navController.navigate(jobHuntSkillAnalysisRoute(listingId))
+                },
+                onOpenStrategy = {
+                    navController.navigate(careerStrategyJobRoute(listingId))
                 },
             )
         }
@@ -1083,3 +1113,25 @@ private suspend fun resolvePostAuthDestinationOrMain(profileRepository: ProfileR
     } catch (e: Exception) {
         Screen.Main.route
     }
+
+/**
+ * Backend destination key -> an existing route.
+ *
+ * Career Strategy never invents a place to send someone: every destination it emits is a
+ * feature this app already has, and this is the one table that says which. The `else` branch
+ * keeps the student where they are rather than crashing on a destination added by a newer
+ * backend -- a no-op button is a small disappointment, a crash is not.
+ */
+private fun careerStrategyDestinationRoute(destination: String): String = when (destination) {
+    "roadmap" -> Screen.Roadmap.route
+    "practice" -> Screen.Practice.route
+    "project_builder" -> Screen.ProjectBuilderList.route
+    "skill_passport" -> Screen.SkillPassport.route
+    "resume_ats" -> Screen.AtsCheckLanding.route
+    "interview" -> Screen.MockInterviewCategory.route
+    "job_hunt" -> Screen.JobHunt.route
+    "tracker" -> Screen.JobHuntTracker.route
+    "career_path" -> Screen.CareerPathHome.route
+    "profile" -> Screen.Profile.route
+    else -> Screen.CareerStrategy.route
+}

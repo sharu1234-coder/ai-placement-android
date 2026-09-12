@@ -124,6 +124,13 @@ sealed class Screen(val route: String) {
     // writes to Career Path, Placement Path, or the profile's target role. Single screen for
     // now (no path params) -- per-skill drill-down reuses this same screen's data.
     data object CareerTwin : Screen("career-twin")
+    data object CareerStrategy : Screen("career-strategy")
+
+    // The same screen, opened against one advert. A separate route rather than an optional
+    // argument on the route above, so that "my strategy" and "my strategy for this job" are
+    // distinct back-stack entries: a student who opens a job from their strategy and then
+    // presses back expects to land on their strategy, not to have it silently change meaning.
+    data object CareerStrategyForJob : Screen("career-strategy/job/{listingId}")
 
     // Premium Job Hunt -- drawer entry point. Deliberately separate from JdAnalyzer (which
     // scores a student against one JD they paste in) and from the Prepare Me flow: this one
@@ -231,6 +238,8 @@ fun careerPathReadinessRoute(pathId: Int): String = "career-path/$pathId/readine
 // Uri.encode -- a skill name can contain spaces/parentheses (e.g. "Databases (SQL)") which
 // would otherwise break path segmentation, same rationale as atsCheckAnalyzingRoute's targetRole.
 fun jobHuntDetailRoute(listingId: Int): String = "job-hunt/jobs/$listingId"
+
+fun careerStrategyJobRoute(listingId: Int): String = "career-strategy/job/$listingId"
 
 // Encoded because the JSON contains characters ("{", "\"", "&") that would otherwise be read
 // as route syntax. Passing no filters navigates to the bare route rather than to an encoded

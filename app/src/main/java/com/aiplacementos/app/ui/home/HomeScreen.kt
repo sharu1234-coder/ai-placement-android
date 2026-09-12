@@ -54,6 +54,7 @@ import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkeletonText
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.confidenceBandShortLabel
+import com.aiplacementos.app.ui.careerstrategy.YourCareerStrategyCard
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.mission.TodaysMissionCard
 import com.aiplacementos.app.ui.mission.TodaysMissionUiState
@@ -74,6 +75,7 @@ fun HomeScreen(
     onOpenPractice: () -> Unit,
     onOpenTests: () -> Unit,
     onOpenCareerTwin: () -> Unit,
+    onOpenCareerStrategy: () -> Unit,
     onOpenSkillPassport: () -> Unit,
 ) {
     val network = networkModule()
@@ -123,6 +125,7 @@ fun HomeScreen(
             onOpenPractice = onOpenPractice,
             onOpenTests = onOpenTests,
             onOpenCareerTwin = onOpenCareerTwin,
+            onOpenCareerStrategy = onOpenCareerStrategy,
             onOpenSkillPassport = onOpenSkillPassport,
         )
     }
@@ -153,6 +156,7 @@ private fun HomeContent(
     onOpenPractice: () -> Unit,
     onOpenTests: () -> Unit,
     onOpenCareerTwin: () -> Unit,
+    onOpenCareerStrategy: () -> Unit,
     onOpenSkillPassport: () -> Unit,
 ) {
     LazyColumn(
@@ -179,6 +183,10 @@ private fun HomeContent(
         // recent evidence win, verified-skill proof count, and progress toward the next real
         // readiness milestone. Matches the reference image's Home layout order.
         item { CareerReadinessCard(data, onOpenCareerTwin) }
+
+        // Readiness says where you are; this says what to do about it. It removes itself when
+        // there is no strategy to show, so Home never carries a stub card.
+        item { YourCareerStrategyCard(onOpen = onOpenCareerStrategy) }
 
         item { TodaysMissionSection() }
 
