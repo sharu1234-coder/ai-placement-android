@@ -49,11 +49,13 @@ internal fun sampleStrategy(
     stateReason: String = "Your technical side is holding up. How you come across is not.",
     signalCount: Int = 12,
     readinessPercent: Int? = 64,
+    readinessReasons: List<String> = emptyList(),
 ) = CareerStrategyDto(
     isPremium = isPremium,
     lockedSections = lockedSections,
     state = state,
     stateReason = stateReason,
+    readinessReasons = readinessReasons,
     strategyVersion = 2,
     hasRole = true,
     displayRoleName = "Data Engineer",
@@ -376,6 +378,62 @@ class CareerStrategyViewModelTest {
         viewModel.clearJobStrategy()
 
         assertEquals(StrategySectionState.Idle, viewModel.jobStrategy.value)
+    }
+
+
+    @Test
+    fun `readiness arrives with the working shown`() {
+        """Career Twin's own explanation of its own number, carried through. A percentage with
+        nothing behind it is a grade the student has no way to check."""
+        val repository = FakeCareerStrategyRepository().apply {
+            strategyResult = {
+                sampleStrategy(
+                    readinessPercent = 64,
+                    readinessReasons = listOf("3 verified, 1 strong out of 6.", "2 skills still need real evidence."),
+                )
+            }
+        }
+        val viewModel = viewModelWith(repository)
+
+        val strategy = (viewModel.uiState.value as CareerStrategyUiState.Success).strategy
+        assertEquals(64, strategy.readinessPercent)
+        assertEquals(2, strategy.readinessReasons.size)
+    }
+
+    @Test
+    fun `a free student still gets readiness and its reasons`() {
+        """The free tier has to be genuinely useful. These come from /career-twin, which is not
+        gated, so withholding them here would hide from one screen what the same student reads on
+        another -- an inconsistency, not a paywall."""
+        val repository = FakeCareerStrategyRepository().apply {
+            strategyResult = {
+                sampleStrategy(
+                    isPremium = false,
+                    lockedSections = listOf("queue", "diminishing_returns", "contradictions"),
+                    readinessReasons = listOf("3 verified, 1 strong out of 6."),
+                )
+            }
+        }
+        val viewModel = viewModelWith(repository)
+
+        val strategy = (viewModel.uiState.value as CareerStrategyUiState.Success).strategy
+        assertTrue(strategy.readinessReasons.isNotEmpty())
+        assertEquals(64, strategy.readinessPercent)
+        // And nothing gated came with them.
+        assertTrue(strategy.queue.isEmpty())
+        assertTrue(strategy.diminishingReturns.isEmpty())
+    }
+
+    @Test
+    fun `unknown readiness carries no reasons and no zero`() {
+        val repository = FakeCareerStrategyRepository().apply {
+            strategyResult = { sampleStrategy(readinessPercent = null) }
+        }
+        val viewModel = viewModelWith(repository)
+
+        val strategy = (viewModel.uiState.value as CareerStrategyUiState.Success).strategy
+        assertNull(strategy.readinessPercent)
+        assertTrue(strategy.readinessReasons.isEmpty())
     }
 
     @Test

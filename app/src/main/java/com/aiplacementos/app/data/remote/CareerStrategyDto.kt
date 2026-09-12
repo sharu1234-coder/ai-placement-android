@@ -174,6 +174,10 @@ data class CareerStrategyDto(
     @SerialName("role_is_estimate") val roleIsEstimate: Boolean = false,
     @SerialName("readiness_percent") val readinessPercent: Int? = null,
     @SerialName("readiness_is_estimate") val readinessIsEstimate: Boolean = false,
+    // Career Twin's own working, shown beside its number. Free: the /career-twin endpoint this
+    // comes from is free, so gating it here would hide from one screen what the same student
+    // reads on another.
+    @SerialName("readiness_reasons") val readinessReasons: List<String> = emptyList(),
     @SerialName("signal_count") val signalCount: Int = 0,
     val bottleneck: StrategyBottleneckDto? = null,
     val queue: List<StrategyQueueItemDto> = emptyList(),

@@ -333,6 +333,17 @@ private fun CurrentStateCard(strategy: CareerStrategyDto) {
                 modifier = Modifier.padding(top = Spacing.sm),
             )
         }
+
+        // Career Twin's own working, beside its own number. A percentage with nothing behind it
+        // is a grade; with the reasons it is something the student can check.
+        strategy.readinessReasons.forEach { reason ->
+            Text(
+                text = reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+        }
     }
 }
 
