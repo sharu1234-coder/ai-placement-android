@@ -64,6 +64,7 @@ import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.networkModule
+import com.aiplacementos.app.ui.theme.Elevation
 import com.aiplacementos.app.ui.theme.Spacing
 import com.aiplacementos.app.ui.theme.warningColor
 
@@ -221,6 +222,9 @@ private fun CareerStrategyContent(
             item { WhySection(bottleneck, strategy, onUpgrade) }
         }
 
+        // Everything from here down supports the decision above rather than competing with it.
+        item { SectionEyebrow("THE DETAIL BEHIND IT") }
+
         // Directly under the bottleneck when present: "how does this advert change what I was
         // just told" only makes sense once the student has read what they were told.
         if (showJobStrategy) {
@@ -231,6 +235,8 @@ private fun CareerStrategyContent(
         item { DiminishingReturnsSection(strategy, onUpgrade) }
         item { QueueSection(strategy, onUpgrade, onOpenDestination) }
         item { ContradictionsSection(strategy, onUpgrade) }
+
+        item { SectionEyebrow("LOOKING WIDER") }
         item { TargetComparisonSection(viewModel, onUpgrade) }
         // Only when this screen is not already about one advert -- see TargetJobsCard.
         if (!showJobStrategy) {
@@ -239,6 +245,36 @@ private fun CareerStrategyContent(
         item { HistorySection(viewModel, onUpgrade) }
         item { Spacer(Modifier.height(Spacing.xl)) }
     }
+}
+
+/**
+ * A supporting section.
+ *
+ * Flat on purpose. The bottleneck and the next action are raised; everything below them is
+ * detail that supports those two, and on a screen where every card sits at the same elevation
+ * nothing reads as more important than anything else -- which is the failure mode these briefs
+ * call "a dashboard full of cards". Material's own rule applies: raised means primary.
+ */
+@Composable
+private fun SupportingCard(content: @Composable () -> Unit) {
+    AppCard(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        elevation = Elevation.level0,
+        content = content,
+    )
+}
+
+/** A tier label. Turns a flat list of cards into two readable groups. */
+@Composable
+private fun SectionEyebrow(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
+    )
 }
 
 @Composable
@@ -446,7 +482,7 @@ private fun WhySection(
 ) {
     if (bottleneck.evidence.isEmpty()) {
         if (strategy.isLocked("evidence")) {
-            AppCard(modifier = Modifier.fillMaxWidth()) {
+            SupportingCard {
                 Text("Why this, and not something else?", style = MaterialTheme.typography.titleMedium)
                 LockedNote(
                     text = "Premium shows the actual signals behind this decision.",
@@ -480,7 +516,7 @@ private fun DeferredSection(strategy: CareerStrategyDto, onUpgrade: () -> Unit) 
     val deferred = strategy.doNotDoYet
     if (deferred.isEmpty() && !strategy.isLocked("do_not_do_yet")) return
 
-    AppCard(modifier = Modifier.fillMaxWidth()) {
+    SupportingCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Filled.PauseCircleOutline,
@@ -532,7 +568,7 @@ private fun QueueSection(
     onUpgrade: () -> Unit,
     onOpenDestination: (String) -> Unit,
 ) {
-    AppCard(modifier = Modifier.fillMaxWidth()) {
+    SupportingCard {
         Text("What's next after that", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         if (strategy.queue.isEmpty()) {
             if (strategy.isLocked("queue")) {
@@ -548,7 +584,7 @@ private fun QueueSection(
                     modifier = Modifier.padding(top = Spacing.xs),
                 )
             }
-            return@AppCard
+            return@SupportingCard
         }
         strategy.queue.forEachIndexed { index, item ->
             QueueRow(position = index + 1, item = item, onOpenDestination = onOpenDestination)
@@ -606,7 +642,7 @@ private fun ContradictionsSection(strategy: CareerStrategyDto, onUpgrade: () -> 
     val contradictions = strategy.contradictions
     if (contradictions.isEmpty() && !strategy.isLocked("contradictions")) return
 
-    AppCard(modifier = Modifier.fillMaxWidth()) {
+    SupportingCard {
         Text(
             text = "You have a strategy mismatch",
             style = MaterialTheme.typography.titleMedium,
@@ -649,7 +685,7 @@ private fun ContradictionRow(item: StrategyContradictionDto) {
 private fun TargetComparisonSection(viewModel: CareerStrategyViewModel, onUpgrade: () -> Unit) {
     val state by viewModel.targets.collectAsStateWithLifecycle()
 
-    AppCard(modifier = Modifier.fillMaxWidth()) {
+    SupportingCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.CompareArrows,
@@ -752,7 +788,7 @@ private fun TargetComparisonSection(viewModel: CareerStrategyViewModel, onUpgrad
 private fun HistorySection(viewModel: CareerStrategyViewModel, onUpgrade: () -> Unit) {
     val state by viewModel.history.collectAsStateWithLifecycle()
 
-    AppCard(modifier = Modifier.fillMaxWidth()) {
+    SupportingCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Filled.History,
@@ -903,7 +939,7 @@ private fun DiminishingReturnsSection(strategy: CareerStrategyDto, onUpgrade: ()
     // Nothing to say and nothing to sell: render nothing rather than an empty card.
     if (series.isEmpty() && !locked) return
 
-    AppCard(modifier = Modifier.fillMaxWidth()) {
+    SupportingCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Filled.TrendingFlat,
@@ -1267,7 +1303,7 @@ private fun JobConditionsBlock(conditions: JobConditionsDto) {
  */
 @Composable
 private fun TargetJobsCard(onOpenDestination: (String) -> Unit) {
-    AppCard(modifier = Modifier.fillMaxWidth()) {
+    SupportingCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Filled.WorkOutline,

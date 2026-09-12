@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import com.aiplacementos.app.ui.theme.Elevation
 import com.aiplacementos.app.ui.theme.Spacing
 
@@ -21,12 +22,18 @@ import com.aiplacementos.app.ui.theme.Spacing
 fun AppCard(
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.surface,
+    /**
+     * Defaults to the standard raised card, so every existing caller is unchanged. Pass
+     * [Elevation.level0] for a supporting section that should recede: on a screen where
+     * everything is raised equally, nothing reads as more important than anything else.
+     */
+    elevation: Dp = Elevation.level1,
     content: @Composable () -> Unit,
 ) {
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = Elevation.level1),
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
             content()
