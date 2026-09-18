@@ -149,7 +149,7 @@ fun MainScreen(navController: NavHostController) {
                 DrawerItem("Job Hunt", Icons.Filled.BusinessCenter, badge = "New") {
                     navController.navigate(Screen.JobHunt.route)
                 },
-                DrawerItem("Resume", Icons.Filled.Description) { navController.navigate(Screen.ProfileResumeUpload.route) },
+                DrawerItem("Resume", Icons.Filled.Description) { navController.navigate(Screen.Resume.route) },
                 DrawerItem("Resume ATS Check", Icons.Filled.FindInPage, badge = "New") {
                     navController.navigate(Screen.AtsCheckLanding.route)
                 },

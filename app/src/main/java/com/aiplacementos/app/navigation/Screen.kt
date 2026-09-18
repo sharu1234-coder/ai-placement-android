@@ -32,6 +32,9 @@ sealed class Screen(val route: String) {
 
     data object RoleSelection : Screen("profile/role-selection")
     data object RoleSelectionSecondary : Screen("profile/role-selection-secondary")
+    /** The resume the student already has: facts, preview, replace, remove. Distinct from
+     * ProfileResumeUpload below, which is the upload form this pushes to. */
+    data object Resume : Screen("resume")
     data object ProfileResumeUpload : Screen("profile/resume-upload")
 
     data object Main : Screen("main")

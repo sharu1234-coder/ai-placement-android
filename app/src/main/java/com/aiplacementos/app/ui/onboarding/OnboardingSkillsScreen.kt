@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,7 +53,9 @@ fun OnboardingSkillsScreen(onNext: () -> Unit) {
                 skills = current.data,
                 busy = busy,
                 onToggle = viewModel::toggleSkill,
-                modifier = Modifier.weight(1f),
+                // SkillPicker no longer scrolls itself (see its doc comment); here it has a
+                // bounded height from weight(), so the scrolling is supplied at this call site.
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
             )
             PrimaryButton(
                 text = "Next",

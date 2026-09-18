@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -41,7 +39,13 @@ val SUGGESTED_SKILLS: List<Pair<String, List<String>>> = listOf(
 /** Stateless picker over the student's current skill list -- add/remove is entirely
  * caller-driven via [onToggle] (both onboarding and Profile back it with the same
  * OnboardingSkillsViewModel, which already implements toggle-by-name add/delete). Only the
- * custom-skill text field's draft value is local UI state. */
+ * custom-skill text field's draft value is local UI state.
+ *
+ * Deliberately NOT scrollable itself. It used to carry its own Modifier.verticalScroll, which
+ * crashed Profile: this picker sits inside a LazyColumn item there, LazyColumn measures items
+ * with an unbounded height, and a scrollable measured that way throws. Scrolling belongs to
+ * whoever places this -- a lazy list already scrolls, and a fixed-height caller (onboarding)
+ * passes a scrolling modifier in. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SkillPicker(skills: List<SkillDto>, busy: Boolean, onToggle: (String) -> Unit, modifier: Modifier = Modifier) {
@@ -51,7 +55,7 @@ fun SkillPicker(skills: List<SkillDto>, busy: Boolean, onToggle: (String) -> Uni
     val customAdded = skills.filter { it.name.lowercase() !in suggestedNamesLower }
 
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState()),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SUGGESTED_SKILLS.forEach { (category, categorySkills) ->

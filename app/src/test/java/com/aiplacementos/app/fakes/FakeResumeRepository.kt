@@ -8,6 +8,10 @@ class FakeResumeRepository : ResumeRepository {
     var uploadResult: Result<ResumeUploadResponseDto>? = null
     var latestResumeResult: Result<ResumeSummaryDto?> = Result.success(null)
     var deleteResult: Result<Unit> = Result.success(Unit)
+    var downloadResult: Result<ByteArray> = Result.success(ByteArray(0))
+
+    var downloadCount: Int = 0
+    var lastDownloadedResumeId: Int? = null
 
     var lastDeletedResumeId: Int? = null
 
@@ -15,6 +19,12 @@ class FakeResumeRepository : ResumeRepository {
         requireNotNull(uploadResult) { "uploadResult not configured" }.getOrThrow()
 
     override suspend fun getLatestResume(): ResumeSummaryDto? = latestResumeResult.getOrThrow()
+
+    override suspend fun downloadResumeFile(resumeId: Int): ByteArray {
+        downloadCount++
+        lastDownloadedResumeId = resumeId
+        return downloadResult.getOrThrow()
+    }
 
     override suspend fun deleteResume(resumeId: Int) {
         lastDeletedResumeId = resumeId

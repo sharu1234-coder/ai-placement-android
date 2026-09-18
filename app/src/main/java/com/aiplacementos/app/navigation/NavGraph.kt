@@ -90,6 +90,7 @@ import com.aiplacementos.app.ui.onboarding.OnboardingRoleScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingSkillsScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingSuccessScreen
 import com.aiplacementos.app.ui.placementpath.PlacementPathTopicDetailScreen
+import com.aiplacementos.app.ui.resume.ResumeScreen
 import com.aiplacementos.app.ui.placementpath.SavedRoadmapsScreen
 import com.aiplacementos.app.ui.profile.ProfileScreen
 import com.aiplacementos.app.ui.profile.RoleSelectionScreen
@@ -243,7 +244,12 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.RoleSelection.route) {
             RoleSelectionScreen(onRoleSelected = { navController.popBackStack() })
         }
+        composable(Screen.Resume.route) {
+            ResumeScreen(onUploadOrReplace = { navController.navigate(Screen.ProfileResumeUpload.route) })
+        }
         composable(Screen.RoleSelectionSecondary.route) {
+            // popBackStack returns to whatever pushed the upload form -- from the Resume screen
+            // that is the Resume screen itself, which reloads and shows the new file.
             RoleSelectionScreen(isSecondary = true, onRoleSelected = { navController.popBackStack() })
         }
         composable(Screen.ProfileResumeUpload.route) {
