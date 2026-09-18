@@ -67,13 +67,38 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.AiPlacementOs">
 
+        <!-- singleTop so the Professional Presence OAuth return is delivered to the activity
+             that is already running rather than stacking a second copy of the whole app on top
+             of it. MainActivity is at the top of the task when the browser hands control back,
+             which is exactly the case singleTop covers, so this is the smallest launch-mode
+             change that works; singleTask would also reorder unrelated tasks. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.AiPlacementOs">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Where the backend sends the student's browser after a GitHub authorisation.
+                 The redirect carries a RESULT and nothing else: no token, no authorization
+                 code, no state, no PKCE verifier (see app/api/professional_presence.py).
+
+                 This app deliberately reads NOTHING out of the incoming URI. Any app on the
+                 device can register this scheme and any app can send us an intent carrying it,
+                 so a status in the query string is attacker-supplied and must never decide what
+                 the app believes. The connection was completed server-side against a bearer
+                 token this redirect never touched, and the screen re-reads
+                 GET /professional-presence/connections on resume to learn what actually
+                 happened. The filter exists so the browser tab closes and the app comes
+                 forward: that is its whole job. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="aiplacementos" android:host="presence" />
             </intent-filter>
         </activity>
 
