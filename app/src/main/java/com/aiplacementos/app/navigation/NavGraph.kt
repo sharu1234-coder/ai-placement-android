@@ -52,6 +52,8 @@ import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackCreateScreen
 import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackListScreen
 import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackResultsScreen
 import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackSessionScreen
+import com.aiplacementos.app.ui.jobprep.JobMatchPrepResultScreen
+import com.aiplacementos.app.ui.jobprep.JobMatchPrepScreen
 import com.aiplacementos.app.ui.jobhunt.JobDetailScreen
 import com.aiplacementos.app.ui.jobhunt.JobHuntHomeScreen
 import com.aiplacementos.app.ui.jobhunt.JobHuntResultsScreen
@@ -76,11 +78,6 @@ import com.aiplacementos.app.ui.interview.InterviewEvaluationScreen
 import com.aiplacementos.app.ui.interview.MockInterviewCategoryScreen
 import com.aiplacementos.app.ui.interview.TextInterviewScreen
 import com.aiplacementos.app.ui.interview.VoiceInterviewScreen
-import com.aiplacementos.app.ui.jdanalyzer.JdAnalyzerResultScreen
-import com.aiplacementos.app.ui.jdanalyzer.JdAnalyzerScreen
-import com.aiplacementos.app.ui.job.JDPasteScreen
-import com.aiplacementos.app.ui.job.JobMatchScreen
-import com.aiplacementos.app.ui.job.PrepareMeSummaryScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingConfirmationScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingEducationScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingExperienceLevelScreen
@@ -90,10 +87,10 @@ import com.aiplacementos.app.ui.onboarding.OnboardingRoleScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingSkillsScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingSuccessScreen
 import com.aiplacementos.app.ui.placementpath.PlacementPathTopicDetailScreen
-import com.aiplacementos.app.ui.resume.ResumeScreen
 import com.aiplacementos.app.ui.placementpath.SavedRoadmapsScreen
 import com.aiplacementos.app.ui.profile.ProfileScreen
 import com.aiplacementos.app.ui.profile.RoleSelectionScreen
+import com.aiplacementos.app.ui.resume.ResumeScreen
 import com.aiplacementos.app.ui.resume.ResumeUploadScreen
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.ui.about.AboutUsScreen
@@ -244,53 +241,21 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.RoleSelection.route) {
             RoleSelectionScreen(onRoleSelected = { navController.popBackStack() })
         }
+        composable(Screen.RoleSelectionSecondary.route) {
+            RoleSelectionScreen(isSecondary = true, onRoleSelected = { navController.popBackStack() })
+        }
         composable(Screen.Resume.route) {
             ResumeScreen(onUploadOrReplace = { navController.navigate(Screen.ProfileResumeUpload.route) })
         }
-        composable(Screen.RoleSelectionSecondary.route) {
+        composable(Screen.ProfileResumeUpload.route) {
             // popBackStack returns to whatever pushed the upload form -- from the Resume screen
             // that is the Resume screen itself, which reloads and shows the new file.
-            RoleSelectionScreen(isSecondary = true, onRoleSelected = { navController.popBackStack() })
-        }
-        composable(Screen.ProfileResumeUpload.route) {
             ResumeUploadScreen(onUploaded = { navController.popBackStack() })
         }
 
-        // Prepare Me flow -- jdId (created by JDPasteScreen) flows through as a route arg,
+        // Shared assessment/interview engine -- jdId (created by Job Match & Prep) flows
         // all the way to the interview screens, so JD-specific tests/questions stay
         // possible end to end (see the class doc comment on Screen.kt's Prepare Me routes).
-        composable(Screen.RoleOrJdEntry.route) {
-            JDPasteScreen(onContinue = { jdId -> navController.navigate(resumeUploadRoute(jdId)) })
-        }
-        composable(
-            Screen.ResumeUpload.route,
-            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
-        ) { backStackEntry ->
-            val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
-            ResumeUploadScreen(onUploaded = { navController.navigate(analysisResultRoute(jdId)) })
-        }
-        composable(
-            Screen.AnalysisResult.route,
-            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
-        ) { backStackEntry ->
-            val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
-            JobMatchScreen(
-                jdId = jdId,
-                onContinue = { navController.navigate(prepareMeSummaryRoute(jdId)) },
-                onCancel = { navController.popBackStack() },
-            )
-        }
-        composable(
-            Screen.PrepareMeSummary.route,
-            arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
-        ) { backStackEntry ->
-            val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
-            PrepareMeSummaryScreen(
-                jdId = jdId,
-                onStartTests = { blueprintId -> navController.navigate(testFlowRoute(blueprintId, jdId)) },
-                onCancel = { navController.popBackStack() },
-            )
-        }
         composable(
             Screen.TestFlow.route,
             arguments = listOf(
@@ -386,7 +351,7 @@ fun NavGraph(navController: NavHostController) {
                 interviewId = backStackEntry.arguments?.getInt("interviewId") ?: 0,
                 onContinue = {
                     navController.navigate(roadmapUpdatedRoute(jdId)) {
-                        popUpTo(Screen.RoleOrJdEntry.route) { inclusive = true }
+                        popUpTo(Screen.JobMatchPrep.route) { inclusive = false }
                     }
                 },
             )
@@ -429,7 +394,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.AlarmCreate.route) {
             AlarmCreateScreen(
                 onSaved = { navController.popBackStack() },
-                onGoToResume = { navController.navigate(resumeUploadRoute(0)) },
+                onGoToResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
             )
         }
         composable(
@@ -438,7 +403,7 @@ fun NavGraph(navController: NavHostController) {
         ) { backStackEntry ->
             AlarmCreateScreen(
                 onSaved = { navController.popBackStack() },
-                onGoToResume = { navController.navigate(resumeUploadRoute(0)) },
+                onGoToResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
                 alarmId = backStackEntry.arguments?.getLong("alarmId") ?: 0L,
             )
         }
@@ -527,24 +492,40 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        composable(Screen.JdAnalyzer.route) {
-            JdAnalyzerScreen(onOpenAnalysis = { jdId -> navController.navigate(jdAnalyzerResultRoute(jdId)) })
+        composable(Screen.JobMatchPrep.route) {
+            JobMatchPrepScreen(
+                onAnalyzed = { jdId ->
+                    // The analysis replaces the input screen in the back stack: pressing back
+                    // from a finished result should return to the list, not re-open a form
+                    // still holding the job description that was just analysed.
+                    navController.navigate(jobMatchPrepResultRoute(jdId))
+                },
+                onOpenAnalysis = { jdId -> navController.navigate(jobMatchPrepResultRoute(jdId)) },
+                onUploadResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
+                onViewResume = { navController.navigate(Screen.Resume.route) },
+            )
         }
         composable(
-            Screen.JdAnalyzerResult.route,
+            Screen.JobMatchPrepResult.route,
             arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
         ) { backStackEntry ->
             val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
-            JdAnalyzerResultScreen(
+            JobMatchPrepResultScreen(
                 jdId = jdId,
                 onBack = { navController.popBackStack() },
                 onGenerateRoadmap = {
                     navController.navigate(roadmapUpdatedRoute(jdId)) {
-                        popUpTo(Screen.JdAnalyzer.route)
+                        popUpTo(Screen.JobMatchPrep.route)
                     }
                 },
-                onDeleted = { navController.popBackStack(Screen.JdAnalyzer.route, inclusive = false) },
+                // The practice handoff carried over from the old Job Preparation flow: the
+                // same blueprint-driven test flow every other practice entry point uses.
+                onStartPractice = { blueprintId ->
+                    navController.navigate(testFlowRoute(blueprintId, jdId))
+                },
+                onDeleted = { navController.popBackStack(Screen.JobMatchPrep.route, inclusive = false) },
                 onCareerPathUpdated = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
+                onUploadResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
             )
         }
 
@@ -558,7 +539,7 @@ fun NavGraph(navController: NavHostController) {
                 // place, so a second, differently-wired upload destination isn't needed.
                 onCheckMyResume = { navController.navigate(Screen.AtsCheckPreCheck.route) },
                 onUploadNewResume = { navController.navigate(Screen.AtsCheckPreCheck.route) },
-                onOpenJdAnalyzer = { navController.navigate(Screen.JdAnalyzer.route) },
+                onOpenJobMatchPrep = { navController.navigate(Screen.JobMatchPrep.route) },
             )
         }
         composable(Screen.AtsCheckPreCheck.route) {

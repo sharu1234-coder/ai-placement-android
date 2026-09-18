@@ -68,7 +68,7 @@ import com.aiplacementos.app.ui.theme.warningColor
 fun HomeScreen(
     onOpenPlacementAlarm: () -> Unit,
     onOpenPlacementPath: () -> Unit,
-    onOpenJdAnalyzer: () -> Unit,
+    onOpenJobMatchPrep: () -> Unit,
     onOpenCareerPath: (pathId: Int) -> Unit,
     onOpenCareerPathHome: () -> Unit,
     onOpenAtsCheck: (checkId: Int?) -> Unit,
@@ -118,7 +118,7 @@ fun HomeScreen(
             data = current.data,
             onOpenPlacementAlarm = onOpenPlacementAlarm,
             onOpenPlacementPath = onOpenPlacementPath,
-            onOpenJdAnalyzer = onOpenJdAnalyzer,
+            onOpenJobMatchPrep = onOpenJobMatchPrep,
             onOpenCareerPath = onOpenCareerPath,
             onOpenCareerPathHome = onOpenCareerPathHome,
             onOpenAtsCheck = onOpenAtsCheck,
@@ -149,7 +149,7 @@ private fun HomeContent(
     data: HomeData,
     onOpenPlacementAlarm: () -> Unit,
     onOpenPlacementPath: () -> Unit,
-    onOpenJdAnalyzer: () -> Unit,
+    onOpenJobMatchPrep: () -> Unit,
     onOpenCareerPath: (pathId: Int) -> Unit,
     onOpenCareerPathHome: () -> Unit,
     onOpenAtsCheck: (checkId: Int?) -> Unit,
@@ -209,7 +209,7 @@ private fun HomeContent(
         item {
             QuickAccessGrid(
                 onOpenCareerPathHome = onOpenCareerPathHome,
-                onOpenJdAnalyzer = onOpenJdAnalyzer,
+                onOpenJobMatchPrep = onOpenJobMatchPrep,
                 onOpenPractice = onOpenPractice,
                 onOpenTests = onOpenTests,
             )
@@ -226,7 +226,7 @@ private fun HomeContent(
             item { TodaysPlanCard(data.todaysPlan) }
         }
 
-        item { JdAnalyzerPromoCard(onOpenJdAnalyzer) }
+        item { JobMatchPrepPromoCard(onOpenJobMatchPrep) }
 
         item { ResumeAtsCard(data.resumeHealth, onClick = { onOpenAtsCheck(data.resumeHealth?.id) }) }
 
@@ -523,7 +523,7 @@ private fun TodaysPlanCard(items: List<TodayPlanItem>) {
 }
 
 @Composable
-private fun JdAnalyzerPromoCard(onClick: () -> Unit) {
+private fun JobMatchPrepPromoCard(onClick: () -> Unit) {
     AppCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -615,7 +615,7 @@ private fun UpcomingAlarmCard(label: String, onClick: () -> Unit) {
 @Composable
 private fun QuickAccessGrid(
     onOpenCareerPathHome: () -> Unit,
-    onOpenJdAnalyzer: () -> Unit,
+    onOpenJobMatchPrep: () -> Unit,
     onOpenPractice: () -> Unit,
     onOpenTests: () -> Unit,
 ) {
@@ -626,7 +626,7 @@ private fun QuickAccessGrid(
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             QuickAccessTile(Icons.Filled.Route, "Career Path", onOpenCareerPathHome, Modifier.weight(1f))
-            QuickAccessTile(Icons.AutoMirrored.Outlined.Assignment, "JD Analyzer", onOpenJdAnalyzer, Modifier.weight(1f))
+            QuickAccessTile(Icons.AutoMirrored.Outlined.Assignment, "Job Match & Prep", onOpenJobMatchPrep, Modifier.weight(1f))
             QuickAccessTile(Icons.Filled.School, "Practice", onOpenPractice, Modifier.weight(1f))
             QuickAccessTile(Icons.Filled.CheckCircle, "Tests", onOpenTests, Modifier.weight(1f))
         }

@@ -45,10 +45,6 @@ sealed class Screen(val route: String) {
     // student pastes a JD, tests, interview questions... must be customized to that JD --
     // generic tests are not the default." A jdId of 0 means "no JD" (role-only flow, e.g.
     // entered via role selection rather than pasting a JD) -- see the *Route() helpers.
-    data object RoleOrJdEntry : Screen("prepare-me/entry")
-    data object ResumeUpload : Screen("prepare-me/resume-upload/{jdId}")
-    data object AnalysisResult : Screen("prepare-me/analysis-result/{jdId}")
-    data object PrepareMeSummary : Screen("prepare-me/summary/{jdId}")
     data object TestFlow : Screen("prepare-me/test/{blueprintId}/{jdId}")
     data object TestTaking : Screen("prepare-me/test-taking/{assessmentId}/{jdId}")
     data object TestResult : Screen("prepare-me/test-result/{assessmentId}/{jdId}")
@@ -84,9 +80,12 @@ sealed class Screen(val route: String) {
     data object HelpSupport : Screen("help-support")
     data object AboutUs : Screen("about-us")
 
-    // Job Description Analyzer -- drawer + Home promo card entry point.
-    data object JdAnalyzer : Screen("jd-analyzer")
-    data object JdAnalyzerResult : Screen("jd-analyzer/result/{jdId}")
+    // Job Match & Prep -- the single entry point for everything that starts with a job
+    // description. Replaced two separate destinations ("Job Description Analyzer", which
+    // analysed and stopped, and "Job Preparation", which matched a resume and jumped straight
+    // to practice) that ran over the same endpoints and each answered half the question.
+    data object JobMatchPrep : Screen("job-match-prep")
+    data object JobMatchPrepResult : Screen("job-match-prep/result/{jdId}")
 
     // Drawer's "Mock Interviews" entry point -- picks the interview type before handing off
     // to the existing text/voice interview flow (previously hardcoded to "technical").
@@ -135,7 +134,7 @@ sealed class Screen(val route: String) {
     // presses back expects to land on their strategy, not to have it silently change meaning.
     data object CareerStrategyForJob : Screen("career-strategy/job/{listingId}")
 
-    // Premium Job Hunt -- drawer entry point. Deliberately separate from JdAnalyzer (which
+    // Premium Job Hunt -- drawer entry point. Deliberately separate from Job Match & Prep (which
     // scores a student against one JD they paste in) and from the Prepare Me flow: this one
     // retrieves real adverts from a job provider and ranks them. Never reads or writes the
     // job_descriptions/job_matches tables those features own.
@@ -188,9 +187,6 @@ sealed class Screen(val route: String) {
     data object ArenaSession : Screen("arena/{arenaAttemptId}/{assessmentId}/{timeLimitSeconds}/session")
 }
 
-fun resumeUploadRoute(jdId: Int): String = "prepare-me/resume-upload/$jdId"
-fun analysisResultRoute(jdId: Int): String = "prepare-me/analysis-result/$jdId"
-fun prepareMeSummaryRoute(jdId: Int): String = "prepare-me/summary/$jdId"
 fun testFlowRoute(blueprintId: Int, jdId: Int): String = "prepare-me/test/$blueprintId/$jdId"
 fun testTakingRoute(assessmentId: Int, jdId: Int): String = "prepare-me/test-taking/$assessmentId/$jdId"
 fun testResultRoute(assessmentId: Int, jdId: Int): String = "prepare-me/test-result/$assessmentId/$jdId"
@@ -203,7 +199,7 @@ fun roadmapTaskDetailRoute(taskId: Int, jdId: Int): String = "roadmap/task-detai
 fun alarmChallengeRoute(clientAlarmId: String, alarmConfigId: Long): String =
     "placement-alarm/challenge/$clientAlarmId/$alarmConfigId"
 fun placementPathTopicDetailRoute(topicId: Int): String = "placement-path/topic-detail/$topicId"
-fun jdAnalyzerResultRoute(jdId: Int): String = "jd-analyzer/result/$jdId"
+fun jobMatchPrepResultRoute(jdId: Int): String = "job-match-prep/result/$jdId"
 fun alarmEditRoute(alarmId: Long): String = "placement-alarm/edit/$alarmId"
 fun interviewHistoryDetailRoute(interviewId: Int): String = "mock-interview/history/$interviewId"
 fun projectBuilderDetailRoute(buildId: Int): String = "project-builder/$buildId/detail"

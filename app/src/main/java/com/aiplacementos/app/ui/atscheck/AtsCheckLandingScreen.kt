@@ -37,7 +37,7 @@ private val ANALYZED_ON = listOf(
 fun AtsCheckLandingScreen(
     onCheckMyResume: () -> Unit,
     onUploadNewResume: () -> Unit,
-    onOpenJdAnalyzer: () -> Unit,
+    onOpenJobMatchPrep: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
@@ -110,7 +110,7 @@ fun AtsCheckLandingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = Spacing.sm)
-                    .clickable(onClick = onOpenJdAnalyzer),
+                    .clickable(onClick = onOpenJobMatchPrep),
             )
         }
     }

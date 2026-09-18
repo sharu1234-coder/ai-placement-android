@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
  *
  * [actions] defaults to nothing so every existing call site is unaffected -- it exists so a
  * result-style screen that also needs a share/delete affordance (e.g. AtsCheckResultScreen,
- * JdAnalyzerResultScreen) can keep that action while still getting the same back arrow every
+ * JobMatchPrepResultScreen) can keep that action while still getting the same back arrow every
  * other detail screen in the app already has, instead of inventing a second top-bar shape.
  */
 @OptIn(ExperimentalMaterial3Api::class)

@@ -17,7 +17,7 @@ fun Throwable.isNetworkError(): Boolean = this is IOException
 fun Throwable.isTimeoutError(): Boolean = this is SocketTimeoutException
 
 /** A short, user-facing message for a caught Throwable, following this app's established
- * network/auth/server/timeout split (see JobMatchViewModel/PlacementPathViewModel) --
+ * network/auth/server/timeout split (see JobMatchPrepViewModel/PlacementPathViewModel) --
  * shared here so every screen's blanket `catch (e: Exception)` classifies consistently
  * instead of each one reinventing (or omitting) the same distinction. TokenAuthenticator
  * already retries a 401 with a refreshed token before it can reach this point, so an

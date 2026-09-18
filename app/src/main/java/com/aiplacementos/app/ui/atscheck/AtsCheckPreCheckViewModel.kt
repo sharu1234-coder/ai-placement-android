@@ -18,7 +18,7 @@ class AtsCheckPreCheckViewModel(private val resumeRepository: ResumeRepository) 
     val uiState: StateFlow<UiState<ResumeSummaryDto>> = _uiState
 
     // No init{} auto-load -- the screen's LifecycleResumeEffect covers both the initial
-    // load and refresh-on-return, matching JdAnalyzerViewModel's established convention.
+    // load and refresh-on-return, matching JobMatchPrepViewModel's established convention.
     fun load() {
         viewModelScope.launch {
             _uiState.value = UiState.Loading

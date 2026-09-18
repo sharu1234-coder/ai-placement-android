@@ -153,17 +153,11 @@ fun MainScreen(navController: NavHostController) {
                 DrawerItem("Resume ATS Check", Icons.Filled.FindInPage, badge = "New") {
                     navController.navigate(Screen.AtsCheckLanding.route)
                 },
-                DrawerItem("Job Description Analyzer", Icons.Filled.WorkOutline) {
-                    navController.navigate(Screen.JdAnalyzer.route)
-                },
-                // Real-device finding: this entire flow (paste a role/JD -> resume check ->
-                // match analysis -> prep plan -> tests -> interviews -> roadmap update) was
-                // fully built and registered in NavGraph but had no entry point anywhere in
-                // the app -- Screen.RoleOrJdEntry was never the target of a single
-                // navController.navigate() call. Distinct from JD Analyzer above (a quick
-                // skill-match check): this is the longer guided preparation flow.
-                DrawerItem("Job Preparation", Icons.Filled.School) {
-                    navController.navigate(Screen.RoleOrJdEntry.route)
+                // One destination, not two. "Job Description Analyzer" and "Job Preparation"
+                // were separate drawer entries over the same endpoints -- a student had no way
+                // to tell which one to open, and neither was a complete answer on its own.
+                DrawerItem("Job Match & Prep", Icons.Filled.WorkOutline, badge = "New") {
+                    navController.navigate(Screen.JobMatchPrep.route)
                 },
                 DrawerItem("Mock Interviews", Icons.Filled.Mic) { navController.navigate(Screen.MockInterviewCategory.route) },
                 DrawerItem("Placement Alarms", Icons.Filled.Alarm) { navController.navigate(Screen.AlarmList.route) },
@@ -319,7 +313,7 @@ fun MainScreen(navController: NavHostController) {
                     Screen.Home.route -> HomeScreen(
                         onOpenPlacementAlarm = { navController.navigate(Screen.AlarmList.route) },
                         onOpenPlacementPath = { selectedRoute = Screen.Roadmap.route },
-                        onOpenJdAnalyzer = { navController.navigate(Screen.JdAnalyzer.route) },
+                        onOpenJobMatchPrep = { navController.navigate(Screen.JobMatchPrep.route) },
                         onOpenCareerPath = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
                         onOpenCareerPathHome = { navController.navigate(Screen.CareerPathHome.route) },
                         onOpenAtsCheck = { checkId ->
