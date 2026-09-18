@@ -88,6 +88,7 @@ import com.aiplacementos.app.ui.onboarding.OnboardingSkillsScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingSuccessScreen
 import com.aiplacementos.app.ui.placementpath.PlacementPathTopicDetailScreen
 import com.aiplacementos.app.ui.placementpath.SavedRoadmapsScreen
+import com.aiplacementos.app.ui.presence.ProfessionalPresenceScreen
 import com.aiplacementos.app.ui.profile.ProfileScreen
 import com.aiplacementos.app.ui.profile.RoleSelectionScreen
 import com.aiplacementos.app.ui.resume.ResumeScreen
@@ -796,6 +797,13 @@ fun NavGraph(navController: NavHostController) {
                 onOpenDestination = { destination ->
                     navController.navigate(careerStrategyDestinationRoute(destination))
                 },
+            )
+        }
+        composable(Screen.ProfessionalPresence.route) {
+            ProfessionalPresenceScreen(
+                onBack = { navController.popBackStack() },
+                onOpenResume = { navController.navigate(Screen.Resume.route) },
+                onOpenSkillPassport = { navController.navigate(Screen.SkillPassport.route) },
             )
         }
         composable(Screen.SkillPassport.route) {

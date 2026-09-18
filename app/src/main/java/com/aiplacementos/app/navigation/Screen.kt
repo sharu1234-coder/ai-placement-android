@@ -154,6 +154,9 @@ sealed class Screen(val route: String) {
 
     // Skill Passport -- per-skill evidence deep-dive over the same server-side Evidence
     // Engine Career Twin reads. Independent screens/ViewModels; never calls into Career Twin.
+    // Professional Presence -- the student's authorised external accounts and what they
+    // show. Lives in BUILD PROOF beside Skill Passport because that is what it feeds.
+    data object ProfessionalPresence : Screen("professional-presence")
     data object SkillPassport : Screen("skill-passport")
     data object SkillPassportDetail : Screen("skill-passport/{skill}")
 

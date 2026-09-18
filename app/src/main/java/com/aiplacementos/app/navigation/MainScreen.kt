@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
@@ -172,6 +173,9 @@ fun MainScreen(navController: NavHostController) {
             listOf(
                 DrawerItem("Project Builder", Icons.Filled.Construction, badge = "New") {
                     navController.navigate(Screen.ProjectBuilderList.route)
+                },
+                DrawerItem("Professional Presence", Icons.Filled.Public, badge = "New") {
+                    navController.navigate(Screen.ProfessionalPresence.route)
                 },
                 DrawerItem("Skill Passport", Icons.Filled.Badge, badge = "New") {
                     navController.navigate(Screen.SkillPassport.route)
