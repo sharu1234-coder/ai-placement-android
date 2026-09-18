@@ -3,6 +3,7 @@ package com.aiplacementos.app.network
 import android.content.Context
 import com.aiplacementos.app.BuildConfig
 import com.aiplacementos.app.alarm.AlarmScheduler
+import com.aiplacementos.app.data.local.LocalAccountDataCleaner
 import com.aiplacementos.app.data.remote.ArenaApi
 import com.aiplacementos.app.data.remote.AssessmentsApi
 import com.aiplacementos.app.data.remote.AtsCheckApi
@@ -161,7 +162,12 @@ class NetworkModule(context: Context) {
 
     private val alarmDatabase = AlarmDatabase.getInstance(context)
 
-    val authRepository: AuthRepository = AuthRepositoryImpl(authApi, tokenStore)
+    /** Shared by logout and account deletion so both empty the same tables -- see the class
+     * doc for why local data is purged rather than scoped by user id. */
+    val localAccountDataCleaner = LocalAccountDataCleaner(alarmDatabase, alarmScheduler)
+
+    val authRepository: AuthRepository =
+        AuthRepositoryImpl(authApi, tokenStore, localAccountDataCleaner)
     val profileRepository: ProfileRepository = ProfileRepositoryImpl(usersApi)
     val resumeRepository: ResumeRepository = ResumeRepositoryImpl(resumesApi)
     val atsCheckRepository: AtsCheckRepository = AtsCheckRepositoryImpl(atsCheckApi)

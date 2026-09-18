@@ -20,6 +20,9 @@ interface NotificationDao {
     @Query("UPDATE notifications SET read = 1 WHERE read = 0")
     suspend fun markAllRead()
 
+    @Query("DELETE FROM notifications")
+    suspend fun deleteAll()
+
     @Query("SELECT COUNT(*) FROM notifications WHERE read = 0")
     suspend fun getUnreadCount(): Int
 }

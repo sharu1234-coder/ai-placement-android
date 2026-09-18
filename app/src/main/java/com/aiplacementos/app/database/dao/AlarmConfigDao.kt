@@ -10,6 +10,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AlarmConfigDao {
+    /** Every alarm, enabled or not -- logout has to cancel the disabled ones' pending intents
+     * too, since re-enabling is not what resurrects them, AlarmManager is. */
+    @Query("SELECT * FROM alarm_configs")
+    suspend fun getAll(): List<AlarmConfigEntity>
+
+    @Query("DELETE FROM alarm_configs")
+    suspend fun deleteAll()
+
     @Query("SELECT * FROM alarm_configs ORDER BY hour, minute")
     fun observeAll(): Flow<List<AlarmConfigEntity>>
 

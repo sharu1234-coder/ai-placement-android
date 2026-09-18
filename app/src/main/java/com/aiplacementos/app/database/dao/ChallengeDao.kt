@@ -40,6 +40,12 @@ interface ChallengeDao {
     )
     suspend fun markCorrect(clientAlarmId: String, backendQuestionId: Int)
 
+    @Query("DELETE FROM challenges")
+    suspend fun deleteAllChallenges()
+
+    @Query("DELETE FROM challenge_questions")
+    suspend fun deleteAllQuestions()
+
     @Query("SELECT COUNT(*) FROM challenge_questions WHERE clientAlarmId = :clientAlarmId AND isCorrect = 1")
     suspend fun correctCount(clientAlarmId: String): Int
 }
