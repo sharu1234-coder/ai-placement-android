@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
@@ -27,7 +28,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -67,19 +72,21 @@ import com.aiplacementos.app.ui.theme.Spacing
  *
  * Resume does not sync. Reading stored findings is free; syncing spends the student's GitHub
  * quota and, when something changed, one AI generation. That belongs behind a button.
+ *
+ * [connectOnOpen] is for arriving from a "Connect GitHub" button elsewhere (Profile). The student
+ * has already asked to connect, so the screen starts that flow itself instead of offering an
+ * identical button to press a second time.
  */
 @Composable
 fun ProfessionalPresenceScreen(
     onBack: () -> Unit,
     onOpenResume: () -> Unit,
     onOpenSkillPassport: () -> Unit,
+    connectOnOpen: Boolean = false,
+    // Injectable so a UI test can drive the screen's states without a network or a real OAuth
+    // flow. Production callers omit it.
+    viewModel: ProfessionalPresenceViewModel = rememberProfessionalPresenceViewModel(),
 ) {
-    val network = networkModule()
-    val viewModel: ProfessionalPresenceViewModel = viewModel(
-        factory = viewModelFactory {
-            initializer { ProfessionalPresenceViewModel(network.professionalPresenceRepository) }
-        },
-    )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -88,17 +95,32 @@ fun ProfessionalPresenceScreen(
         onPauseOrDispose { }
     }
 
+    // Started at most once per visit, and only after the first read of the server: a student who
+    // turns out to be connected already is shown that, not sent to GitHub's consent screen again.
+    // rememberSaveable because the return from the browser, a rotation or process death must
+    // never start a second authorisation the student did not ask for.
+    var connectOnOpenHandled by rememberSaveable { mutableStateOf(!connectOnOpen) }
+    val loadedAudit = state.audit
+    LaunchedEffect(loadedAudit, connectOnOpenHandled) {
+        if (!connectOnOpenHandled && loadedAudit != null) {
+            connectOnOpenHandled = true
+            if (loadedAudit.needsAuthorization()) viewModel.connect()
+        }
+    }
+
     // Opening the browser is a side effect of an action, not of a recomposition, so the URL is
     // consumed once and cleared. Without that, returning to this screen could re-open a stale
     // authorisation whose state has already expired.
     state.pendingAuthorizationUrl?.let { url ->
-        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-        try {
-            context.startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
-            // No browser at all is rare but real (locked-down devices, stripped ROMs).
+        LaunchedEffect(url) {
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+                viewModel.onAuthorizationUrlOpened()
+            } catch (_: ActivityNotFoundException) {
+                // No browser at all is rare but real (locked-down devices, stripped ROMs).
+                viewModel.onAuthorizationUrlFailedToOpen()
+            }
         }
-        viewModel.onAuthorizationUrlOpened()
     }
 
     Scaffold(topBar = { DetailTopBar(title = "Professional Presence", onBack = onBack) }) { padding ->
@@ -143,10 +165,38 @@ private fun PresenceContent(
                 audit = audit,
                 syncing = state.syncing,
                 disconnecting = state.disconnecting,
+                connecting = state.connecting,
                 onConnect = onConnect,
                 onSync = onSync,
                 onDisconnect = onDisconnect,
             )
+        }
+
+        // Between opening the browser and the resume that re-reads the server, the truthful
+        // answer is "we don't know yet". Without this row the card below keeps saying "not
+        // connected" while the student may in fact have just connected.
+        if (state.authorizationPending && audit?.needsAuthorization() != false) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(
+                        text = "Waiting for GitHub…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = Spacing.sm),
+                    )
+                }
+            }
+        }
+
+        // An info notice, never the error one: declining consent is a choice. It is also
+        // indistinguishable from closing the tab, so the wording asserts neither.
+        if (state.cancelled && audit?.needsAuthorization() != false) {
+            item {
+                NoticeCard(
+                    icon = Icons.Filled.Info,
+                    text = "You didn't finish connecting GitHub. You can try again any time.",
+                )
+            }
         }
 
         state.actionError?.let { message ->
@@ -221,6 +271,7 @@ private fun GitHubConnectionCard(
     audit: PresenceAuditDto?,
     syncing: Boolean,
     disconnecting: Boolean,
+    connecting: Boolean,
     onConnect: () -> Unit,
     onSync: () -> Unit,
     onDisconnect: () -> Unit,
@@ -264,6 +315,16 @@ private fun GitHubConnectionCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            // Shown whenever connected, including at zero -- "0 repositories" after a sync is
+            // a real answer about a real account, and hiding the row would read as a bug.
+            // Both come from the same snapshot, so they cannot disagree with each other.
+            if (connected) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+                    PresenceCount("Repositories", audit.repositoryCount)
+                    PresenceCount("Evidence", audit.evidenceCount)
+                }
+            }
+
             if (syncing || disconnecting) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -274,10 +335,13 @@ private fun GitHubConnectionCard(
                     )
                 }
             } else if (!connected) {
+                // Disabled while the authorization URL is being fetched: a second tap would mint
+                // a second state and could open two consent screens for one intent.
                 PrimaryButton(
-                    text = "Connect GitHub",
+                    text = if (connecting) "Opening GitHub…" else "Connect GitHub",
                     onClick = onConnect,
                     modifier = Modifier.fillMaxWidth(),
+                    enabled = !connecting,
                 )
                 Text(
                     text = "We ask GitHub for the minimum: read-only access to your public " +
@@ -286,10 +350,16 @@ private fun GitHubConnectionCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
+                // Reconnect is the same connect flow, so it gets the same in-flight guard.
                 PrimaryButton(
-                    text = if (needsReauth) "Reconnect GitHub" else "Refresh from GitHub",
+                    text = when {
+                        needsReauth && connecting -> "Opening GitHub…"
+                        needsReauth -> "Reconnect GitHub"
+                        else -> "Refresh from GitHub"
+                    },
                     onClick = if (needsReauth) onConnect else onSync,
                     modifier = Modifier.fillMaxWidth(),
+                    enabled = !(needsReauth && connecting),
                 )
                 SecondaryButton(
                     text = "Disconnect",
@@ -474,5 +544,32 @@ private fun LinkedInUnavailableCard() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/**
+ * The one way this app builds the Professional Presence ViewModel, shared by every screen that
+ * hosts the GitHub connection so there is a single construction of the single OAuth caller.
+ */
+@Composable
+internal fun rememberProfessionalPresenceViewModel(): ProfessionalPresenceViewModel {
+    val network = networkModule()
+    return viewModel(
+        factory = viewModelFactory {
+            initializer { ProfessionalPresenceViewModel(network.professionalPresenceRepository) }
+        },
+    )
+}
+
+/** One number and what it counts. Deliberately unstyled as a badge: these are facts, not scores. */
+@Composable
+private fun PresenceCount(label: String, value: Int) {
+    Column {
+        Text(text = value.toString(), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

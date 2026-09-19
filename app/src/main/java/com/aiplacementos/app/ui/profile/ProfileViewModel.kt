@@ -2,10 +2,12 @@ package com.aiplacementos.app.ui.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.PresenceAuditDto
 import com.aiplacementos.app.data.remote.ProfileDto
 import com.aiplacementos.app.data.remote.ResumeSummaryDto
 import com.aiplacementos.app.data.remote.RoleDto
 import com.aiplacementos.app.data.remote.SkillDto
+import com.aiplacementos.app.domain.repository.ProfessionalPresenceRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.domain.repository.ResumeRepository
 import com.aiplacementos.app.ui.common.UiState
@@ -23,6 +25,13 @@ enum class ProfileSection { PERSONAL, GOALS, EXPERIENCE_LEVEL, SKILLS }
 class ProfileViewModel(
     private val profileRepository: ProfileRepository,
     private val resumeRepository: ResumeRepository,
+    /**
+     * Read-only here. The profile card shows whether GitHub is connected and what it is worth;
+     * connecting, syncing and disconnecting all remain the Professional Presence screen's job,
+     * so this ViewModel never starts an OAuth flow and owns no connection state of its own.
+     * Nullable so existing constructions (and tests) that do not care keep working.
+     */
+    private val presenceRepository: ProfessionalPresenceRepository? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<ProfileDto>>(UiState.Loading)
     val uiState: StateFlow<UiState<ProfileDto>> = _uiState.asStateFlow()
@@ -32,6 +41,16 @@ class ProfileViewModel(
 
     private val _resume = MutableStateFlow<ResumeSummaryDto?>(null)
     val resume: StateFlow<ResumeSummaryDto?> = _resume.asStateFlow()
+
+    /**
+     * The server's view of the GitHub connection, or null when it could not be read.
+     *
+     * Null means "we don't know", and the card renders its not-connected state for it rather
+     * than claiming the student has no connection -- a failed read is a fact about the network,
+     * not about their account, and the card offers a way in either way.
+     */
+    private val _presence = MutableStateFlow<PresenceAuditDto?>(null)
+    val presence: StateFlow<PresenceAuditDto?> = _presence.asStateFlow()
 
     private val _roles = MutableStateFlow<List<RoleDto>>(emptyList())
     val roles: StateFlow<List<RoleDto>> = _roles.asStateFlow()
@@ -147,6 +166,20 @@ class ProfileViewModel(
     fun reloadResume() {
         viewModelScope.launch {
             _resume.value = runCatching { resumeRepository.getLatestResume() }.getOrNull()
+        }
+    }
+
+    /**
+     * Re-read the GitHub connection. Called on resume, because the student may have just come
+     * back from connecting it on the Professional Presence screen -- or from the browser.
+     *
+     * runCatching, not try/catch with an error state: this card is one row on a screen about
+     * something else, and a GitHub read that fails must never take the profile down with it.
+     */
+    fun reloadPresence() {
+        val repository = presenceRepository ?: return
+        viewModelScope.launch {
+            _presence.value = runCatching { repository.getAudit() }.getOrNull()
         }
     }
 

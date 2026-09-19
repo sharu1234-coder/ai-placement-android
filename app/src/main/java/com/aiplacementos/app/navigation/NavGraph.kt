@@ -83,6 +83,7 @@ import com.aiplacementos.app.ui.onboarding.OnboardingEducationScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingExperienceLevelScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingGoalsScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingNameScreen
+import com.aiplacementos.app.ui.onboarding.OnboardingProfessionalPresenceScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingRoleScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingSkillsScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingSuccessScreen
@@ -229,7 +230,20 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(Screen.OnboardingSuccess.route) {
             OnboardingSuccessScreen(
-                onGoToHome = {
+                // Forwards to the optional GitHub step rather than to Main. This is a plain
+                // push, NOT the back-stack clear: that moves to the step below, so it happens
+                // exactly once and on whichever way the student leaves it.
+                onGoToHome = { navController.navigate(Screen.OnboardingProfessionalPresence.route) },
+            )
+        }
+
+        composable(Screen.OnboardingProfessionalPresence.route) {
+            OnboardingProfessionalPresenceScreen(
+                // One exit for both "Connect GitHub" and "Maybe later", so declining cannot
+                // leave a student anywhere different from accepting. popUpTo(0) { inclusive }
+                // wipes the whole onboarding back stack here -- pressing back from Home must
+                // not re-enter a flow whose work is already saved server-side.
+                onContinue = {
                     navController.navigate(Screen.Main.route) { popUpTo(0) { inclusive = true } }
                 },
             )
@@ -472,6 +486,16 @@ fun NavGraph(navController: NavHostController) {
                 onSelectRole = { navController.navigate(Screen.RoleSelection.route) },
                 onSelectSecondaryRole = { navController.navigate(Screen.RoleSelectionSecondary.route) },
                 onReplaceResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
+                // Into the existing screen, which owns every GitHub action. Profile only shows
+                // state and offers the way in, so there is one place connect/sync/disconnect live.
+                onOpenProfessionalPresence = {
+                    navController.navigate(Screen.ProfessionalPresence.route)
+                },
+                // Same screen, told to start connecting on arrival: one tap on Profile's
+                // "Connect GitHub" reaches GitHub, instead of a second identical button.
+                onConnectGitHub = {
+                    navController.navigate(Screen.ProfessionalPresenceConnect.route)
+                },
             )
         }
         composable(Screen.Privacy.route) { PrivacyScreen() }
@@ -804,6 +828,14 @@ fun NavGraph(navController: NavHostController) {
                 onBack = { navController.popBackStack() },
                 onOpenResume = { navController.navigate(Screen.Resume.route) },
                 onOpenSkillPassport = { navController.navigate(Screen.SkillPassport.route) },
+            )
+        }
+        composable(Screen.ProfessionalPresenceConnect.route) {
+            ProfessionalPresenceScreen(
+                onBack = { navController.popBackStack() },
+                onOpenResume = { navController.navigate(Screen.Resume.route) },
+                onOpenSkillPassport = { navController.navigate(Screen.SkillPassport.route) },
+                connectOnOpen = true,
             )
         }
         composable(Screen.SkillPassport.route) {

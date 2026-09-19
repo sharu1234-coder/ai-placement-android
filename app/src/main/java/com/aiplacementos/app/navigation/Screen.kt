@@ -20,6 +20,11 @@ sealed class Screen(val route: String) {
     data object OnboardingConfirmation : Screen("onboarding/confirmation")
     data object OnboardingSuccess : Screen("onboarding/success")
 
+    // The optional GitHub step, after success rather than before it: registration is already
+    // complete by the time this shows, which is what makes declining it costless. Shown once,
+    // and only to students coming through onboarding -- existing users never enter this graph.
+    data object OnboardingProfessionalPresence : Screen("onboarding/professional-presence")
+
     data object Home : Screen("home")
     data object Roadmap : Screen("roadmap")
     data object Practice : Screen("practice")
@@ -157,6 +162,11 @@ sealed class Screen(val route: String) {
     // Professional Presence -- the student's authorised external accounts and what they
     // show. Lives in BUILD PROOF beside Skill Passport because that is what it feeds.
     data object ProfessionalPresence : Screen("professional-presence")
+    // The same screen, reached from a "Connect GitHub" button elsewhere (Profile). It starts the
+    // one existing connect flow on arrival, so the student is not asked to press an identical
+    // "Connect GitHub" a second time. A sibling route rather than an argument, so every existing
+    // navigation to ProfessionalPresence keeps meaning exactly what it did.
+    data object ProfessionalPresenceConnect : Screen("professional-presence/connect")
     data object SkillPassport : Screen("skill-passport")
     data object SkillPassportDetail : Screen("skill-passport/{skill}")
 

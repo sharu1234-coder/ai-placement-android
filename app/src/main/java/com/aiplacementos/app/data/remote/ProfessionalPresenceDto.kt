@@ -84,6 +84,13 @@ data class PresenceAuditDto(
     val freshness: String,
     @SerialName("snapshot_captured_at") val snapshotCapturedAt: String? = null,
     @SerialName("listing_complete") val listingComplete: Boolean = true,
+    /**
+     * Repositories the last snapshot describes, excluding forks and archives -- the same set
+     * that produces evidence, so the two numbers below can sit beside each other without
+     * appearing to contradict. Defaulted so a server that predates these fields still parses.
+     */
+    @SerialName("repository_count") val repositoryCount: Int = 0,
+    @SerialName("evidence_count") val evidenceCount: Int = 0,
     val findings: List<AuditFindingDto> = emptyList(),
     @SerialName("narrative_prompt_version") val narrativePromptVersion: String? = null,
 )

@@ -1,17 +1,25 @@
 package com.aiplacementos.app.ui.profile
 
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -31,10 +39,12 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aiplacementos.app.data.remote.PresenceAuditDto
 import com.aiplacementos.app.data.remote.ProfileDto
 import com.aiplacementos.app.data.remote.ResumeSummaryDto
 import com.aiplacementos.app.data.remote.RoleDto
@@ -52,14 +62,27 @@ import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.onboarding.GOALS
 import com.aiplacementos.app.ui.onboarding.LEVELS
+import com.aiplacementos.app.ui.presence.ProfessionalPresenceViewModel
 import com.aiplacementos.app.ui.theme.Spacing
 
 @Composable
-fun ProfileScreen(onSelectRole: () -> Unit, onSelectSecondaryRole: () -> Unit, onReplaceResume: () -> Unit) {
+fun ProfileScreen(
+    onSelectRole: () -> Unit,
+    onSelectSecondaryRole: () -> Unit,
+    onReplaceResume: () -> Unit,
+    onOpenProfessionalPresence: () -> Unit = {},
+    onConnectGitHub: () -> Unit = {},
+) {
     val network = networkModule()
     val viewModel: ProfileViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { ProfileViewModel(network.profileRepository, network.resumeRepository) }
+            initializer {
+                ProfileViewModel(
+                    network.profileRepository,
+                    network.resumeRepository,
+                    network.professionalPresenceRepository,
+                )
+            }
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -68,10 +91,14 @@ fun ProfileScreen(onSelectRole: () -> Unit, onSelectSecondaryRole: () -> Unit, o
     val roles by viewModel.roles.collectAsStateWithLifecycle()
     val savingSection by viewModel.savingSection.collectAsStateWithLifecycle()
     val saveError by viewModel.saveError.collectAsStateWithLifecycle()
+    val presence by viewModel.presence.collectAsStateWithLifecycle()
 
     // Resume may have just been replaced on the upload screen -- re-check every time this
     // screen resumes rather than only on first composition.
-    LaunchedEffect(Unit) { viewModel.reloadResume() }
+    LaunchedEffect(Unit) {
+        viewModel.reloadResume()
+        viewModel.reloadPresence()
+    }
 
     when (val current = state) {
         is UiState.Loading -> ProfileLoadingSkeleton()
@@ -92,6 +119,9 @@ fun ProfileScreen(onSelectRole: () -> Unit, onSelectSecondaryRole: () -> Unit, o
             onSelectSecondaryRole = onSelectSecondaryRole,
             onReplaceResume = onReplaceResume,
             onRemoveResume = viewModel::removeResume,
+            presence = presence,
+            onOpenProfessionalPresence = onOpenProfessionalPresence,
+            onConnectGitHub = onConnectGitHub,
         )
     }
 }
@@ -127,6 +157,9 @@ private fun ProfileContent(
     onSelectSecondaryRole: () -> Unit,
     onReplaceResume: () -> Unit,
     onRemoveResume: (Int) -> Unit,
+    presence: PresenceAuditDto?,
+    onOpenProfessionalPresence: () -> Unit,
+    onConnectGitHub: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
@@ -190,6 +223,14 @@ private fun ProfileContent(
 
         item {
             ResumeSection(resume = resume, onReplaceResume = onReplaceResume, onRemoveResume = onRemoveResume)
+        }
+
+        item {
+            ProfessionalPresenceSection(
+                presence = presence,
+                onOpen = onOpenProfessionalPresence,
+                onConnect = onConnectGitHub,
+            )
         }
     }
 }
@@ -431,5 +472,136 @@ private fun ResumeSection(resume: ResumeSummaryDto?, onReplaceResume: () -> Unit
                 SecondaryButton(text = "Remove Resume", onClick = { confirmingRemove = true }, modifier = Modifier.fillMaxWidth())
             }
         }
+    }
+}
+
+/**
+ * The way back into Professional Presence for a student who skipped it during onboarding, and
+ * the only place in Profile that says anything about GitHub.
+ *
+ * It renders server state and nothing else -- no local "connected" flag is kept anywhere, so
+ * this card cannot drift out of step with the connection it describes. A null [presence] means
+ * the read failed, and is rendered as the not-connected state deliberately: it still offers the
+ * way in, and claiming "not connected" is less wrong than claiming a connection we cannot see.
+ *
+ * Every action lives on the Professional Presence screen. This card opens it -- [onConnect] opens
+ * it already connecting, because the student has just asked to -- and it never syncs or
+ * disconnects, so there is exactly one place where those can go wrong.
+ */
+@Composable
+private fun ProfessionalPresenceSection(
+    presence: PresenceAuditDto?,
+    onOpen: () -> Unit,
+    onConnect: () -> Unit,
+) {
+    val connected = presence?.connected == true
+    // Still the student's connection, with everything it already proved, but GitHub no longer
+    // accepts it. A green tick here would say the opposite of the screen it opens.
+    val needsReconnect = connected && presence?.status == ProfessionalPresenceViewModel.STATUS_NEEDS_REAUTH
+    SectionCard(title = "Professional Presence") {
+        // No padding of its own: AppCard already insets its content by Spacing.md, and a second
+        // inset here left this card's edges and button narrower than every sibling section's.
+        Column {
+            if (!connected) {
+                Text(
+                    text = "Strengthen your profile with evidence from your own public projects.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(Spacing.md))
+                Text(text = "GitHub", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    text = "Not connected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(Spacing.md))
+                PrimaryButton(
+                    text = "Connect GitHub",
+                    onClick = onConnect,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "GitHub", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.width(Spacing.sm))
+                    if (needsReconnect) {
+                        Icon(
+                            imageVector = Icons.Filled.WarningAmber,
+                            contentDescription = "Needs reconnecting",
+                            modifier = Modifier.size(18.dp),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = "Connected",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                presence.username?.let {
+                    Text(
+                        text = "@$it",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = Spacing.xs),
+                    )
+                }
+                if (needsReconnect) {
+                    Text(
+                        text = "Needs reconnecting: GitHub stopped accepting access. " +
+                            "Your evidence is kept.",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = Spacing.xs),
+                    )
+                }
+                // "Never" rather than a blank: a connection that has never synced is a real,
+                // actionable state, and an empty line reads as a rendering fault.
+                Text(
+                    text = "Last synced: " + (presence.lastSyncedAt?.take(10) ?: "Never"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                )
+                Spacer(Modifier.height(Spacing.sm))
+                Row {
+                    CountPill("Repositories", presence.repositoryCount)
+                    Spacer(Modifier.width(Spacing.md))
+                    CountPill("Evidence", presence.evidenceCount)
+                }
+                Spacer(Modifier.height(Spacing.md))
+                if (needsReconnect) {
+                    PrimaryButton(
+                        text = "Reconnect GitHub",
+                        onClick = onConnect,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    SecondaryButton(
+                        text = "View Professional Presence",
+                        onClick = onOpen,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    PrimaryButton(
+                        text = "View Professional Presence",
+                        onClick = onOpen,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CountPill(label: String, value: Int) {
+    Column {
+        Text(text = value.toString(), style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

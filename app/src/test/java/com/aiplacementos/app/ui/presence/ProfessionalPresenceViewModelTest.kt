@@ -40,6 +40,8 @@ private fun audit(
     lastErrorKind: String? = null,
     findings: List<AuditFindingDto> = listOf(finding()),
     listingComplete: Boolean = true,
+    repositoryCount: Int = 0,
+    evidenceCount: Int = 0,
 ) = PresenceAuditDto(
     provider = "github",
     connected = connected,
@@ -51,6 +53,8 @@ private fun audit(
     freshness = freshness,
     snapshotCapturedAt = "2026-09-18T08:00:00Z",
     listingComplete = listingComplete,
+    repositoryCount = repositoryCount,
+    evidenceCount = evidenceCount,
     findings = findings,
     narrativePromptVersion = null,
 )
@@ -226,7 +230,12 @@ class ProfessionalPresenceViewModelTest {
 
         vm.sync()
 
-        assertTrue(vm.uiState.value.actionError!!.contains("still here"))
+        val message = vm.uiState.value.actionError!!
+        assertTrue(message.contains("couldn't be reached"))
+        assertTrue(message.contains("still here"))
+        // An outage is waited out. Telling the student to reconnect would send them through
+        // GitHub's consent screen to fix something reconnecting cannot fix.
+        assertFalse(message.contains("reconnect", ignoreCase = true))
         assertEquals(1, vm.uiState.value.audit?.findings?.size)
     }
 
@@ -241,7 +250,89 @@ class ProfessionalPresenceViewModelTest {
 
         vm.sync()
 
-        assertTrue(vm.uiState.value.actionError!!.contains("set up again", ignoreCase = true))
+        val message = vm.uiState.value.actionError!!
+        assertTrue(message.contains("Reconnect GitHub"))
+        // The contradiction this guards against: "couldn't be reached" beside a card that says
+        // GitHub needs reconnecting. A revoked authorisation is not an outage.
+        assertFalse(message.contains("reached", ignoreCase = true))
+        assertFalse(message.contains("try again in", ignoreCase = true))
+    }
+
+    @Test
+    fun `needing authorisation covers a first connect and a reconnect, and nothing else`() {
+        assertTrue(audit(connected = false, status = null).needsAuthorization())
+        assertTrue(audit(status = "needs_reauth").needsAuthorization())
+        assertFalse(audit(status = "active").needsAuthorization())
+        assertFalse(audit(status = "active", syncStatus = "failed").needsAuthorization())
+    }
+
+    @Test
+    fun `backing out of a reconnect is reported as cancelled`() {
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(status = "needs_reauth", syncStatus = "failed"))
+        }
+        val vm = viewModel(repository)
+        vm.load()
+        vm.connect()
+        vm.onAuthorizationUrlOpened()
+
+        vm.load()
+
+        assertTrue(vm.uiState.value.cancelled)
+        assertFalse(vm.uiState.value.authorizationPending)
+        assertNull(vm.uiState.value.actionError)
+    }
+
+    @Test
+    fun `a reconnect that worked is not reported as cancelled`() {
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(status = "needs_reauth", syncStatus = "failed"))
+        }
+        val vm = viewModel(repository)
+        vm.load()
+        vm.connect()
+        vm.onAuthorizationUrlOpened()
+
+        repository.auditResult = Result.success(audit(status = "active", freshness = "never"))
+        vm.load()
+
+        assertFalse(vm.uiState.value.cancelled)
+        assertFalse(vm.uiState.value.authorizationPending)
+    }
+
+    @Test
+    fun `a failed read after the browser trip does not leave the screen waiting forever`() {
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(connected = false, findings = emptyList()))
+        }
+        val vm = viewModel(repository)
+        vm.load()
+        vm.connect()
+        vm.onAuthorizationUrlOpened()
+
+        repository.auditResult = Result.failure(IOException("offline"))
+        vm.load()
+
+        assertFalse(vm.uiState.value.authorizationPending)
+        assertNotNull(vm.uiState.value.actionError)
+        // We do not know it was declined -- the read failed -- so it must not claim so.
+        assertFalse(vm.uiState.value.cancelled)
+    }
+
+    @Test
+    fun `no browser to open the link is an error, not an endless wait`() {
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(connected = false, findings = emptyList()))
+        }
+        val vm = viewModel(repository)
+        vm.load()
+        vm.connect()
+
+        vm.onAuthorizationUrlFailedToOpen()
+
+        assertNull(vm.uiState.value.pendingAuthorizationUrl)
+        assertFalse(vm.uiState.value.authorizationPending)
+        assertTrue(vm.uiState.value.actionError!!.contains("browser"))
     }
 
     @Test
@@ -321,6 +412,119 @@ class ProfessionalPresenceViewModelTest {
 
         assertNull(vm.uiState.value.actionError)
         assertEquals(1, vm.uiState.value.audit?.findings?.size)
+    }
+
+    @Test
+    fun `opening the browser puts the screen into a waiting state`() {
+        // Between opening the browser and the next resume, the app genuinely does not know the
+        // outcome -- it may not read it from the deep link. Saying "waiting" is the only
+        // truthful thing available, and without it the screen sits on a stale "Not connected".
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(connected = false, findings = emptyList()))
+        }
+        val vm = viewModel(repository)
+
+        vm.connect()
+        vm.onAuthorizationUrlOpened()
+
+        assertTrue(vm.uiState.value.authorizationPending)
+        assertFalse(vm.uiState.value.cancelled)
+    }
+
+    @Test
+    fun `coming back still unconnected is reported as cancelled, not as an error`() {
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(connected = false, findings = emptyList()))
+        }
+        val vm = viewModel(repository)
+        vm.connect()
+        vm.onAuthorizationUrlOpened()
+
+        vm.load()
+
+        assertTrue(vm.uiState.value.cancelled)
+        assertFalse(vm.uiState.value.authorizationPending)
+        // The distinction that matters: declining consent is a choice, and must never be
+        // rendered in the error channel that network failures use.
+        assertNull(vm.uiState.value.actionError)
+    }
+
+    @Test
+    fun `coming back connected clears the waiting state without claiming a cancellation`() {
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(connected = false, findings = emptyList()))
+        }
+        val vm = viewModel(repository)
+        vm.connect()
+        vm.onAuthorizationUrlOpened()
+
+        repository.auditResult = Result.success(audit(connected = true))
+        vm.load()
+
+        assertFalse(vm.uiState.value.authorizationPending)
+        assertFalse(vm.uiState.value.cancelled)
+    }
+
+    @Test
+    fun `a plain refresh never invents a cancellation`() {
+        // cancelled must mean "came back from the browser with nothing", not "is not
+        // connected" -- otherwise every load on an unconnected account would assert that the
+        // student declined something they were never offered.
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(connected = false, findings = emptyList()))
+        }
+        val vm = viewModel(repository)
+
+        vm.load()
+
+        assertFalse(vm.uiState.value.cancelled)
+    }
+
+    @Test
+    fun `starting another attempt clears the previous cancellation`() {
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(connected = false, findings = emptyList()))
+        }
+        val vm = viewModel(repository)
+        vm.connect()
+        vm.onAuthorizationUrlOpened()
+        vm.load()
+        assertTrue(vm.uiState.value.cancelled)
+
+        vm.connect()
+
+        assertFalse(vm.uiState.value.cancelled)
+    }
+
+    @Test
+    fun `the cancellation notice can be dismissed without losing the content`() {
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit())
+        }
+        val vm = viewModel(repository)
+        vm.load()
+        vm.connect()
+        vm.onAuthorizationUrlOpened()
+        repository.auditResult = Result.success(audit(connected = false, findings = emptyList()))
+        vm.load()
+
+        vm.clearCancelled()
+
+        assertFalse(vm.uiState.value.cancelled)
+        assertNotNull(vm.uiState.value.audit)
+    }
+
+    @Test
+    fun `the audit carries the repository and evidence counts through to the screen`() {
+        val repository = FakeProfessionalPresenceRepository().apply {
+            auditResult = Result.success(audit(repositoryCount = 19, evidenceCount = 27))
+        }
+        val vm = viewModel(repository)
+
+        vm.load()
+
+        assertEquals(19, vm.uiState.value.audit?.repositoryCount)
+        assertEquals(27, vm.uiState.value.audit?.evidenceCount)
     }
 
     @Test
