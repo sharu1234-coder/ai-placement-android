@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
@@ -130,6 +131,11 @@ fun MainScreen(navController: NavHostController) {
         DrawerSection(
             "CAREER",
             listOf(
+                // First in CAREER: a target job is the most concrete thing in this section, and
+                // everything else here answers a broader question than "am I ready for this one".
+                DrawerItem("Career Goals", Icons.Filled.Flag, badge = "New") {
+                    navController.navigate(Screen.CareerGoals.route)
+                },
                 DrawerItem("Career Strategy", Icons.AutoMirrored.Filled.TrendingUp, badge = "New") {
                     navController.navigate(Screen.CareerStrategy.route)
                 },

@@ -10,6 +10,7 @@ import com.aiplacementos.app.data.remote.AssessmentsApi
 import com.aiplacementos.app.data.remote.AtsCheckApi
 import com.aiplacementos.app.data.remote.AuthApi
 import com.aiplacementos.app.data.remote.CareerDecisionApi
+import com.aiplacementos.app.data.remote.CareerGoalsApi
 import com.aiplacementos.app.data.remote.CareerPathApi
 import com.aiplacementos.app.data.remote.CareerStrategyApi
 import com.aiplacementos.app.data.remote.CareerTwinApi
@@ -37,6 +38,7 @@ import com.aiplacementos.app.data.repository.AssessmentRepositoryImpl
 import com.aiplacementos.app.data.repository.AtsCheckRepositoryImpl
 import com.aiplacementos.app.data.repository.AuthRepositoryImpl
 import com.aiplacementos.app.data.repository.CareerDecisionRepositoryImpl
+import com.aiplacementos.app.data.repository.CareerGoalRepositoryImpl
 import com.aiplacementos.app.data.repository.CareerPathRepositoryImpl
 import com.aiplacementos.app.data.repository.CareerStrategyRepositoryImpl
 import com.aiplacementos.app.data.repository.CareerTwinRepositoryImpl
@@ -66,6 +68,7 @@ import com.aiplacementos.app.domain.repository.AssessmentRepository
 import com.aiplacementos.app.domain.repository.AtsCheckRepository
 import com.aiplacementos.app.domain.repository.AuthRepository
 import com.aiplacementos.app.domain.repository.CareerDecisionRepository
+import com.aiplacementos.app.domain.repository.CareerGoalRepository
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.domain.repository.CareerStrategyRepository
 import com.aiplacementos.app.domain.repository.CareerTwinRepository
@@ -158,6 +161,7 @@ class NetworkModule(context: Context) {
     private val placementPathApi: PlacementPathApi = retrofit.create()
     private val careerPathApi: CareerPathApi = retrofit.create()
     private val careerTwinApi: CareerTwinApi = retrofit.create()
+    private val careerGoalsApi: CareerGoalsApi = retrofit.create()
     private val careerStrategyApi: CareerStrategyApi = retrofit.create()
     private val skillPassportApi: SkillPassportApi = retrofit.create()
     private val subscriptionsApi: SubscriptionsApi = retrofit.create()
@@ -197,6 +201,7 @@ class NetworkModule(context: Context) {
     val placementPathRepository: PlacementPathRepository = PlacementPathRepositoryImpl(placementPathApi)
     val careerPathRepository: CareerPathRepository = CareerPathRepositoryImpl(careerPathApi)
     val careerTwinRepository: CareerTwinRepository = CareerTwinRepositoryImpl(careerTwinApi)
+    val careerGoalRepository: CareerGoalRepository = CareerGoalRepositoryImpl(careerGoalsApi)
     val careerStrategyRepository: CareerStrategyRepository = CareerStrategyRepositoryImpl(careerStrategyApi)
     val skillPassportRepository: SkillPassportRepository = SkillPassportRepositoryImpl(skillPassportApi)
     val notificationRepository: NotificationRepository = NotificationRepositoryImpl(alarmDatabase.notificationDao())

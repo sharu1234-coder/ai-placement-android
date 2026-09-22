@@ -42,6 +42,8 @@ import com.aiplacementos.app.ui.careerpath.CareerPathResumeConnectionScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathRoleSelectionScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathSavedRolesScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathSkillDetailScreen
+import com.aiplacementos.app.ui.careergoal.CareerGoalDetailScreen
+import com.aiplacementos.app.ui.careergoal.CareerGoalListScreen
 import com.aiplacementos.app.ui.careerstrategy.CareerStrategyScreen
 import com.aiplacementos.app.ui.careertwin.CareerTwinScreen
 import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderCreateScreen
@@ -865,6 +867,27 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.SkillPassport.route) {
             SkillPassportScreen(onOpenSkill = { skill -> navController.navigate(skillPassportDetailRoute(skill)) })
         }
+        composable(Screen.CareerGoals.route) {
+            CareerGoalListScreen(
+                onOpenGoal = { goalId -> navController.navigate(careerGoalDetailRoute(goalId)) },
+            )
+        }
+        composable(
+            Screen.CareerGoalDetail.route,
+            arguments = listOf(navArgument("careerGoalId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val careerGoalId = backStackEntry.arguments?.getInt("careerGoalId") ?: 0
+            CareerGoalDetailScreen(
+                careerGoalId = careerGoalId,
+                onBack = { navController.popBackStack() },
+                // Career Goals owns no interview or practice flow of its own. Every step of its
+                // preparation plan hands off to the feature that already exists, through the
+                // same destination table Career Strategy has always used.
+                onOpenDestination = { destination ->
+                    navController.navigate(careerStrategyDestinationRoute(destination))
+                },
+            )
+        }
         composable(
             Screen.SkillPassportDetail.route,
             arguments = listOf(navArgument("skill") { type = NavType.StringType }),
@@ -1173,13 +1196,18 @@ private suspend fun resolvePostAuthDestinationOrMain(profileRepository: ProfileR
  * keeps the student where they are rather than crashing on a destination added by a newer
  * backend -- a no-op button is a small disappointment, a crash is not.
  */
-private fun careerStrategyDestinationRoute(destination: String): String = when (destination) {
+internal fun careerStrategyDestinationRoute(destination: String): String = when (destination) {
     "roadmap" -> Screen.Roadmap.route
     "practice" -> Screen.Practice.route
     "project_builder" -> Screen.ProjectBuilderList.route
     "skill_passport" -> Screen.SkillPassport.route
     "resume_ats" -> Screen.AtsCheckLanding.route
     "interview" -> Screen.MockInterviewCategory.route
+    // Added with Career Goals, whose preparation plan names these two modes directly. Both
+    // are existing screens; before this they fell through to the `else` and quietly sent the
+    // student to Career Strategy instead of the practice the step described.
+    "recruiter_attack" -> Screen.RecruiterAttackList.route
+    "full_simulation" -> Screen.SimulationSetup.route
     "job_hunt" -> Screen.JobHunt.route
     "tracker" -> Screen.JobHuntTracker.route
     "career_path" -> Screen.CareerPathHome.route

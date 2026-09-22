@@ -139,6 +139,13 @@ sealed class Screen(val route: String) {
     data object CareerTwin : Screen("career-twin")
     data object CareerStrategy : Screen("career-strategy")
 
+    // Phase 2D -- "prepare me for THIS job". A persistent target opening (title, company,
+    // location, posting), distinct from CareerStrategyTarget (a *role* to compare against) and
+    // from Job Hunt's SavedJob (an advert the student found, with an application pipeline).
+    // Sits beside Career Strategy because it answers the same question at a narrower scope.
+    data object CareerGoals : Screen("career-goals")
+    data object CareerGoalDetail : Screen("career-goals/{careerGoalId}")
+
     // The same screen, opened against one advert. A separate route rather than an optional
     // argument on the route above, so that "my strategy" and "my strategy for this job" are
     // distinct back-stack entries: a student who opens a job from their strategy and then
@@ -215,6 +222,7 @@ fun interviewEvaluationRoute(interviewId: Int, jdId: Int): String =
     "prepare-me/interview-evaluation/$interviewId/$jdId"
 fun roadmapUpdatedRoute(jdId: Int): String = "prepare-me/roadmap-updated/$jdId"
 fun roadmapTaskDetailRoute(taskId: Int, jdId: Int): String = "roadmap/task-detail/$taskId/$jdId"
+fun careerGoalDetailRoute(careerGoalId: Int): String = "career-goals/$careerGoalId"
 fun alarmChallengeRoute(clientAlarmId: String, alarmConfigId: Long): String =
     "placement-alarm/challenge/$clientAlarmId/$alarmConfigId"
 fun placementPathTopicDetailRoute(topicId: Int): String = "placement-path/topic-detail/$topicId"
