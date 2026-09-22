@@ -34,6 +34,10 @@ data class CareerTwinDto(
     @SerialName("biggest_gap_skill") val biggestGapSkill: String? = null,
     @SerialName("next_action_hint") val nextActionHint: String? = null,
     @SerialName("weak_skill_tags") val weakSkillTags: List<String> = emptyList(),
+    // Evidence sources the backend could not read at all ("external" = GitHub, "resume"), as
+    // opposed to sources it read and found nothing in. The distinction is the point: a skill
+    // with no evidence because we never looked is not a skill the student lacks.
+    @SerialName("unavailable_sources") val unavailableSources: List<String> = emptyList(),
 )
 
 @Serializable
@@ -47,4 +51,5 @@ data class CareerTwinReadinessDto(
     val reasons: List<String> = emptyList(),
     @SerialName("biggest_gap_skill") val biggestGapSkill: String? = null,
     @SerialName("next_action_hint") val nextActionHint: String? = null,
+    @SerialName("unavailable_sources") val unavailableSources: List<String> = emptyList(),
 )

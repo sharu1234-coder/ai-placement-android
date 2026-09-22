@@ -215,8 +215,8 @@ private fun CareerPathHomeContent(
                 Spacer(modifier = Modifier.height(Spacing.md))
                 SkillBar(label = "Skills", percent = readiness.skillsPercent)
                 SkillBar(label = "Projects", percent = readiness.projectsPercent)
-                SkillBar(label = "Resume", percent = readiness.resumePercent)
-                SkillBar(label = "Interview", percent = readiness.interviewPercent)
+                ReadinessBar(label = "Resume", percent = readiness.resumePercent)
+                ReadinessBar(label = "Interview", percent = readiness.interviewPercent)
             }
         }
         if (readiness.topFocusAreas.isNotEmpty()) {

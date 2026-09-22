@@ -53,16 +53,31 @@ fun RecruiterAttackResultsScreen(sessionId: Int, onDone: () -> Unit) {
 
 @Composable
 private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Unit) {
+    // The four graded dimensions that actually carry a number. An ungraded session has none of
+    // them, and the backend writes all five scores together or not at all -- so this is
+    // normally either empty or complete. Filtering rather than assuming keeps a partial body
+    // from rendering a missing dimension as a zero-length bar.
+    val dimensions = listOfNotNull(
+        results.technicalDefense?.let { "Technical defense" to it },
+        results.projectOwnership?.let { "Project ownership" to it },
+        results.specificity?.let { "Specificity" to it },
+        results.communication?.let { "Communication" to it },
+    )
+    val overallScore = results.overallScore
+
     Column(modifier = Modifier.fillMaxSize().padding(Spacing.md)) {
         Text(text = "How you defended it", style = MaterialTheme.typography.headlineSmall)
 
-        // When the grader fell back, every score in `results` is a completion ratio -- "how
-        // many questions you answered" -- not an assessment of the defense. Rendering that
-        // through a confident score ring and four labelled skill bars would present a number
-        // that does not exist as a real measurement, so the whole scored region is replaced by
-        // an honest "not graded" state. No partial credit, no dimmed-but-still-shown score:
-        // there is nothing here to show.
-        if (results.usedFallback) {
+        // When the grader fell back there is no score at all -- the backend leaves every score
+        // column NULL rather than inventing one. Rendering that through a confident score ring
+        // and four labelled skill bars would present a measurement that does not exist, so the
+        // whole scored region is replaced by an honest "not graded" state. No partial credit,
+        // no dimmed-but-still-shown score: there is nothing here to show.
+        //
+        // `usedFallback` is the backend's own statement of this and stays the primary signal;
+        // the null check beside it is what makes the branch total, since a missing score can
+        // never be coerced into a number for display.
+        if (results.usedFallback || overallScore == null) {
             UngradedNotice()
         } else {
             AppCard(
@@ -80,7 +95,7 @@ private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Uni
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     ScoreRing(
-                        percent = (results.overallScore * 100).roundToInt(),
+                        percent = (overallScore * 100).roundToInt(),
                         ringColor = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                     )
@@ -92,7 +107,7 @@ private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Uni
             modifier = Modifier.weight(1f).fillMaxWidth().padding(top = Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            if (!results.usedFallback) {
+            if (!results.usedFallback && dimensions.isNotEmpty()) {
                 item {
                     AppCard(modifier = Modifier.fillMaxWidth()) {
                         Text(
@@ -101,10 +116,9 @@ private fun ResultsSummary(results: RecruiterAttackResultsDto, onDone: () -> Uni
                             modifier = Modifier.padding(bottom = Spacing.sm),
                         )
                         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            SkillBar(label = "Technical defense", percent = (results.technicalDefense * 100).roundToInt())
-                            SkillBar(label = "Project ownership", percent = (results.projectOwnership * 100).roundToInt())
-                            SkillBar(label = "Specificity", percent = (results.specificity * 100).roundToInt())
-                            SkillBar(label = "Communication", percent = (results.communication * 100).roundToInt())
+                            dimensions.forEach { (label, score) ->
+                                SkillBar(label = label, percent = (score * 100).roundToInt())
+                            }
                         }
                     }
                 }

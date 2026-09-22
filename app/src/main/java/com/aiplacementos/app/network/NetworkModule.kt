@@ -4,6 +4,7 @@ import android.content.Context
 import com.aiplacementos.app.BuildConfig
 import com.aiplacementos.app.alarm.AlarmScheduler
 import com.aiplacementos.app.data.local.LocalAccountDataCleaner
+import com.aiplacementos.app.data.remote.ApiJson
 import com.aiplacementos.app.data.remote.ArenaApi
 import com.aiplacementos.app.data.remote.AssessmentsApi
 import com.aiplacementos.app.data.remote.AtsCheckApi
@@ -89,7 +90,6 @@ import com.aiplacementos.app.domain.repository.SkillPassportRepository
 import com.aiplacementos.app.domain.repository.SubscriptionRepository
 import com.aiplacementos.app.domain.repository.WeaknessRepository
 import java.util.concurrent.TimeUnit
-import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -105,7 +105,10 @@ class NetworkModule(context: Context) {
     val tokenStore = TokenStore(context.applicationContext)
     val alarmScheduler = AlarmScheduler(context.applicationContext)
 
-    private val json = Json { ignoreUnknownKeys = true }
+    // The single shared instance from data/remote/ApiJson.kt -- see that file for why this
+    // configuration lives outside this Context-bound class (so wire-contract tests decode with
+    // the real thing rather than a hand-copied equivalent).
+    private val json = ApiJson
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -32,6 +33,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.CareerTwinDto
+import com.aiplacementos.app.data.remote.LOCKED_SECTION_ADDITIONAL_ACTIONS
+import com.aiplacementos.app.data.remote.RecommendedActionDto
 import com.aiplacementos.app.data.remote.SkillTwinItemDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.humanizeWeaknessTag
@@ -41,8 +44,10 @@ import com.aiplacementos.app.ui.common.ExpandableSection
 import com.aiplacementos.app.ui.common.NextBestActionCard
 import com.aiplacementos.app.ui.common.PaywallGate
 import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkillBar
+import com.aiplacementos.app.ui.common.confidenceBandShortLabel
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.nextbestaction.NextBestActionUiState
 import com.aiplacementos.app.ui.nextbestaction.NextBestActionViewModel
@@ -62,7 +67,12 @@ private fun stateDisplay(state: String): Pair<String, Boolean> = when (state) {
 }
 
 @Composable
-fun CareerTwinScreen(onSelectRole: () -> Unit, onUpgrade: () -> Unit) {
+fun CareerTwinScreen(
+    onSelectRole: () -> Unit,
+    onUpgrade: () -> Unit,
+    onConnectGitHub: () -> Unit,
+    onOpenDestination: (String) -> Unit,
+) {
     val network = networkModule()
     val viewModel: CareerTwinViewModel = viewModel(
         factory = viewModelFactory { initializer { CareerTwinViewModel(network.careerTwinRepository) } },
@@ -92,12 +102,22 @@ fun CareerTwinScreen(onSelectRole: () -> Unit, onUpgrade: () -> Unit) {
             onAction = onSelectRole,
             modifier = Modifier.fillMaxSize(),
         )
-        is CareerTwinUiState.Success -> CareerTwinContent(twin = current.twin, onUpgrade = onUpgrade)
+        is CareerTwinUiState.Success -> CareerTwinContent(
+            twin = current.twin,
+            onUpgrade = onUpgrade,
+            onConnectGitHub = onConnectGitHub,
+            onOpenDestination = onOpenDestination,
+        )
     }
 }
 
 @Composable
-private fun CareerTwinContent(twin: CareerTwinDto, onUpgrade: () -> Unit) {
+private fun CareerTwinContent(
+    twin: CareerTwinDto,
+    onUpgrade: () -> Unit,
+    onConnectGitHub: () -> Unit,
+    onOpenDestination: (String) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(Spacing.md),
@@ -165,6 +185,9 @@ private fun CareerTwinContent(twin: CareerTwinDto, onUpgrade: () -> Unit) {
                     }
                 }
             }
+        }
+        if (twin.unavailableSources.isNotEmpty()) {
+            item { UnreadSourcesCard(sources = twin.unavailableSources, onConnectGitHub = onConnectGitHub) }
         }
         // Real, derived-not-fabricated summary chips: strengths from the same skills list
         // already rendered in detail below (verified/strong state, highest confidence first),
@@ -235,8 +258,52 @@ private fun CareerTwinContent(twin: CareerTwinDto, onUpgrade: () -> Unit) {
                 }
             }
         }
-        item { NextBestActionSection() }
+        item { NextBestActionSection(onUpgrade = onUpgrade, onOpenDestination = onOpenDestination) }
     }
+}
+
+private const val SOURCE_EXTERNAL = "external"
+private const val SOURCE_RESUME = "resume"
+
+/**
+ * What this readiness number could not see.
+ *
+ * Deliberately phrased as a gap in our coverage rather than a finding about the student: a
+ * source we never read is not evidence that their skills are missing, and the whole point of
+ * the backend sending this list is so the screen stops implying otherwise. The backend sends
+ * machine source names; the wording lives here beside every other label in this app.
+ */
+@Composable
+private fun UnreadSourcesCard(sources: List<String>, onConnectGitHub: () -> Unit) {
+    AppCard(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
+        Text(
+            text = "What this doesn't include yet",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(Spacing.xs))
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            sources.forEach { source ->
+                Text(
+                    text = "•  ${unreadSourceLabel(source)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (sources.contains(SOURCE_EXTERNAL)) {
+            Spacer(modifier = Modifier.height(Spacing.sm))
+            SecondaryButton(text = "Connect GitHub", onClick = onConnectGitHub, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+private fun unreadSourceLabel(source: String): String = when (source) {
+    SOURCE_EXTERNAL -> "GitHub isn't connected, so your public code isn't counted yet."
+    SOURCE_RESUME -> "No resume has been analysed yet, so resume evidence isn't counted."
+    // A source this build doesn't know about still reads as coverage rather than as a verdict.
+    else -> "One evidence source hasn't been connected yet."
 }
 
 /** A richer, independently-ranked recommendation than twin.nextActionHint (which only ever
@@ -248,15 +315,80 @@ private fun CareerTwinContent(twin: CareerTwinDto, onUpgrade: () -> Unit) {
  * rest of the Career Twin screen -- the same "a secondary widget failing shouldn't blank the
  * whole screen" philosophy HomeViewModel's per-source runCatching already uses. */
 @Composable
-private fun NextBestActionSection() {
+private fun NextBestActionSection(onUpgrade: () -> Unit, onOpenDestination: (String) -> Unit) {
     val network = networkModule()
     val viewModel: NextBestActionViewModel = viewModel(
         factory = viewModelFactory { initializer { NextBestActionViewModel(network.nextBestActionRepository) } },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val current = state
-    if (current is NextBestActionUiState.Success) {
-        NextBestActionCard(action = current.action)
+    if (current !is NextBestActionUiState.Success) return
+
+    val action = current.action
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        NextBestActionCard(
+            action = action,
+            // Only offer "Start" where the backend named somewhere real to go. A button that
+            // does nothing is worse than no button.
+            onStart = action.destination?.let { destination -> { onOpenDestination(destination) } },
+        )
+        // Shown only when there is genuinely more plan to see -- either it arrived (Premium) or
+        // the server said it was withheld. PaywallGate re-checks entitlement itself, so the
+        // prompt cannot appear for someone who has already paid.
+        if (action.additionalActions.isNotEmpty() ||
+            action.lockedSections.contains(LOCKED_SECTION_ADDITIONAL_ACTIONS)
+        ) {
+            PaywallGate(
+                title = "See your full plan",
+                description = "Premium ranks the rest of what's worth doing next, each with the reason behind it.",
+                onUpgrade = onUpgrade,
+            ) {
+                if (action.additionalActions.isNotEmpty()) {
+                    AlsoWorthDoingCard(actions = action.additionalActions, onOpenDestination = onOpenDestination)
+                }
+            }
+        }
+    }
+}
+
+/** The rest of the ranked plan. Each row carries the signal it came from and how far that
+ * signal can be leaned on, so a student can tell a measured weakness from an inferred one. */
+@Composable
+private fun AlsoWorthDoingCard(actions: List<RecommendedActionDto>, onOpenDestination: (String) -> Unit) {
+    AppCard {
+        Text(text = "Also worth doing", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(Spacing.sm))
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            actions.forEach { action ->
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    Text(text = action.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    action.reasons.firstOrNull()?.let { reason ->
+                        Text(
+                            text = reason,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    val confidence = action.confidence?.let { "${confidenceBandShortLabel(it)} confidence" }
+                    val minutes = action.estimatedMinutes?.let { "~$it min" }
+                    val meta = listOfNotNull(confidence, minutes).joinToString(" • ")
+                    if (meta.isNotEmpty()) {
+                        Text(
+                            text = meta,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    action.destination?.let { destination ->
+                        SecondaryButton(
+                            text = "Open",
+                            onClick = { onOpenDestination(destination) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

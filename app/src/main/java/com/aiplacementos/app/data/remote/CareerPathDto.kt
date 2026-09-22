@@ -114,9 +114,19 @@ data class JobReadinessDto(
     @SerialName("overall_percent") val overallPercent: Int,
     @SerialName("skills_percent") val skillsPercent: Int,
     @SerialName("projects_percent") val projectsPercent: Int,
-    @SerialName("resume_percent") val resumePercent: Int,
-    @SerialName("practice_percent") val practicePercent: Int,
-    @SerialName("interview_percent") val interviewPercent: Int,
+    // Null -- not zero -- when the student genuinely hasn't done this yet: no analysed resume,
+    // no practice attempts, no interview prep scores. The backend draws that distinction on
+    // purpose (see career_path/service._compute_job_readiness, which averages only the signals
+    // that actually have data), so "hasn't practised" and "practised and scored zero" stay
+    // different facts all the way to the screen.
+    //
+    // These were declared non-null, which made kotlinx throw on the body every brand-new
+    // student gets -- taking the whole CareerPathDto with it, and with it Career Path Home,
+    // Detail, Readiness and the Home screen's career card. Do NOT give them a 0 default: that
+    // reintroduces exactly the lie the backend's nullability exists to prevent.
+    @SerialName("resume_percent") val resumePercent: Int? = null,
+    @SerialName("practice_percent") val practicePercent: Int? = null,
+    @SerialName("interview_percent") val interviewPercent: Int? = null,
     @SerialName("top_focus_areas") val topFocusAreas: List<String>,
     @SerialName("is_estimate") val isEstimate: Boolean = false,
 )

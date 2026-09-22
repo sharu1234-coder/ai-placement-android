@@ -82,9 +82,9 @@ private fun ReadinessContent(path: CareerPathDto) {
                 Spacer(modifier = Modifier.height(Spacing.sm))
                 SkillBar(label = "Skills", percent = readiness.skillsPercent)
                 SkillBar(label = "Projects", percent = readiness.projectsPercent)
-                SkillBar(label = "Resume", percent = readiness.resumePercent)
-                SkillBar(label = "Practice", percent = readiness.practicePercent)
-                SkillBar(label = "Interview", percent = readiness.interviewPercent)
+                ReadinessBar(label = "Resume", percent = readiness.resumePercent)
+                ReadinessBar(label = "Practice", percent = readiness.practicePercent)
+                ReadinessBar(label = "Interview", percent = readiness.interviewPercent)
             }
         }
         if (readiness.topFocusAreas.isNotEmpty()) {

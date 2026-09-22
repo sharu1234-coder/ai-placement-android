@@ -34,10 +34,24 @@ private val CATEGORIES = listOf(
     InterviewCategory("role_specific", "Role-Specific Interview", "Realistic on-the-job scenarios for your target role."),
 )
 
-private fun typeLabel(type: String): String = CATEGORIES.find { it.type == type }?.label ?: type.replaceFirstChar { it.uppercase() }
+// The full simulation is not one of CATEGORIES because it does not behave like one: it goes
+// through its own short setup first, and it is a different shape of practice rather than a
+// fifth flavour of the same one. Its label still has to be resolvable for the history list
+// below, which shows past interviews of every type.
+private const val FULL_SIMULATION_TYPE = "full_simulation"
+private const val FULL_SIMULATION_LABEL = "Full Recruiter Simulation"
+
+private fun typeLabel(type: String): String = when (type) {
+    FULL_SIMULATION_TYPE -> FULL_SIMULATION_LABEL
+    else -> CATEGORIES.find { it.type == type }?.label ?: type.replaceFirstChar { it.uppercase() }
+}
 
 @Composable
-fun MockInterviewCategoryScreen(onSelectCategory: (type: String) -> Unit, onOpenPastInterview: (interviewId: Int) -> Unit) {
+fun MockInterviewCategoryScreen(
+    onSelectCategory: (type: String) -> Unit,
+    onStartFullSimulation: () -> Unit,
+    onOpenPastInterview: (interviewId: Int) -> Unit,
+) {
     val network = networkModule()
     val viewModel: MockInterviewCategoryViewModel = viewModel(
         factory = viewModelFactory { initializer { MockInterviewCategoryViewModel(network.interviewRepository) } },
@@ -56,6 +70,17 @@ fun MockInterviewCategoryScreen(onSelectCategory: (type: String) -> Unit, onOpen
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = Spacing.xs),
             )
+        }
+        item {
+            AppCard(modifier = Modifier.fillMaxWidth().clickable { onStartFullSimulation() }) {
+                Text(text = FULL_SIMULATION_LABEL, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = "One continuous recruiter interview -- background, experience, projects, " +
+                        "technical and behavioural questions, then your own questions.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         items(CATEGORIES) { category ->
             AppCard(modifier = Modifier.fillMaxWidth().clickable { onSelectCategory(category.type) }) {

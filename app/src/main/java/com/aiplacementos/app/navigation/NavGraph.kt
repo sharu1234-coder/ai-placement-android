@@ -76,6 +76,7 @@ import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.interview.InterviewEvaluationScreen
 import com.aiplacementos.app.ui.interview.MockInterviewCategoryScreen
+import com.aiplacementos.app.ui.interview.SimulationSetupScreen
 import com.aiplacementos.app.ui.interview.TextInterviewScreen
 import com.aiplacementos.app.ui.interview.VoiceInterviewScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingConfirmationScreen
@@ -504,7 +505,21 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.MockInterviewCategory.route) {
             MockInterviewCategoryScreen(
                 onSelectCategory = { type -> navController.navigate(textInterviewRoute(0, type)) },
+                onStartFullSimulation = { navController.navigate(Screen.SimulationSetup.route) },
                 onOpenPastInterview = { interviewId -> navController.navigate(interviewHistoryDetailRoute(interviewId)) },
+            )
+        }
+        composable(Screen.SimulationSetup.route) {
+            SimulationSetupScreen(
+                onStart = { jdId ->
+                    // Reuses the existing interview route; only the type differs. popUpTo keeps
+                    // setup out of the back stack so backing out of the interview returns to the
+                    // category list rather than re-offering a setup step for a session that has
+                    // already started server-side.
+                    navController.navigate(textInterviewRoute(jdId, "full_simulation")) {
+                        popUpTo(Screen.SimulationSetup.route) { inclusive = true }
+                    }
+                },
             )
         }
         composable(
@@ -795,6 +810,15 @@ fun NavGraph(navController: NavHostController) {
             CareerTwinScreen(
                 onSelectRole = { navController.navigate(Screen.CareerPathRoleSelection.route) },
                 onUpgrade = { navController.navigate(Screen.Subscriptions.route) },
+                // Opens Professional Presence already connecting, the same one-tap entry the
+                // Profile card uses -- Career Twin never runs an OAuth flow of its own.
+                onConnectGitHub = { navController.navigate(Screen.ProfessionalPresenceConnect.route) },
+                // The same destination table Career Strategy resolves its recommendations
+                // through: Next Best Action emits that identical vocabulary, so there is one
+                // place that decides where a recommendation goes.
+                onOpenDestination = { destination ->
+                    navController.navigate(careerStrategyDestinationRoute(destination))
+                },
             )
         }
         composable(Screen.CareerStrategy.route) {

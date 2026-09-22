@@ -30,9 +30,6 @@ import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 
-// Matches the backend's fixed _QUESTIONS_PER_INTERVIEW (app/services/interview_service.py).
-private const val QUESTIONS_PER_INTERVIEW = 5
-
 @Composable
 fun TextInterviewScreen(jdId: Int, type: String = "technical", onFinish: () -> Unit) {
     val network = networkModule()
@@ -58,13 +55,21 @@ fun TextInterviewScreen(jdId: Int, type: String = "technical", onFinish: () -> U
         is TextInterviewUiState.Question -> QuestionCard(
             question = current.question,
             submitting = current.submitting,
+            stageLabel = current.stageLabel,
+            totalQuestions = current.totalQuestions,
             onSubmit = { answer -> viewModel.submitAnswer(answer) },
         )
     }
 }
 
 @Composable
-private fun QuestionCard(question: InterviewQuestionDto, submitting: Boolean, onSubmit: (String) -> Unit) {
+private fun QuestionCard(
+    question: InterviewQuestionDto,
+    submitting: Boolean,
+    stageLabel: String?,
+    totalQuestions: Int,
+    onSubmit: (String) -> Unit,
+) {
     // rememberSaveable so in-progress answer text survives rotation/process death instead of
     // being silently dropped mid-question (the interview session itself is separately
     // recovered via TextInterviewViewModel's SavedStateHandle-backed interviewId).
@@ -76,8 +81,18 @@ private fun QuestionCard(question: InterviewQuestionDto, submitting: Boolean, on
             .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
+        // A simulation names the part of the conversation it is in; an ordinary interview has
+        // no stage and this line simply does not appear. Never the raw stage value -- the
+        // student is having a conversation, not reading an enum.
+        stageLabel?.let {
+            Text(
+                text = it.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
         Text(
-            text = "Question ${question.orderIndex} of $QUESTIONS_PER_INTERVIEW · ${question.basedOn}",
+            text = "Question ${question.orderIndex} of $totalQuestions · ${question.basedOn}",
             style = MaterialTheme.typography.labelMedium,
         )
         Text(text = question.questionText, style = MaterialTheme.typography.bodyLarge)

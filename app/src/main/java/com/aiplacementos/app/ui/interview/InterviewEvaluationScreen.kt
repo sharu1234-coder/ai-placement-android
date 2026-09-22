@@ -22,6 +22,7 @@ import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
@@ -46,12 +47,39 @@ fun InterviewEvaluationScreen(interviewId: Int, onContinue: () -> Unit) {
             onRetry = viewModel::load,
         )
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
-        is UiState.Success<InterviewEvaluationDto> -> EvaluationSummary(current.data, onContinue)
+        is UiState.Success<InterviewEvaluationDto> -> EvaluationSummary(
+            evaluation = current.data,
+            onRetryEvaluation = viewModel::load,
+            onContinue = onContinue,
+        )
     }
 }
 
 @Composable
-private fun EvaluationSummary(evaluation: InterviewEvaluationDto, onContinue: () -> Unit) {
+private fun EvaluationSummary(
+    evaluation: InterviewEvaluationDto,
+    onRetryEvaluation: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    val overallScore = evaluation.overallScore
+    // Every dimension that actually carries a number. The backend writes all of them together
+    // or none, so this is normally either complete or empty; filtering rather than assuming
+    // means a partial body can never render a missing dimension as a zero-length bar.
+    val dimensions = listOfNotNull(
+        evaluation.technicalCorrectness?.let { "Technical correctness" to it },
+        evaluation.relevance?.let { "Relevance" to it },
+        evaluation.completeness?.let { "Completeness" to it },
+        evaluation.reasoning?.let { "Reasoning" to it },
+        evaluation.structure?.let { "Structure" to it },
+        evaluation.clarity?.let { "Clarity" to it },
+        evaluation.grammar?.let { "Grammar" to it },
+        evaluation.speakingPace?.let { "Speaking pace" to it },
+        // Lower is better for filler words -- invert so the bar still reads "more fill = worse,
+        // less fill = better" at a glance.
+        evaluation.fillerWordRate?.let { "Filler-word control" to (1.0 - it).coerceIn(0.0, 1.0) },
+        evaluation.roleJdCoverage?.let { "Role/JD coverage" to it },
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -59,7 +87,18 @@ private fun EvaluationSummary(evaluation: InterviewEvaluationDto, onContinue: ()
     ) {
         Text(text = "Interview evaluation", style = MaterialTheme.typography.headlineSmall)
 
-        AppCard(
+        // An interview whose review did not complete has no score at all -- not a low one.
+        // Rendering a ring and ten labelled bars would present a measurement that does not
+        // exist, and would read exactly like a bad result, so the whole scored region is
+        // replaced. No greyed-out number, no "provisional" score: there is nothing to soften.
+        //
+        // isGraded is the backend's own statement of this and stays the primary signal; the
+        // null check beside it makes the branch total, so a missing score can never be coerced
+        // into something displayable.
+        if (!evaluation.isGraded || overallScore == null) {
+            UngradedNotice(onRetryEvaluation = onRetryEvaluation)
+        } else {
+            AppCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = Spacing.md),
@@ -76,10 +115,11 @@ private fun EvaluationSummary(evaluation: InterviewEvaluationDto, onContinue: ()
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 ScoreRing(
-                    percent = (evaluation.overallScore * 100).roundToInt(),
+                    percent = (overallScore * 100).roundToInt(),
                     ringColor = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                 )
+            }
             }
         }
 
@@ -90,28 +130,17 @@ private fun EvaluationSummary(evaluation: InterviewEvaluationDto, onContinue: ()
                 .padding(top = Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            item {
-                AppCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Breakdown",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = Spacing.sm),
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        DimensionBar("Technical correctness", evaluation.technicalCorrectness)
-                        DimensionBar("Relevance", evaluation.relevance)
-                        DimensionBar("Completeness", evaluation.completeness)
-                        DimensionBar("Reasoning", evaluation.reasoning)
-                        DimensionBar("Structure", evaluation.structure)
-                        DimensionBar("Clarity", evaluation.clarity)
-                        evaluation.grammar?.let { DimensionBar("Grammar", it) }
-                        evaluation.speakingPace?.let { DimensionBar("Speaking pace", it) }
-                        evaluation.fillerWordRate?.let {
-                            // Lower is better for filler words -- invert so the bar still
-                            // reads "more fill = worse, less fill = better" at a glance.
-                            DimensionBar("Filler-word control", (1.0 - it).coerceIn(0.0, 1.0))
+            if (dimensions.isNotEmpty()) {
+                item {
+                    AppCard(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Breakdown",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(bottom = Spacing.sm),
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            dimensions.forEach { (label, score) -> DimensionBar(label, score) }
                         }
-                        DimensionBar("Role/JD coverage", evaluation.roleJdCoverage)
                     }
                 }
             }
@@ -141,6 +170,39 @@ private fun EvaluationSummary(evaluation: InterviewEvaluationDto, onContinue: ()
 @Composable
 private fun DimensionBar(label: String, score: Double) {
     SkillBar(label = label, percent = (score * 100).roundToInt())
+}
+
+/**
+ * Shown in place of the score ring and the breakdown when the backend reports the interview as
+ * ungraded. Deliberately shows no number at all -- the student's answers were saved and only the
+ * automatic review failed, which is a different thing from doing badly and must not look like
+ * it. Retry reuses the screen's existing load(), because the evaluation endpoint already
+ * regrades an ungraded interview in place rather than needing a separate retry call.
+ */
+@Composable
+private fun UngradedNotice(onRetryEvaluation: () -> Unit) {
+    AppCard(
+        modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Text(
+            text = "We couldn't complete the review",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Your interview is finished and all of your answers are saved, but the " +
+                "automatic review didn't complete, so there's no score for it yet.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.xs),
+        )
+        SecondaryButton(
+            text = "Try the review again",
+            onClick = onRetryEvaluation,
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+        )
+    }
 }
 
 /** Fetched via its own small ViewModel rather than folded into InterviewEvaluationViewModel,

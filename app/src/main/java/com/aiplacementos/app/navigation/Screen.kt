@@ -97,6 +97,12 @@ sealed class Screen(val route: String) {
     data object MockInterviewCategory : Screen("mock-interview/category")
     data object InterviewHistoryDetail : Screen("mock-interview/history/{interviewId}")
 
+    // Full Recruiter Simulation's only new screen: a short setup step that picks an optional
+    // job description. The interview itself then runs on the existing TextInterview route with
+    // type "full_simulation" -- a simulation is an ordinary interview with a longer plan, so it
+    // deliberately has no interview screen of its own.
+    data object SimulationSetup : Screen("mock-interview/simulation/setup")
+
     // Resume ATS Check -- drawer entry point under CAREER. Deliberately separate from the
     // Job Description Analyzer above: no JD is ever involved in this flow.
     data object AtsCheckLanding : Screen("ats-check")

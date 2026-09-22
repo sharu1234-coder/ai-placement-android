@@ -15,9 +15,26 @@ import kotlinx.coroutines.launch
  * needs its own "starting" step (creating the Interview before the first question exists)
  * and a submitting flag on the current question, neither of which the generic shape models.
  */
+/**
+ * What an interview's length was before the backend started sending it. Used only when talking
+ * to a backend that predates `total_questions`; every current response carries the real value.
+ */
+const val DEFAULT_QUESTIONS_PER_INTERVIEW = 5
+
 sealed interface TextInterviewUiState {
     data object Loading : TextInterviewUiState
-    data class Question(val question: InterviewQuestionDto, val submitting: Boolean = false) : TextInterviewUiState
+    /**
+     * [stageLabel] is populated only for a Full Recruiter Simulation, where the backend names
+     * the part of the conversation this question belongs to. [totalQuestions] comes from the
+     * backend for every interview type -- this app deliberately does not know how long an
+     * interview is, because that length now depends on the type and the server owns the plan.
+     */
+    data class Question(
+        val question: InterviewQuestionDto,
+        val submitting: Boolean = false,
+        val stageLabel: String? = null,
+        val totalQuestions: Int = DEFAULT_QUESTIONS_PER_INTERVIEW,
+    ) : TextInterviewUiState
     data class Error(val message: String) : TextInterviewUiState
     data class Completed(val interviewId: Int) : TextInterviewUiState
 }
@@ -84,7 +101,11 @@ class TextInterviewViewModel(
                 _uiState.value = if (response.completed || question == null) {
                     TextInterviewUiState.Completed(id)
                 } else {
-                    TextInterviewUiState.Question(question)
+                    TextInterviewUiState.Question(
+                        question = question,
+                        stageLabel = response.stageLabel,
+                        totalQuestions = response.totalQuestions ?: DEFAULT_QUESTIONS_PER_INTERVIEW,
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.value = TextInterviewUiState.Error(
