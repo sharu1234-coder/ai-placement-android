@@ -9,6 +9,7 @@ import com.aiplacementos.app.data.remote.SubscriptionStatusDto
 import com.aiplacementos.app.domain.repository.SubscriptionRepository
 import com.aiplacementos.app.payment.RazorpayCheckoutBridge
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -81,7 +82,7 @@ class SubscriptionsViewModel(
                 val plans = repository.getPlans()
                 _uiState.value = UiState.Success(SubscriptionsData(status, plans))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load subscription plans. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("load subscription plans"))
             }
         }
     }
@@ -99,7 +100,7 @@ class SubscriptionsViewModel(
                 openCheckout(activity, checkout.razorpayKeyId, checkout.razorpayOrderId, checkout.amountPaise, checkout.currency)
             } catch (e: Exception) {
                 pendingOrderId = null
-                _purchaseState.value = PurchaseState.Failed("Couldn't start checkout. Check your connection and try again.")
+                _purchaseState.value = PurchaseState.Failed(e.toUserMessage("start checkout"))
             }
         }
     }

@@ -16,7 +16,7 @@ fun TermsScreen() {
             initializer {
                 LegalDocumentViewModel(
                     documentLoader = { network.legalRepository.getTermsOfService() },
-                    loadErrorMessage = "Couldn't load the terms of service. Check your connection.",
+                    loadAction = "load the terms of service",
                 )
             }
         },

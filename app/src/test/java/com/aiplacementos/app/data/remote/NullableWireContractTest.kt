@@ -90,8 +90,9 @@ class NullableWireContractTest {
      * CareerPathDto, so before the fix this null took the whole Career Path response down with
      * it -- Career Path Home, Detail, Readiness, and the Home screen's career card.
      *
-     * `contributing_signals` and `total_signals` are sent by the backend and not modelled here;
-     * their presence also checks that ignoreUnknownKeys is doing its job.
+     * `contributing_signals` and `total_signals` are the denominator behind overall_percent.
+     * They were sent by the backend and not modelled here, so ignoreUnknownKeys discarded them
+     * and the screen could not say how much of the average was actually measured.
      */
     @Test
     fun `a new student's readiness decodes with the unmeasured signals still null`() {
@@ -119,6 +120,11 @@ class NullableWireContractTest {
         assertEquals(0, readiness.projectsPercent)
         assertEquals(10, readiness.skillsPercent)
         assertEquals(12, readiness.overallPercent)
+        // The denominator and the nulls have to tell the same story: three signals absent
+        // above, three missing from the denominator here.
+        assertEquals(2, readiness.contributingSignals)
+        assertEquals(5, readiness.totalSignals)
+        assertEquals(3, readiness.totalSignals - readiness.contributingSignals)
     }
 
     @Test
@@ -142,6 +148,11 @@ class NullableWireContractTest {
         assertEquals(60, readiness.practicePercent)
         assertEquals(60, readiness.interviewPercent)
         assertTrue(readiness.isEstimate)
+        // This body omits the denominator, so the Kotlin defaults apply. They are the same
+        // literals JobReadinessRead declares on the backend, which is the point: a response
+        // that leaves the fields out lands on the value the server itself would have sent.
+        assertEquals(5, readiness.contributingSignals)
+        assertEquals(5, readiness.totalSignals)
     }
 
     /**

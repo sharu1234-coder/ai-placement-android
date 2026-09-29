@@ -143,3 +143,53 @@ fun savedSearchLastRunLabel(search: SavedSearchDto): String? {
     val count = search.lastResultCount ?: return "Run once already"
     return if (count == 1) "1 job last time" else "$count jobs last time"
 }
+
+/**
+ * True when the most recent attempt to run this search did not complete.
+ *
+ * The three timestamps are written by the server and never by this client, so comparing them
+ * is reading its record rather than keeping a second one. They share a clock and a format, and
+ * both are ISO-8601 with the same date-time prefix, so a lexicographic comparison orders them
+ * correctly — a shorter value is a prefix of a longer one at the same instant, and the
+ * fractional separator sorts below every digit.
+ */
+private fun lastAttemptFailed(search: SavedSearchDto): Boolean {
+    val failedAt = search.lastErrorAt ?: return false
+    val succeededAt = search.lastSuccessAt ?: return true
+    return failedAt > succeededAt
+}
+
+/**
+ * The single line under a saved search saying where it stands.
+ *
+ * Four states, and they are genuinely different things a student needs to tell apart:
+ *
+ *   never run          we have not asked. Not "no jobs" — we have no idea.
+ *   ran, found some    a real count from a real run.
+ *   ran, found none    the search worked and the market had nothing. Still a successful run,
+ *                      and deliberately not phrased as a failure.
+ *   did not finish     we could not ask. Any previous count is carried alongside rather than
+ *                      overwritten, because it is still the last thing we actually know — the
+ *                      server keeps it for the same reason.
+ *
+ * Built on [savedSearchLastRunLabel] rather than replacing it, so the count wording stays in
+ * one place and cannot drift between the two.
+ */
+fun savedSearchRunStateLabel(search: SavedSearchDto): String {
+    if (search.lastRunAt == null) return "Not run yet"
+    if (lastAttemptFailed(search)) {
+        val previously = savedSearchLastRunLabel(search)
+            ?.takeIf { search.lastSuccessAt != null }
+        return if (previously == null) {
+            "Last run didn't finish"
+        } else {
+            "Last run didn't finish · $previously"
+        }
+    }
+    val count = search.lastResultCount ?: return "Run once already"
+    return when (count) {
+        0 -> "No jobs last time"
+        1 -> "1 job last time"
+        else -> "$count jobs last time"
+    }
+}

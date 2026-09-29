@@ -133,15 +133,22 @@ class SavedJobsViewModelTest {
 
     @Test
     fun `saving a note replaces the row`() {
+        // Driven through the editor the student actually uses, rather than by calling the
+        // repository method directly: before this phase nothing in the app opened that editor,
+        // which is precisely why the capability existed and the feature did not.
         val repository = FakeJobHuntRepository().apply {
             listSavedResult = { listOf(saved()) }
             updateSavedResult = { id, _, notes, _ -> saved(id = id, notes = notes) }
         }
         val viewModel = SavedJobsViewModel(repository)
-        viewModel.saveNote(1, "Referred by Priya")
+
+        viewModel.startEditingNote(1)
+        viewModel.onNoteChange("Referred by Priya")
+        viewModel.saveNote()
 
         val state = viewModel.uiState.value as SavedJobsUiState.Success
         assertEquals("Referred by Priya", state.jobs.first().notes)
+        assertNull("the editor closes once the server has confirmed it", state.editingNote)
     }
 
     @Test

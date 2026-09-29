@@ -4,7 +4,7 @@ import android.content.Context
 import com.aiplacementos.app.BuildConfig
 import com.aiplacementos.app.alarm.AlarmScheduler
 import com.aiplacementos.app.data.local.LocalAccountDataCleaner
-import com.aiplacementos.app.data.remote.ApiJson
+import com.aiplacementos.app.data.local.PendingOperationStore
 import com.aiplacementos.app.data.remote.ArenaApi
 import com.aiplacementos.app.data.remote.AssessmentsApi
 import com.aiplacementos.app.data.remote.AtsCheckApi
@@ -33,6 +33,8 @@ import com.aiplacementos.app.data.remote.SubscriptionsApi
 import com.aiplacementos.app.data.remote.UsersApi
 import com.aiplacementos.app.data.remote.ProfessionalPresenceApi
 import com.aiplacementos.app.data.remote.WeaknessesApi
+import com.aiplacementos.app.data.remote.addApiConverters
+import com.aiplacementos.app.data.remote.clientNotResendingGenerations
 import com.aiplacementos.app.data.repository.ArenaRepositoryImpl
 import com.aiplacementos.app.data.repository.AssessmentRepositoryImpl
 import com.aiplacementos.app.data.repository.AtsCheckRepositoryImpl
@@ -93,12 +95,10 @@ import com.aiplacementos.app.domain.repository.SkillPassportRepository
 import com.aiplacementos.app.domain.repository.SubscriptionRepository
 import com.aiplacementos.app.domain.repository.WeaknessRepository
 import java.util.concurrent.TimeUnit
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.create
-import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 /**
  * Manual composition root (no Hilt yet -- avoided until there's a concrete need for it).
@@ -107,11 +107,7 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 class NetworkModule(context: Context) {
     val tokenStore = TokenStore(context.applicationContext)
     val alarmScheduler = AlarmScheduler(context.applicationContext)
-
-    // The single shared instance from data/remote/ApiJson.kt -- see that file for why this
-    // configuration lives outside this Context-bound class (so wire-contract tests decode with
-    // the real thing rather than a hand-copied equivalent).
-    private val json = ApiJson
+    val pendingOperationStore = PendingOperationStore(context.applicationContext)
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
@@ -138,8 +134,11 @@ class NetworkModule(context: Context) {
 
     private val retrofit = Retrofit.Builder()
         .baseUrl(BuildConfig.API_BASE_URL)
-        .client(okHttpClient)
-        .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+        // okHttpClient for everything; see NonResentRequests.kt for the one request it never re-sends.
+        .clientNotResendingGenerations(okHttpClient)
+        // The shared chain from data/remote/ApiJson.kt -- see that file for why it lives outside
+        // this Context-bound class (so wire-contract tests decode with the real thing, not a copy).
+        .addApiConverters()
         .build()
 
     private val authApi: AuthApi = retrofit.create()
@@ -175,7 +174,7 @@ class NetworkModule(context: Context) {
 
     /** Shared by logout and account deletion so both empty the same tables -- see the class
      * doc for why local data is purged rather than scoped by user id. */
-    val localAccountDataCleaner = LocalAccountDataCleaner(alarmDatabase, alarmScheduler)
+    val localAccountDataCleaner = LocalAccountDataCleaner(alarmDatabase, alarmScheduler, pendingOperationStore)
 
     val authRepository: AuthRepository =
         AuthRepositoryImpl(authApi, tokenStore, localAccountDataCleaner)

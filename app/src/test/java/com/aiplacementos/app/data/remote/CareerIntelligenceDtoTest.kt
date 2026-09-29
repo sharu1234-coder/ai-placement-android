@@ -102,7 +102,7 @@ class CareerIntelligenceDtoTest {
             {
               "has_role": true,
               "role_source": "career_path",
-              "readiness_percent": 42,
+              "evidence_coverage_percent": 42,
               "unavailable_sources": ["external", "resume"]
             }
         """.trimIndent()
@@ -118,7 +118,7 @@ class CareerIntelligenceDtoTest {
             {
               "has_role": true,
               "role_source": "career_path",
-              "readiness_percent": 42
+              "evidence_coverage_percent": 42
             }
         """.trimIndent()
 
@@ -132,7 +132,7 @@ class CareerIntelligenceDtoTest {
         val body = """
             {
               "has_role": true,
-              "readiness_percent": 42,
+              "evidence_coverage_percent": 42,
               "unavailable_sources": ["external"]
             }
         """.trimIndent()

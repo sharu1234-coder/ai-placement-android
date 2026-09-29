@@ -4,8 +4,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -22,14 +30,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.CareerGoalDetailDto
+import com.aiplacementos.app.data.remote.GoalApplicationDto
+import com.aiplacementos.app.data.remote.SavedJobDto
 import com.aiplacementos.app.data.remote.GoalInterviewRiskDto
 import com.aiplacementos.app.data.remote.GoalPreparationItemDto
 import com.aiplacementos.app.data.remote.GoalSkillEvidenceDto
@@ -61,13 +73,22 @@ fun CareerGoalDetailScreen(
     val viewModel: CareerGoalDetailViewModel = viewModel(
         key = "career-goal-$careerGoalId",
         factory = viewModelFactory {
-            initializer { CareerGoalDetailViewModel(careerGoalId, network.careerGoalRepository) }
+            initializer {
+                CareerGoalDetailViewModel(
+                    careerGoalId,
+                    network.careerGoalRepository,
+                    network.jobHuntRepository,
+                )
+            }
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isAnalyzing by viewModel.isAnalyzing.collectAsStateWithLifecycle()
     val analysisError by viewModel.analysisError.collectAsStateWithLifecycle()
+    val isLinking by viewModel.isLinking.collectAsStateWithLifecycle()
     val isDeleted by viewModel.isDeleted.collectAsStateWithLifecycle()
+    val linkableJobs by viewModel.linkableJobs.collectAsStateWithLifecycle()
+    val isLoadingLinkable by viewModel.isLoadingLinkable.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
 
     LaunchedEffect(isDeleted) {
@@ -97,13 +118,30 @@ fun CareerGoalDetailScreen(
                 goal = current.goal,
                 isAnalyzing = isAnalyzing,
                 analysisError = analysisError,
+                isLinking = isLinking,
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onAnalyze = viewModel::analyze,
                 onOpenDestination = onOpenDestination,
                 onArchive = { viewModel.setStatus("archived") },
                 onDelete = { confirmDelete = true },
+                onUnlink = viewModel::unlinkApplication,
+                onStartLink = viewModel::loadLinkableJobs,
+                // The tracker is where a stage is actually changed. Phase 2E built the states
+                // and Phase 3 surfaced them, but this card only ever told the student to "update
+                // it in your job tracker" without a way to get there -- so the one screen that
+                // can move an application forward was the one the goal could not reach.
+                onOpenTracker = { onOpenDestination("tracker") },
             )
         }
+    }
+
+    linkableJobs?.let { jobs ->
+        LinkApplicationSheet(
+            jobs = jobs,
+            isLinking = isLinking,
+            onPick = viewModel::linkApplication,
+            onDismiss = viewModel::clearLinkableJobs,
+        )
     }
 
     if (confirmDelete) {
@@ -127,11 +165,15 @@ private fun CareerGoalDetail(
     goal: CareerGoalDetailDto,
     isAnalyzing: Boolean,
     analysisError: String?,
+    isLinking: Boolean,
     modifier: Modifier = Modifier,
     onAnalyze: () -> Unit,
     onOpenDestination: (String) -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
+    onUnlink: () -> Unit,
+    onStartLink: () -> Unit,
+    onOpenTracker: () -> Unit,
 ) {
     LazyColumn(
         modifier = modifier,
@@ -139,6 +181,15 @@ private fun CareerGoalDetail(
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         item { TargetJobCard(goal) }
+        item {
+            ApplicationCard(
+                application = goal.application,
+                isLinking = isLinking,
+                onUnlink = onUnlink,
+                onStartLink = onStartLink,
+                onOpenTracker = onOpenTracker,
+            )
+        }
         item {
             AnalysisCard(
                 goal = goal,
@@ -173,6 +224,84 @@ private fun CareerGoalDetail(
                 SecondaryButton(text = "Delete", onClick = onDelete, modifier = Modifier.weight(1f))
             }
         }
+    }
+}
+
+@Composable
+private fun ApplicationCard(
+    application: GoalApplicationDto?,
+    isLinking: Boolean,
+    onUnlink: () -> Unit,
+    onStartLink: () -> Unit,
+    onOpenTracker: () -> Unit,
+) {
+    AppCard(modifier = Modifier.fillMaxWidth()) {
+        SectionHeading("Application")
+        if (application == null) {
+            // "Not linked", never "not applied". The student may well have applied to this job
+            // without linking it here, and this screen has no way to know.
+            Text(
+                text = NO_APPLICATION_EXPLANATION,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            PrimaryButton(
+                text = "Link an application",
+                onClick = onStartLink,
+                enabled = !isLinking,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            return@AppCard
+        }
+
+        Text(
+            text = applicationStatusLabel(application.status),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        // Which job, so the student can confirm they linked the right one. The listing's own
+        // title may differ from what they typed on the goal -- that is expected, and showing
+        // the listing's version is the only way to catch a mis-link.
+        Text(
+            text = listOfNotNull(application.listingTitle, application.listingCompany)
+                .joinToString(" -- "),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        applicationOutcomeLabel(application.outcome)?.let { outcome ->
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                text = outcome,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (!application.hasApplied && !application.isTerminal) {
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                text = "Update the stage in your job tracker as this application moves.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(Spacing.sm))
+        // A terminal application has nowhere left to move, so the tracker button would be a
+        // button that changes nothing. Unlinking stays available either way.
+        if (!application.isTerminal) {
+            PrimaryButton(
+                text = "Update stage in tracker",
+                onClick = onOpenTracker,
+                enabled = !isLinking,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(Spacing.xs))
+        }
+        SecondaryButton(
+            text = "Unlink",
+            onClick = onUnlink,
+            enabled = !isLinking,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -450,5 +579,69 @@ private fun SectionHeading(text: String) {
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.semantics { heading() },
+    )
+}
+
+/**
+ * Choose which tracked application this goal is about.
+ *
+ * Phase 2E built the link and its ViewModel call handles every refusal the server can give --
+ * someone else's job, a job another goal already claimed, no network. Nothing in the app ever
+ * called it, so the link existed end to end except for the one tap that starts it. This sheet
+ * is that tap and nothing more: it lists the student's own tracked jobs and hands an id back.
+ *
+ * Each row shows the job's current stage as words, because two saved rows for the same company
+ * are told apart by where they have got to, and a colour would not say which is which.
+ */
+@Composable
+private fun LinkApplicationSheet(
+    jobs: List<SavedJobDto>,
+    isLinking: Boolean,
+    onPick: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Link an application") },
+        text = {
+            if (jobs.isEmpty()) {
+                // A statement about the tracker, not about the student's job search: they may
+                // have applied to plenty of things and saved none of them here.
+                Text(
+                    text = "You haven't saved any jobs to your tracker yet. Save one from Job " +
+                        "Hunt and you'll be able to link it to this goal.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                    items(jobs, key = { it.id }) { job ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !isLinking) { onPick(job.id) }
+                                .padding(vertical = Spacing.sm)
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = "${job.listing.title}, " +
+                                        applicationStatusLabel(job.status)
+                                },
+                        ) {
+                            Text(text = job.listing.title, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = listOfNotNull(
+                                    job.listing.company,
+                                    applicationStatusLabel(job.status),
+                                ).joinToString(" -- "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        HorizontalDivider()
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
     )
 }

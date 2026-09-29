@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.RoadmapDto
 import com.aiplacementos.app.domain.repository.RoadmapRepository
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,7 +56,7 @@ class RoadmapViewModel(
                 }
             } catch (e: Exception) {
                 _uiState.value = RoadmapUiState.Error(
-                    "Couldn't load your roadmap. Check your connection and try again."
+                    e.toUserMessage("load your roadmap")
                 )
             }
         }
@@ -80,7 +81,7 @@ class RoadmapViewModel(
                 }
             )
         } catch (e: Exception) {
-            _uiState.value = RoadmapUiState.Error("Couldn't reach the server. Check your connection.")
+            _uiState.value = RoadmapUiState.Error(e.toUserMessage("generate your roadmap"))
         }
     }
 
@@ -91,7 +92,7 @@ class RoadmapViewModel(
             try {
                 _uiState.value = RoadmapUiState.Success(roadmapRepository.reassessRoadmap(busyState.roadmap.id))
             } catch (e: Exception) {
-                _uiState.value = RoadmapUiState.Error("Couldn't reassess your roadmap. Check your connection.")
+                _uiState.value = RoadmapUiState.Error(e.toUserMessage("reassess your roadmap"))
             }
         }
     }

@@ -101,7 +101,11 @@ private fun SavedRoleCard(summary: CareerPathSummaryDto, onOpen: () -> Unit, onS
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = summary.displayRoleName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "${summary.completedItems} of ${summary.totalItems} complete (${summary.readinessPercent}%)",
+                    // The percent is omitted rather than shown as 0 when there is nothing to
+                    // divide by -- the counts beside it already tell the honest story.
+                    text = summary.preparationPercent
+                        ?.let { "${summary.completedItems} of ${summary.totalItems} complete ($it%)" }
+                        ?: "${summary.completedItems} of ${summary.totalItems} complete",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -121,6 +125,9 @@ private fun SavedRoleCard(summary: CareerPathSummaryDto, onOpen: () -> Unit, onS
             }
         }
         Spacer(modifier = Modifier.height(Spacing.sm))
-        SkillBar(label = "Progress", percent = summary.readinessPercent)
+        // "Preparation" names the formula: completed / total checklist items. No bar at all
+        // when there is nothing to measure -- a 0% bar would read as "you have done none of
+        // the work" rather than "there is no work listed yet".
+        summary.preparationPercent?.let { SkillBar(label = "Preparation", percent = it) }
     }
 }

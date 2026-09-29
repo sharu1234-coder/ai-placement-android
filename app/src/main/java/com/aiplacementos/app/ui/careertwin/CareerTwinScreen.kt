@@ -132,13 +132,13 @@ private fun CareerTwinContent(
             )
         }
         item {
-            // readinessPercent is null when the backend has a target role but no defined skills
-            // to measure against -- an explicit "we don't know yet", not a score of zero. The
-            // old `?: 0` rendered that unknown as a confident 0% ring (and, further down, a
-            // "See Why You're at 0%" paywall title), which reads as "you are measured, and you
-            // scored nothing". Show the reason instead; ScoreRing only ever gets a real number.
-            val readiness = twin.readinessPercent
-            if (readiness == null) {
+            // evidenceCoveragePercent is null when the backend has a target role but no
+            // defined skills to measure against -- an explicit "we don't know yet", not a score
+            // of zero. The old `?: 0` rendered that unknown as a confident 0% ring (and, further
+            // down, a "See Why You're at 0%" paywall title), which reads as "you are measured,
+            // and you scored nothing". Show the reason instead; ScoreRing only gets a real number.
+            val coverage = twin.evidenceCoveragePercent
+            if (coverage == null) {
                 AppCard(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
                     Text(
                         text = "Not enough data yet",
@@ -148,7 +148,7 @@ private fun CareerTwinContent(
                     )
                     Text(
                         text = twin.reasons.firstOrNull()
-                            ?: "We don't have enough about this role yet to work out a readiness score.",
+                            ?: "We don't have enough about this role yet to measure your evidence coverage.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = Spacing.xs),
@@ -157,15 +157,17 @@ private fun CareerTwinContent(
             } else {
                 AppCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        ScoreRing(percent = readiness, size = 96.dp, label = "Readiness")
+                        ScoreRing(percent = coverage, size = 96.dp, label = "Coverage")
                         Spacer(modifier = Modifier.width(Spacing.md))
                         Column {
                             Text(
-                                text = "Career Readiness",
+                                // The label names the metric: this is how much of the role's
+                                // required evidence the student actually has, not readiness.
+                                text = "Evidence Coverage",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                             )
-                            val trend = twin.readinessTrendPercent
+                            val trend = twin.evidenceCoverageTrendPercent
                             if (trend != null) {
                                 val sign = if (trend >= 0) "+" else ""
                                 Text(
@@ -229,16 +231,16 @@ private fun CareerTwinContent(
         }
         if (twin.reasons.isNotEmpty()) {
             item {
-                // Same reason as the ring above: with no readiness number, the title must not
+                // Same reason as the ring above: with no coverage number, the title must not
                 // invent one. Falls back to score-free wording rather than "0%".
-                val readiness = twin.readinessPercent
+                val coverage = twin.evidenceCoveragePercent
                 PaywallGate(
-                    title = if (readiness != null) "See Why You're at $readiness%" else "See How Your Readiness Is Worked Out",
-                    description = "Premium unlocks the full evidence breakdown behind your readiness score.",
+                    title = if (coverage != null) "See Why You're at $coverage%" else "See How Your Coverage Is Worked Out",
+                    description = "Premium unlocks the full evidence breakdown behind your coverage figure.",
                     onUpgrade = onUpgrade,
                 ) {
                     AppCard {
-                        ExpandableSection(title = if (readiness != null) "Why $readiness%?" else "How is this worked out?") {
+                        ExpandableSection(title = if (coverage != null) "Why $coverage%?" else "How is this worked out?") {
                             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                                 twin.reasons.forEach { reason ->
                                     Text(text = "•  $reason", style = MaterialTheme.typography.bodyMedium)
@@ -266,7 +268,7 @@ private const val SOURCE_EXTERNAL = "external"
 private const val SOURCE_RESUME = "resume"
 
 /**
- * What this readiness number could not see.
+ * What this coverage number could not see.
  *
  * Deliberately phrased as a gap in our coverage rather than a finding about the student: a
  * source we never read is not evidence that their skills are missing, and the whole point of

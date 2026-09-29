@@ -15,7 +15,6 @@ data class ChallengeWithQuestions(
 
 interface PlacementAlarmRepository {
     fun observeAlarms(): Flow<List<AlarmConfigEntity>>
-    suspend fun getAllEnabledAlarms(): List<AlarmConfigEntity>
     suspend fun getAlarm(alarmId: Long): AlarmConfigEntity?
     suspend fun createAlarm(
         hour: Int,

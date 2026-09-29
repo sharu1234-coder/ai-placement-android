@@ -112,6 +112,18 @@ data class InterviewPrepCategorySummaryDto(
 @Serializable
 data class JobReadinessDto(
     @SerialName("overall_percent") val overallPercent: Int,
+    // How many of the five signals overall_percent was actually averaged over. The backend
+    // averages only the signals that have data behind them, so the same 78% can mean
+    // "measured across all five" or "measured across two" -- and a percentage on its own
+    // quietly asserts the first. The server sends the denominator precisely so the screen can
+    // say which (see career_path/service._compute_job_readiness); it was not declared here, so
+    // ignoreUnknownKeys dropped it and the disclosure never arrived.
+    //
+    // Non-null with the backend's own defaults rather than nullable: JobReadinessRead types
+    // both as a plain `int`, so null is not a value this field can take, and the defaults
+    // here are the same literals Pydantic would fill in -- the two sides cannot disagree.
+    @SerialName("contributing_signals") val contributingSignals: Int = 5,
+    @SerialName("total_signals") val totalSignals: Int = 5,
     @SerialName("skills_percent") val skillsPercent: Int,
     @SerialName("projects_percent") val projectsPercent: Int,
     // Null -- not zero -- when the student genuinely hasn't done this yet: no analysed resume,
@@ -137,7 +149,13 @@ data class CareerPathSummaryDto(
     @SerialName("role_family_key") val roleFamilyKey: String,
     @SerialName("display_role_name") val displayRoleName: String,
     @SerialName("is_primary") val isPrimary: Boolean,
-    @SerialName("readiness_percent") val readinessPercent: Int,
+    // PREPARATION PROGRESS: completedItems / totalItems. Renamed from readiness_percent in
+    // Phase 2F -- readiness in this product is JobReadinessDto.overallPercent, which averages
+    // five grounded signals. Ticking items off a list is preparation.
+    //
+    // Nullable: a path with no items has nothing to divide by. Null means "nothing to
+    // measure"; 0 means "there are items and none are done". The UI must not render null as 0.
+    @SerialName("preparation_percent") val preparationPercent: Int? = null,
     @SerialName("completed_items") val completedItems: Int,
     @SerialName("total_items") val totalItems: Int,
     @SerialName("generated_via") val generatedVia: String,

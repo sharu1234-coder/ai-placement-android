@@ -16,6 +16,15 @@
 # If a new DTO, API interface, or reflectively-constructed class is added later, re-check
 # mapping.txt for it after a release build rather than assuming this still holds.
 
+# NullableBody (data/remote/NullableBody.kt) -- the one app class that DOES need a rule. It sits
+# as a type argument inside the Continuation of the suspend Retrofit methods that can answer a
+# JSON null, and R8 full mode strips the type arguments of a class it isn't told to keep: in a
+# prodRelease build without this rule, the dex signature of `career-path/current` came out as
+# Continuation<? super NullableBody> with CareerPathDto gone, leaving NullableBodyConverterFactory
+# nothing to decode into -- every first-run screen would have errored in release builds only.
+# Same reason Retrofit's own bundled rules keep retrofit2.Response.
+-keep,allowobfuscation,allowshrinking class com.aiplacementos.app.data.remote.NullableBody
+
 # Razorpay Checkout SDK -- these ARE required (per Razorpay's own published consumer
 # ProGuard guidance): the SDK relies on runtime reflection to invoke the hosting Activity's
 # onPayment* callback methods and to (de)serialize its own model classes, both of which R8

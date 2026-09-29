@@ -7,6 +7,7 @@ import com.aiplacementos.app.domain.repository.AssessmentRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.domain.repository.ProgressRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlin.math.roundToInt
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -89,7 +90,7 @@ class TestCenterViewModel(
                     )
                 )
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load your test stats. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("load your test stats"))
             }
         }
     }
@@ -113,7 +114,7 @@ class TestCenterViewModel(
                     "Couldn't start that test (${e.code()})."
                 }
             } catch (e: Exception) {
-                _startError.value = "Couldn't reach the server. Check your connection."
+                _startError.value = e.toUserMessage("start that test")
             } finally {
                 _startingCategory.value = null
             }

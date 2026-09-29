@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.alarm.AlarmScheduler
 import com.aiplacementos.app.database.entity.AlarmConfigEntity
 import com.aiplacementos.app.domain.repository.PlacementAlarmRepository
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,7 +64,7 @@ class AlarmCreateViewModel(
             _eligibility.value = try {
                 if (repository.checkEligibility()) EligibilityState.Eligible else EligibilityState.NotEligible
             } catch (e: Exception) {
-                EligibilityState.Error("Couldn't check your resume. Check your connection and try again.")
+                EligibilityState.Error(e.toUserMessage("check your resume"))
             }
         }
     }

@@ -129,6 +129,21 @@ class JobHuntSearchViewModel(
     /** Filters to open with, when the student arrived by re-running a saved search. Empty for
      * a plain visit, which is the same thing as "no filters applied". */
     initialFilters: JobFilters = JobFilters(),
+    /**
+     * The saved search this screen was opened to run, if it was.
+     *
+     * Set means the first search goes through POST /saved-searches/{id}/run rather than
+     * replaying the filters through POST /search. The two would return the same jobs, but only
+     * the former is the server's record that the search ran -- it is what writes last_run_at,
+     * last_success_at and last_result_count. Replaying the filters left those permanently NULL
+     * however many times a student re-ran a saved search, so the screen that shows them could
+     * only ever say "never run".
+     *
+     * [initialFilters] still travels alongside it, and is not redundant: it seeds the filter
+     * sheet and builds the request for page two onward, neither of which the run endpoint
+     * covers.
+     */
+    savedSearchId: Int? = null,
     /** Backs the idempotency key so it survives process death. Optional so tests and previews
      * can construct this without one; a null handle simply means the key lives in memory, and
      * the server behaves correctly either way. */
@@ -139,6 +154,16 @@ class JobHuntSearchViewModel(
 
     private var activeTab: JobFilterTab = JobFilterTab.All
     private var filters: JobFilters = initialFilters
+
+    /**
+     * The saved search still being run, or null once this is an ordinary search.
+     *
+     * Cleared the moment the student changes a tab or a filter. At that point they are no
+     * longer running the thing they saved -- they are searching for something else that
+     * happens to have started from it -- and recording that as a run of the saved search would
+     * put a result count against a set of filters it was never run with.
+     */
+    private var runningSavedSearchId: Int? = savedSearchId
 
     /**
      * The id of the search operation currently on screen.
@@ -185,6 +210,7 @@ class JobHuntSearchViewModel(
     fun onTabSelected(tab: JobFilterTab) {
         if (tab == activeTab) return
         activeTab = tab
+        runningSavedSearchId = null
         // A different tab is a different search, so it is a different operation. Reusing the id
         // would make the server refuse it as a conflicting replay rather than run it.
         newOperationId()
@@ -193,6 +219,7 @@ class JobHuntSearchViewModel(
 
     fun applyFilters(newFilters: JobFilters) {
         filters = newFilters
+        runningSavedSearchId = null
         newOperationId()
         // A work-mode or employment-type choice in the sheet is the same axis the quick tabs
         // control. Leaving a stale tab selected would show "Remote" highlighted while the
@@ -206,6 +233,7 @@ class JobHuntSearchViewModel(
 
     fun clearFilters() {
         filters = JobFilters()
+        runningSavedSearchId = null
         newOperationId()
         search()
     }
@@ -217,6 +245,10 @@ class JobHuntSearchViewModel(
      * responding" is the student asking for the same thing again, and the server treats a
      * previously failed operation as still owed -- so this costs nothing extra. Minting a new
      * id here would turn every tap of a Retry button into a fresh search.
+     *
+     * A retry of a saved-search run is still that run, so it goes back through the same
+     * endpoint -- which is also what lets the failed attempt's last_error_at be replaced by a
+     * real last_success_at rather than left standing.
      */
     fun retry() = search()
 
@@ -270,7 +302,15 @@ class JobHuntSearchViewModel(
         viewModelScope.launch {
             _uiState.value = JobSearchUiState.Loading
             try {
-                val response = jobHuntRepository.search(effectiveRequest(), operationId)
+                // One call either way. The saved-search branch is not an extra request on top
+                // of a search -- it is the same search, asked for by the name the student gave
+                // it, so that the server records the run it actually performed.
+                val savedSearchId = runningSavedSearchId
+                val response = if (savedSearchId != null) {
+                    jobHuntRepository.runSavedSearch(savedSearchId, operationId)
+                } else {
+                    jobHuntRepository.search(effectiveRequest(), operationId)
+                }
                 _uiState.value = JobSearchUiState.Success(
                     results = response.results,
                     totalAvailable = response.totalAvailable,

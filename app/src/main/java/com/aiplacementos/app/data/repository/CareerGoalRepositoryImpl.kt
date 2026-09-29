@@ -6,6 +6,7 @@ import com.aiplacementos.app.data.remote.CareerGoalDetailDto
 import com.aiplacementos.app.data.remote.CareerGoalListItemDto
 import com.aiplacementos.app.data.remote.CareerGoalUpdateRequest
 import com.aiplacementos.app.data.remote.CareerGoalsApi
+import com.aiplacementos.app.data.remote.LinkApplicationRequest
 import com.aiplacementos.app.domain.repository.CareerGoalRepository
 
 class CareerGoalRepositoryImpl(private val careerGoalsApi: CareerGoalsApi) : CareerGoalRepository {
@@ -37,4 +38,10 @@ class CareerGoalRepositoryImpl(private val careerGoalsApi: CareerGoalsApi) : Car
 
     override suspend fun analyzeGoal(careerGoalId: Int): CareerGoalAnalyzeResponseDto =
         careerGoalsApi.analyzeGoal(careerGoalId)
+
+    override suspend fun linkApplication(careerGoalId: Int, savedJobId: Int): CareerGoalListItemDto =
+        careerGoalsApi.linkApplication(careerGoalId, LinkApplicationRequest(savedJobId = savedJobId))
+
+    override suspend fun unlinkApplication(careerGoalId: Int): CareerGoalListItemDto =
+        careerGoalsApi.unlinkApplication(careerGoalId)
 }

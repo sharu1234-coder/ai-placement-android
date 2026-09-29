@@ -165,6 +165,17 @@ private fun CareerGoalCard(goal: CareerGoalListItemDto, onClick: () -> Unit) {
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
+            // Where the real application stands, when one is linked. Shown beside the
+            // preparation state rather than instead of it: they answer different questions
+            // ("have I prepared" and "what is actually happening"), and a goal can easily be
+            // at interview stage with no in-app preparation done, or the reverse.
+            goal.applicationStatus?.let { status ->
+                Text(
+                    text = applicationStatusLabel(status),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (goal.status != "active") {
                 Text(
                     text = goalStatusLabel(goal.status),

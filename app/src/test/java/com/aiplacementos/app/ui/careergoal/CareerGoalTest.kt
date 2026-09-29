@@ -5,6 +5,7 @@ import com.aiplacementos.app.data.remote.ApiJson
 import com.aiplacementos.app.data.remote.CareerGoalDetailDto
 import com.aiplacementos.app.data.remote.CareerGoalListItemDto
 import com.aiplacementos.app.fakes.FakeCareerGoalRepository
+import com.aiplacementos.app.fakes.FakeJobHuntRepository
 import com.aiplacementos.app.fakes.httpException
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -296,7 +297,7 @@ class CareerGoalTest {
     fun `an unanalyzed goal reaches Success so the not-analyzed state can render`() {
         val repository = FakeCareerGoalRepository().apply { getGoalResult = { detail() } }
 
-        val viewModel = CareerGoalDetailViewModel(1, repository)
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
 
         val state = viewModel.uiState.value as CareerGoalDetailUiState.Success
         assertFalse(state.goal.isAnalyzed)
@@ -310,7 +311,7 @@ class CareerGoalTest {
             getGoalResult = { detail() }
             analyzeGoalResult = { throw httpException(422) }
         }
-        val viewModel = CareerGoalDetailViewModel(1, repository)
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
 
         viewModel.analyze()
 
@@ -337,7 +338,7 @@ class CareerGoalTest {
                 )
             }
         }
-        val viewModel = CareerGoalDetailViewModel(1, repository)
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
 
         viewModel.analyze()
 
@@ -354,7 +355,7 @@ class CareerGoalTest {
             getGoalResult = { detail() }
             analyzeGoalResult = { throw httpException(500) }
         }
-        val viewModel = CareerGoalDetailViewModel(1, repository)
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
 
         viewModel.analyze()
         viewModel.analyze()
@@ -371,7 +372,7 @@ class CareerGoalTest {
             getGoalResult = { detail() }
             setStatusResult = { _, _ -> listItem() }
         }
-        val viewModel = CareerGoalDetailViewModel(1, repository)
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
 
         viewModel.setStatus("archived")
 
@@ -382,7 +383,7 @@ class CareerGoalTest {
     @Test
     fun `deleting reports completion so the screen can navigate back`() {
         val repository = FakeCareerGoalRepository().apply { getGoalResult = { detail() } }
-        val viewModel = CareerGoalDetailViewModel(1, repository)
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
 
         viewModel.delete()
 
@@ -396,7 +397,7 @@ class CareerGoalTest {
             getGoalResult = { detail() }
             deleteGoalResult = { throw httpException(500) }
         }
-        val viewModel = CareerGoalDetailViewModel(1, repository)
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
 
         viewModel.delete()
 
@@ -408,7 +409,7 @@ class CareerGoalTest {
     fun `a failed detail load becomes an Error with a retry`() {
         val repository = FakeCareerGoalRepository().apply { getGoalResult = { throw httpException(404) } }
 
-        val viewModel = CareerGoalDetailViewModel(1, repository)
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
 
         assertTrue(viewModel.uiState.value is CareerGoalDetailUiState.Error)
 

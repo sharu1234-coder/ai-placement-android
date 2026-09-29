@@ -60,6 +60,9 @@ class SkillPassportDetailViewModelTest {
 
         val state = viewModel.uiState.value as SkillPassportDetailUiState.Error
         assertFalse(state.isNetworkError)
-        assertTrue(state.message.contains("404"))
+        // Names the condition rather than the status code: a student reads "we couldn't find
+        // that", and the assertion still proves a 404 is told apart from a connectivity failure.
+        assertTrue(state.message.contains("couldn't find", ignoreCase = true))
+        assertFalse(state.message.contains("connection", ignoreCase = true))
     }
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.domain.repository.AuthRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +31,7 @@ class SignupViewModel(private val authRepository: AuthRepository) : ViewModel() 
                     }
                 )
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't reach the server. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("create your account"))
             }
         }
     }

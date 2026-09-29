@@ -17,12 +17,12 @@ private val ROLES = listOf(RoleDto(id = 1, name = "SDE"), RoleDto(id = 2, name =
 private fun sampleResult(weeklyHoursUsed: Int? = null) = CareerDecisionSimulationDto(
     roles = listOf(
         CareerDecisionRoleDto(
-            roleId = 1, displayRoleName = "SDE", readinessPercent = 80, classification = "best_fit",
+            roleId = 1, displayRoleName = "SDE", evidenceCoveragePercent = 80, classification = "best_fit",
             biggestGapSkill = null, estimatedHoursToStrengthen = 0.0, isEstimate = true, estimatedWeeks = null,
             reasons = listOf("80% of SDE's required skills are backed by real evidence."),
         ),
         CareerDecisionRoleDto(
-            roleId = 2, displayRoleName = "Data Analyst", readinessPercent = 20, classification = "stretch",
+            roleId = 2, displayRoleName = "Data Analyst", evidenceCoveragePercent = 20, classification = "stretch",
             biggestGapSkill = "SQL", estimatedHoursToStrengthen = 40.0, isEstimate = true, estimatedWeeks = 4,
             reasons = listOf("20% of Data Analyst's required skills are backed by real evidence."),
         ),

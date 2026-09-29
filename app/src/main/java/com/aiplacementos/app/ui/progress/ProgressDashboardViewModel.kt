@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.ProgressDashboardDto
 import com.aiplacementos.app.domain.repository.ProgressRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +26,7 @@ class ProgressDashboardViewModel(private val progressRepository: ProgressReposit
                 _uiState.value = UiState.Success(progressRepository.getDashboard())
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(
-                    "Couldn't load your progress. Check your connection and try again."
+                    e.toUserMessage("load your progress")
                 )
             }
         }

@@ -6,6 +6,7 @@ import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.domain.repository.ResumeRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,7 +36,7 @@ class CareerPathResumeConnectionViewModel(
                 val latestResumeId = runCatching { resumeRepository.getLatestResume()?.id }.getOrNull()
                 _uiState.value = UiState.Success(ResumeConnectionData(path, latestResumeId))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load your resume connection. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("load your resume connection"))
             }
         }
     }

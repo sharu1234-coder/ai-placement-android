@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.SectionAnalysisDto
 import com.aiplacementos.app.domain.repository.AtsCheckRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -27,7 +28,7 @@ class AtsCheckSectionAnalysisViewModel(
                 val sections = atsCheckRepository.getAtsCheck(checkId).sectionAnalysis
                 _uiState.value = if (sections.isEmpty()) UiState.Empty else UiState.Success(sections)
             } catch (e: Exception) {
-                _uiState.value = UiState.Error(e.message ?: "Couldn't load section analysis.")
+                _uiState.value = UiState.Error(e.toUserMessage("load section analysis"))
             }
         }
     }

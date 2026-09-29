@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.domain.repository.AuthRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,7 +35,7 @@ class ForgotPasswordViewModel(private val authRepository: AuthRepository) : View
                 _uiState.value = UiState.Empty
                 _step.value = ForgotPasswordStep.RESET_PASSWORD
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't reach the server. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("send your reset code"))
             }
         }
     }
@@ -51,7 +52,7 @@ class ForgotPasswordViewModel(private val authRepository: AuthRepository) : View
                     if (e.code() == 400) "Invalid or expired code" else "Couldn't reset password (${e.code()})"
                 )
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't reach the server. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("reset your password"))
             }
         }
     }

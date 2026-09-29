@@ -81,7 +81,7 @@ class ProfileViewModelTest {
         // fixes). The originally-loaded profile stays exactly as it was.
         assertEquals(UiState.Success(profile), viewModel.uiState.value)
         assertEquals(
-            "Couldn't save your changes. Check your connection and try again.",
+            "Couldn't reach the server. Check your connection and try again.",
             viewModel.saveError.value,
         )
     }

@@ -69,6 +69,45 @@ fun unavailableSourceLabel(source: String): String = when (source) {
     else -> "One evidence source couldn't be checked."
 }
 
+/**
+ * The tracked application's stage, in the student's words.
+ *
+ * These describe where the APPLICATION is, never what it says about the person. "Not selected"
+ * rather than "rejected" is the one piece of softening here, and it is softening the tone, not
+ * the fact: the application did not go forward, and the label says so. What it must never do is
+ * explain why, because neither this app nor the tracker knows.
+ */
+fun applicationStatusLabel(status: String): String = when (status) {
+    "saved" -> "Saved, not applied yet"
+    "applied" -> "Applied"
+    "assessment" -> "Assessment stage"
+    "interview" -> "Interview stage"
+    "offer" -> "Offer received"
+    "rejected" -> "Not selected"
+    "closed" -> "Closed"
+    "dismissed" -> "Dismissed"
+    // A stage added by a newer backend reads as itself rather than crashing or, worse, being
+    // silently reported as one of the outcomes above.
+    else -> status.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
+/**
+ * What a finished application means for this goal. One line, and deliberately no advice:
+ * turning an outcome into a recommendation is the causal claim this phase refuses to make.
+ */
+fun applicationOutcomeLabel(outcome: String?): String? = when (outcome) {
+    "offer" -> "This application ended with an offer."
+    "rejected" -> "This application didn't go forward."
+    "closed" -> "This application is closed."
+    else -> null
+}
+
+/** Shown when a goal has no linked application. It says "not linked", and it must not be
+ * read as "hasn't applied" -- the student may well have applied without linking it here. */
+const val NO_APPLICATION_EXPLANATION =
+    "No application is linked to this goal yet. Link one from your job tracker to see its " +
+        "status here."
+
 /** Severity is conveyed by a word as well as a colour -- colour alone is not an accessible
  * status signal, and this app's existing weakness labels already follow that rule. */
 fun riskSeverityLabel(severity: String): String = when (severity) {

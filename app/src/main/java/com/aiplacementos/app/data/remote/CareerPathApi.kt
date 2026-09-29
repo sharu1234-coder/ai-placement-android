@@ -24,8 +24,9 @@ interface CareerPathApi {
     @GET("career-path/all")
     suspend fun getAll(): List<CareerPathSummaryDto>
 
+    /** Empty until the student picks a role -- see [NullableBody]. */
     @GET("career-path/current")
-    suspend fun getCurrent(): CareerPathDto?
+    suspend fun getCurrent(): NullableBody<CareerPathDto>
 
     @GET("career-path/{pathId}")
     suspend fun getPath(@Path("pathId") pathId: Int): CareerPathDto

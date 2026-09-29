@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.PlacementPathDto
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -24,7 +25,7 @@ class SavedRoadmapsViewModel(private val repository: PlacementPathRepository) : 
                 val history = repository.getHistory()
                 _uiState.value = if (history.isEmpty()) UiState.Empty else UiState.Success(history)
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load your saved roadmaps. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("load your saved roadmaps"))
             }
         }
     }

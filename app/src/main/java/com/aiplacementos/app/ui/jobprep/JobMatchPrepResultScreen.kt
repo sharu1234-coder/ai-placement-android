@@ -14,6 +14,7 @@ import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +29,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -86,6 +88,24 @@ fun JobMatchPrepResultScreen(
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val updatedCareerPathId by viewModel.updatedCareerPathId.collectAsStateWithLifecycle()
+
+    // Navigates from whichever composition of this screen is current, never from one that was
+    // current when the button was tapped -- see JobMatchPrepResultViewModel.updatedCareerPathId.
+    // Consumed before navigating, so the recomposition Back causes cannot re-open the Career Path.
+    LaunchedEffect(updatedCareerPathId) {
+        val pathId = updatedCareerPathId ?: return@LaunchedEffect
+        viewModel.onUpdatedCareerPathOpened()
+        onCareerPathUpdated(pathId)
+    }
+
+    // Same idiom the other return-to screens use (ArenaListScreen, CareerPathRoleSelectionScreen).
+    // Here it reloads nothing: it retires a finished Career Path update's "Updating..." state,
+    // which is what Back from the Career Path used to come back to (F12-04).
+    LifecycleResumeEffect(Unit) {
+        viewModel.onScreenResumed()
+        onPauseOrDispose {}
+    }
 
     when (val current = state) {
         is JobMatchPrepResultUiState.Loading -> ResultLoadingSkeleton()
@@ -99,7 +119,7 @@ fun JobMatchPrepResultScreen(
             onGenerateRoadmap = { days -> viewModel.generateRoadmap(days, onGenerateRoadmap) },
             onStartPractice = { viewModel.startPractice(onStartPractice) },
             onDelete = { viewModel.delete(onDeleted) },
-            onUpdateCareerPath = { viewModel.updateCareerPath(onCareerPathUpdated) },
+            onUpdateCareerPath = { viewModel.updateCareerPath() },
             onUploadResume = onUploadResume,
             onBack = onBack,
         )

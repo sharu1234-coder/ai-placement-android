@@ -10,8 +10,9 @@ interface PlacementPathApi {
     @POST("placement-path/generate")
     suspend fun generate(): PlacementPathDto
 
+    /** Empty until a placement path is generated -- see [NullableBody]. */
     @GET("placement-path/current")
-    suspend fun getCurrent(): PlacementPathDto?
+    suspend fun getCurrent(): NullableBody<PlacementPathDto>
 
     @GET("placement-path/history")
     suspend fun getHistory(): List<PlacementPathDto>

@@ -321,21 +321,21 @@ fun MainScreen(navController: NavHostController) {
             Box(modifier = Modifier.padding(innerPadding)) {
                 when (selectedRoute) {
                     Screen.Home.route -> HomeScreen(
-                        onOpenPlacementAlarm = { navController.navigate(Screen.AlarmList.route) },
-                        onOpenPlacementPath = { selectedRoute = Screen.Roadmap.route },
                         onOpenJobMatchPrep = { navController.navigate(Screen.JobMatchPrep.route) },
-                        onOpenCareerPath = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
                         onOpenCareerPathHome = { navController.navigate(Screen.CareerPathHome.route) },
-                        onOpenAtsCheck = { checkId ->
-                            navController.navigate(
-                                if (checkId != null) atsCheckResultRoute(checkId) else Screen.AtsCheckPreCheck.route,
-                            )
-                        },
                         onOpenPractice = { selectedRoute = Screen.Practice.route },
                         onOpenTests = { selectedRoute = Screen.Tests.route },
                         onOpenCareerTwin = { navController.navigate(Screen.CareerTwin.route) },
-                        onOpenCareerStrategy = { navController.navigate(Screen.CareerStrategy.route) },
-                        onOpenSkillPassport = { navController.navigate(Screen.SkillPassport.route) },
+                        // A bottom tab, so it switches the tab rather than pushing a duplicate
+                        // copy of the same screen onto the back stack.
+                        onOpenProgress = { selectedRoute = Screen.Progress.route },
+                        onOpenCareerGoals = { navController.navigate(Screen.CareerGoals.route) },
+                        onOpenCareerGoal = { goalId -> navController.navigate(careerGoalDetailRoute(goalId)) },
+                        // The Next Best Action's destination key, resolved by the one shared
+                        // vocabulary table every other NBA consumer already uses.
+                        onOpenDestination = { destination ->
+                            navController.navigate(careerStrategyDestinationRoute(destination))
+                        },
                     )
                     // Swapped from the pre-fix mapping (see the bottomTabs comment above):
                     // Roadmap = the staged/topic roadmap, Practice = the day-task schedule.

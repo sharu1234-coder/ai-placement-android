@@ -3,6 +3,7 @@ package com.aiplacementos.app.ui.atscheck
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.domain.repository.AtsCheckRepository
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -82,7 +83,7 @@ class AtsCheckAnalyzingViewModel(
             networkDeferred.await()
                 .onSuccess { report -> _uiState.value = AtsCheckAnalyzingUiState.Completed(report.id) }
                 .onFailure { e ->
-                    _uiState.value = AtsCheckAnalyzingUiState.Error(e.message ?: "Couldn't analyze your resume.")
+                    _uiState.value = AtsCheckAnalyzingUiState.Error(e.toUserMessage("analyze your resume"))
                 }
         }
     }

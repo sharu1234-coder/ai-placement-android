@@ -84,7 +84,7 @@ import com.aiplacementos.app.ui.theme.warningColor
  * ambiguous on its own, and `lockedSections` is what disambiguates it. Every gated section asks
  * that list before deciding between "nothing to show" and "upgrade to see this".
  *
- * **Null is not zero.** Readiness, impact and effort are null when the backend could not judge
+ * **Null is not zero.** Evidence coverage, impact and effort are null when the backend could not judge
  * them, and they render as "Not checked yet" rather than 0%. Telling a student they scored zero
  * on something they have not attempted is the single most damaging thing this screen could do.
  */
@@ -344,26 +344,26 @@ private fun CurrentStateCard(strategy: CareerStrategyDto) {
                 }
             }
 
-            // Readiness is Career Twin's number, shown here so the two screens always agree.
-            // Absent rather than zeroed when there is no basis for it.
-            val readiness = strategy.readinessPercent
-            if (readiness != null) {
+            // Evidence coverage is Career Twin's number, shown here so the two screens always
+            // agree. Absent rather than zeroed when there is no basis for it.
+            val coverage = strategy.evidenceCoveragePercent
+            if (coverage != null) {
                 Spacer(Modifier.width(Spacing.md))
                 ScoreRing(
-                    percent = readiness,
+                    percent = coverage,
                     size = 84.dp,
-                    label = if (strategy.readinessIsEstimate) "est." else "ready",
+                    label = if (strategy.evidenceCoverageIsEstimate) "est." else "covered",
                     modifier = Modifier.semantics {
-                        contentDescription = "Readiness $readiness percent" +
-                            if (strategy.readinessIsEstimate) ", estimated" else ""
+                        contentDescription = "Evidence coverage $coverage percent" +
+                            if (strategy.evidenceCoverageIsEstimate) ", estimated" else ""
                     },
                 )
             }
         }
 
-        if (strategy.readinessPercent == null) {
+        if (strategy.evidenceCoveragePercent == null) {
             Text(
-                text = "Readiness: not checked yet",
+                text = "Evidence coverage: not checked yet",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.padding(top = Spacing.sm),
@@ -372,7 +372,7 @@ private fun CurrentStateCard(strategy: CareerStrategyDto) {
 
         // Career Twin's own working, beside its own number. A percentage with nothing behind it
         // is a grade; with the reasons it is something the student can check.
-        strategy.readinessReasons.forEach { reason ->
+        strategy.evidenceCoverageReasons.forEach { reason ->
             Text(
                 text = reason,
                 style = MaterialTheme.typography.bodySmall,
@@ -742,7 +742,8 @@ private fun TargetComparisonSection(viewModel: CareerStrategyViewModel, onUpgrad
                                 fontWeight = FontWeight.Medium,
                             )
                             Text(
-                                text = target.readinessPercent?.let { "$it% ready" } ?: "Readiness not checked yet",
+                                text = target.evidenceCoveragePercent?.let { "$it% covered" }
+                                    ?: "Evidence coverage not checked yet",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

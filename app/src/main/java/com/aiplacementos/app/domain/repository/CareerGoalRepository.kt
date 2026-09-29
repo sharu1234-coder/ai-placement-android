@@ -24,4 +24,10 @@ interface CareerGoalRepository {
     suspend fun deleteGoal(careerGoalId: Int)
 
     suspend fun analyzeGoal(careerGoalId: Int): CareerGoalAnalyzeResponseDto
+
+    /** Link this goal to one of the student's own tracked applications. Runs no AI. */
+    suspend fun linkApplication(careerGoalId: Int, savedJobId: Int): CareerGoalListItemDto
+
+    /** Detach the application. Neither the goal nor the tracked job is deleted. */
+    suspend fun unlinkApplication(careerGoalId: Int): CareerGoalListItemDto
 }

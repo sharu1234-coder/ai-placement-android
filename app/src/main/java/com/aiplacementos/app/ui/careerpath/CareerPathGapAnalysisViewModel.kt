@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +28,7 @@ class CareerPathGapAnalysisViewModel(
             try {
                 _uiState.value = UiState.Success(careerPathRepository.getPath(pathId))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load your gap analysis. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("load your gap analysis"))
             }
         }
     }

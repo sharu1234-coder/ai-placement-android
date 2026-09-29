@@ -16,7 +16,7 @@ fun PrivacyScreen() {
             initializer {
                 LegalDocumentViewModel(
                     documentLoader = { network.legalRepository.getPrivacyPolicy() },
-                    loadErrorMessage = "Couldn't load the privacy policy. Check your connection.",
+                    loadAction = "load the privacy policy",
                 )
             }
         },

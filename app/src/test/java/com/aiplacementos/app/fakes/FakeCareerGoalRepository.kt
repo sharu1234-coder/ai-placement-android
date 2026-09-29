@@ -12,6 +12,8 @@ class FakeCareerGoalRepository : CareerGoalRepository {
     var setStatusResult: (suspend (Int, String) -> CareerGoalListItemDto)? = null
     var deleteGoalResult: (suspend (Int) -> Unit)? = null
     var analyzeGoalResult: (suspend (Int) -> CareerGoalAnalyzeResponseDto)? = null
+    var linkApplicationResult: (suspend (Int, Int) -> CareerGoalListItemDto)? = null
+    var unlinkApplicationResult: (suspend (Int) -> CareerGoalListItemDto)? = null
 
     // What actually reached the repository, so a test can assert on it rather than on the
     // ViewModel's own report of what it did.
@@ -20,6 +22,9 @@ class FakeCareerGoalRepository : CareerGoalRepository {
     var analyzeCalls = 0
     var lastStatus: String? = null
     var deleteCalls = 0
+    var linkedSavedJobId: Int? = null
+    var linkCalls = 0
+    var unlinkCalls = 0
 
     override suspend fun listGoals(): List<CareerGoalListItemDto> {
         val fn = requireNotNull(listGoalsResult) { "listGoalsResult not configured" }
@@ -57,6 +62,19 @@ class FakeCareerGoalRepository : CareerGoalRepository {
     override suspend fun analyzeGoal(careerGoalId: Int): CareerGoalAnalyzeResponseDto {
         analyzeCalls += 1
         val fn = requireNotNull(analyzeGoalResult) { "analyzeGoalResult not configured" }
+        return fn(careerGoalId)
+    }
+
+    override suspend fun linkApplication(careerGoalId: Int, savedJobId: Int): CareerGoalListItemDto {
+        linkCalls += 1
+        linkedSavedJobId = savedJobId
+        val fn = requireNotNull(linkApplicationResult) { "linkApplicationResult not configured" }
+        return fn(careerGoalId, savedJobId)
+    }
+
+    override suspend fun unlinkApplication(careerGoalId: Int): CareerGoalListItemDto {
+        unlinkCalls += 1
+        val fn = requireNotNull(unlinkApplicationResult) { "unlinkApplicationResult not configured" }
         return fn(careerGoalId)
     }
 }

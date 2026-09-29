@@ -42,10 +42,15 @@ import com.aiplacementos.app.ui.theme.Spacing
 import com.aiplacementos.app.ui.theme.successColor
 import com.aiplacementos.app.ui.theme.warningColor
 
-private fun classificationLabel(classification: String): String = when (classification) {
+private fun classificationLabel(classification: String?): String = when (classification) {
     "best_fit" -> "Best Fit"
     "alternative" -> "Alternative"
-    else -> "Stretch"
+    "stretch" -> "Stretch"
+    // Null means the backend could not measure this role at all (no required skills defined).
+    // The old `else -> "Stretch"` caught that case and reported a verdict the server never
+    // made -- which is exactly the fabrication Phase 2F removes on the backend, so the client
+    // must not reintroduce it here.
+    else -> "Not enough data"
 }
 
 /**
@@ -58,7 +63,7 @@ private fun classificationLabel(classification: String): String = when (classifi
 fun CareerDecisionLabScreen(onUpgrade: () -> Unit) {
     PaywallGate(
         title = "Career Decision Lab is Premium",
-        description = "Compare your real, evidence-backed readiness across 2-3 roles and simulate a study plan.",
+        description = CAREER_DECISION_LAB_PAYWALL_DESCRIPTION,
         onUpgrade = onUpgrade,
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
     ) {
@@ -114,8 +119,7 @@ private fun CareerDecisionContent(state: CareerDecisionUiState.Ready, viewModel:
         item {
             Text(text = "Career Decision Lab", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(
-                text = "Pick 2-3 roles to compare your real, evidence-backed readiness for each -- " +
-                    "never a guess at your odds of getting hired.",
+                text = CAREER_DECISION_LAB_INTRO,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -213,12 +217,27 @@ private fun RoleComparisonCard(role: CareerDecisionRoleDto) {
                 )
             }
         }
-        SkillBar(
-            label = "Readiness",
-            percent = role.readinessPercent,
-            modifier = Modifier.padding(top = Spacing.sm),
-            isGap = role.classification == "stretch",
-        )
+        // "Evidence coverage", not "Readiness": the number is the share of this role's required
+        // skills the student's evidence supports. A null means the role defines no skills, so
+        // there is nothing to draw -- a bar at 0 would claim a measurement that never happened.
+        // The label comes from CareerDecisionLabels so the prose above the card and the card
+        // itself cannot drift apart again (F12-08).
+        val coverage = role.evidenceCoveragePercent
+        if (coverage != null) {
+            SkillBar(
+                label = EVIDENCE_COVERAGE_LABEL,
+                percent = coverage,
+                modifier = Modifier.padding(top = Spacing.sm),
+                isGap = role.classification == "stretch",
+            )
+        } else {
+            Text(
+                text = "This role has no required skills defined yet, so it can't be compared.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = Spacing.sm),
+            )
+        }
         role.biggestGapSkill?.let {
             Text(
                 text = "Biggest gap: $it",
@@ -227,10 +246,11 @@ private fun RoleComparisonCard(role: CareerDecisionRoleDto) {
                 modifier = Modifier.padding(top = Spacing.xs),
             )
         }
-        if (role.estimatedHoursToStrengthen > 0) {
+        val hours = role.estimatedHoursToStrengthen
+        if (hours != null && hours > 0) {
             val weeksText = role.estimatedWeeks?.let { " (~$it weeks at your pace)" } ?: ""
             Text(
-                text = "Estimated ~${role.estimatedHoursToStrengthen.toInt()} hours to strengthen$weeksText",
+                text = "Estimated ~${hours.toInt()} hours to strengthen$weeksText",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = Spacing.xs),

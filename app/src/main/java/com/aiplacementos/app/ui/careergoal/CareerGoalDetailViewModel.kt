@@ -3,7 +3,9 @@ package com.aiplacementos.app.ui.careergoal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerGoalDetailDto
+import com.aiplacementos.app.data.remote.SavedJobDto
 import com.aiplacementos.app.domain.repository.CareerGoalRepository
+import com.aiplacementos.app.domain.repository.JobHuntRepository
 import com.aiplacementos.app.ui.common.isNetworkError
 import com.aiplacementos.app.ui.common.isTimeoutError
 import com.aiplacementos.app.ui.common.toUserMessage
@@ -28,6 +30,7 @@ sealed interface CareerGoalDetailUiState {
 class CareerGoalDetailViewModel(
     private val careerGoalId: Int,
     private val repository: CareerGoalRepository,
+    private val jobHuntRepository: JobHuntRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<CareerGoalDetailUiState>(CareerGoalDetailUiState.Loading)
     val uiState: StateFlow<CareerGoalDetailUiState> = _uiState.asStateFlow()
@@ -42,6 +45,12 @@ class CareerGoalDetailViewModel(
 
     private val _isDeleted = MutableStateFlow(false)
     val isDeleted: StateFlow<Boolean> = _isDeleted.asStateFlow()
+
+    /** Guards link and unlink against a double tap. Separate from [isAnalyzing] because these
+     * two run different calls and a student may legitimately do one while the other is in
+     * flight -- sharing one flag would block a free action behind a paid one. */
+    private val _isLinking = MutableStateFlow(false)
+    val isLinking: StateFlow<Boolean> = _isLinking.asStateFlow()
 
     init {
         load()
@@ -101,7 +110,85 @@ class CareerGoalDetailViewModel(
         }
     }
 
-    fun dismissAnalysisError() {
-        _analysisError.value = null
+    /**
+     * Attach a tracked application to this goal, then re-read the goal from the server.
+     *
+     * Re-reads rather than patching the state locally from the link response, and that is
+     * deliberate: the link call returns the list row, which carries only the application's
+     * status, while the screen shows the whole application block. Rendering a half-populated
+     * block from a partial response would show the student a state the server never described.
+     *
+     * The failure path never fabricates a link. If the server refuses -- someone else's job
+     * (404), already claimed by another goal (409), no network -- the goal on screen stays
+     * exactly as it was and the reason appears beside it.
+     */
+    fun linkApplication(savedJobId: Int) {
+        if (_isLinking.value) return
+        viewModelScope.launch {
+            _isLinking.value = true
+            _analysisError.value = null
+            try {
+                repository.linkApplication(careerGoalId, savedJobId)
+                _uiState.value = CareerGoalDetailUiState.Success(repository.getGoal(careerGoalId))
+                _linkableJobs.value = null
+            } catch (e: Exception) {
+                _analysisError.value = e.toUserMessage("link this application")
+            } finally {
+                _isLinking.value = false
+            }
+        }
+    }
+
+    fun unlinkApplication() {
+        if (_isLinking.value) return
+        viewModelScope.launch {
+            _isLinking.value = true
+            _analysisError.value = null
+            try {
+                repository.unlinkApplication(careerGoalId)
+                _uiState.value = CareerGoalDetailUiState.Success(repository.getGoal(careerGoalId))
+            } catch (e: Exception) {
+                _analysisError.value = e.toUserMessage("unlink this application")
+            } finally {
+                _isLinking.value = false
+            }
+        }
+    }
+
+    /**
+     * The student's own tracked jobs, for choosing which one this goal is about.
+     *
+     * Read on demand rather than with the goal: most visits to this screen are not about
+     * linking, and fetching everyone's job list on every open would make the common case pay
+     * for the rare one. Nothing is filtered out by status -- a job already at interview stage
+     * is a perfectly ordinary thing to link a goal to, and hiding it would leave the student
+     * unable to connect the two.
+     */
+    private val _linkableJobs = MutableStateFlow<List<SavedJobDto>?>(null)
+    val linkableJobs: StateFlow<List<SavedJobDto>?> = _linkableJobs.asStateFlow()
+
+    private val _isLoadingLinkable = MutableStateFlow(false)
+    val isLoadingLinkable: StateFlow<Boolean> = _isLoadingLinkable.asStateFlow()
+
+    fun loadLinkableJobs() {
+        if (_isLoadingLinkable.value) return
+        viewModelScope.launch {
+            _isLoadingLinkable.value = true
+            _analysisError.value = null
+            try {
+                _linkableJobs.value = jobHuntRepository.listSaved()
+            } catch (e: Exception) {
+                // An empty list would read as "you have no saved jobs", which is a claim about
+                // the student's tracker rather than about this request. Stay null and say why.
+                _linkableJobs.value = null
+                _analysisError.value = e.toUserMessage("load your tracked jobs")
+            } finally {
+                _isLoadingLinkable.value = false
+            }
+        }
+    }
+
+    fun clearLinkableJobs() {
+        _linkableJobs.value = null
     }
 }

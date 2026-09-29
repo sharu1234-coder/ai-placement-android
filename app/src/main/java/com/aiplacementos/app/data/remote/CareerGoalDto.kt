@@ -27,6 +27,10 @@ data class CareerGoalListItemDto(
     @SerialName("is_analyzed") val isAnalyzed: Boolean,
     // not_analyzed | not_started | in_progress | ready_for_review
     @SerialName("preparation_state") val preparationState: String,
+    // The linked application's current status, or null when this goal is not linked to one.
+    // Null means "not linked" and NEVER "has not applied" -- a goal with no link says nothing
+    // about whether the student applied elsewhere, and the row must not imply that it does.
+    @SerialName("application_status") val applicationStatus: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String,
 )
@@ -113,6 +117,33 @@ data class GoalProgressDto(
 )
 
 @Serializable
+data class GoalApplicationDto(
+    @SerialName("saved_job_id") val savedJobId: Int,
+    // job_hunt's own status, verbatim: saved | applied | assessment | interview | offer |
+    // rejected | closed | dismissed. Carried through untranslated so the tracker and the goal
+    // can never disagree about what stage something is at.
+    val status: String,
+    // Null while the process is still running. Null here is a real answer -- "applied and
+    // waiting" is not "went badly" -- so the UI must render it as an open application rather
+    // than as a missing field.
+    val outcome: String? = null, // offer | rejected | closed
+    @SerialName("is_terminal") val isTerminal: Boolean = false,
+    @SerialName("has_applied") val hasApplied: Boolean = false,
+    @SerialName("applied_at") val appliedAt: String? = null,
+    // The listing as job_hunt holds it, so the student can confirm they linked the right job.
+    // Legitimately different from the goal's own title/company: those are what the student
+    // typed, these are what the posting says.
+    @SerialName("listing_title") val listingTitle: String,
+    @SerialName("listing_company") val listingCompany: String? = null,
+    @SerialName("listing_url") val listingUrl: String? = null,
+)
+
+@Serializable
+data class LinkApplicationRequest(
+    @SerialName("saved_job_id") val savedJobId: Int,
+)
+
+@Serializable
 data class CareerGoalDetailDto(
     val id: Int,
     val title: String,
@@ -132,6 +163,8 @@ data class CareerGoalDetailDto(
     @SerialName("interview_risks") val interviewRisks: List<GoalInterviewRiskDto> = emptyList(),
     @SerialName("preparation_plan") val preparationPlan: List<GoalPreparationItemDto> = emptyList(),
     val progress: GoalProgressDto,
+    // The real-world application, when this goal is linked to one. Null is the ordinary state.
+    val application: GoalApplicationDto? = null,
     // The existing profile-level recommendation, reused rather than re-ranked per job.
     // Reuses the Next Best Action DTO rather than declaring a parallel one -- it is
     // literally the same payload from the same engine, and a second type could drift.

@@ -15,7 +15,7 @@ class ResumeRepositoryImpl(private val resumesApi: ResumesApi) : ResumeRepositor
         return resumesApi.uploadResume(part)
     }
 
-    override suspend fun getLatestResume(): ResumeSummaryDto? = resumesApi.getMyLatestResume()
+    override suspend fun getLatestResume(): ResumeSummaryDto? = resumesApi.getMyLatestResume().value
 
     override suspend fun downloadResumeFile(resumeId: Int): ByteArray =
         resumesApi.getResumeFile(resumeId).use { it.bytes() }

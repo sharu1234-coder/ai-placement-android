@@ -138,7 +138,7 @@ internal fun sampleSummary(id: Int = 1, displayRoleName: String = "Data Analyst"
         roleFamilyKey = "data_analyst",
         displayRoleName = displayRoleName,
         isPrimary = isPrimary,
-        readinessPercent = 30,
+        preparationPercent = 30,
         completedItems = 2,
         totalItems = 10,
         generatedVia = "catalog",

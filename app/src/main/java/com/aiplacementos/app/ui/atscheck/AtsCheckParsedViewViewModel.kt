@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.AtsCheckReportDto
 import com.aiplacementos.app.domain.repository.AtsCheckRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -26,7 +27,7 @@ class AtsCheckParsedViewViewModel(
             try {
                 _uiState.value = UiState.Success(atsCheckRepository.getAtsCheck(checkId))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error(e.message ?: "Couldn't load this resume's parsed view.")
+                _uiState.value = UiState.Error(e.toUserMessage("load this resume's parsed view"))
             }
         }
     }

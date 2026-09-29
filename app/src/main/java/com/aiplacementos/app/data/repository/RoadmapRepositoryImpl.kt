@@ -11,7 +11,7 @@ class RoadmapRepositoryImpl(private val roadmapApi: RoadmapApi) : RoadmapReposit
     override suspend fun generateRoadmap(jdId: Int?, durationDays: Int): RoadmapDto =
         roadmapApi.generateRoadmap(GenerateRoadmapRequestDto(jdId = jdId, durationDays = durationDays))
 
-    override suspend fun getCurrentRoadmap(jdId: Int?): RoadmapDto? = roadmapApi.getCurrentRoadmap(jdId)
+    override suspend fun getCurrentRoadmap(jdId: Int?): RoadmapDto? = roadmapApi.getCurrentRoadmap(jdId).value
 
     override suspend fun updateTaskStatus(taskId: Int, status: String): RoadmapTaskDto =
         roadmapApi.updateTask(taskId, UpdateRoadmapTaskRequestDto(status = status))

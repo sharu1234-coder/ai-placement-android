@@ -11,6 +11,7 @@ import com.aiplacementos.app.domain.repository.ProfessionalPresenceRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.domain.repository.ResumeRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,7 +85,7 @@ class ProfileViewModel(
                     _roles.value = rolesDeferred.await()
                 }
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load your profile. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("load your profile"))
             }
         }
     }
@@ -132,7 +133,7 @@ class ProfileViewModel(
             try {
                 _uiState.value = UiState.Success(block())
             } catch (e: Exception) {
-                _saveError.value = "Couldn't save your changes. Check your connection and try again."
+                _saveError.value = e.toUserMessage("save your changes")
             } finally {
                 _savingSection.value = null
             }
@@ -156,7 +157,7 @@ class ProfileViewModel(
                 }
                 _skills.value = profileRepository.listSkills()
             } catch (e: Exception) {
-                _saveError.value = "Couldn't update your skills. Check your connection and try again."
+                _saveError.value = e.toUserMessage("update your skills")
             } finally {
                 _savingSection.value = null
             }
@@ -189,7 +190,7 @@ class ProfileViewModel(
                 resumeRepository.deleteResume(resumeId)
                 _resume.value = null
             } catch (e: Exception) {
-                _saveError.value = "Couldn't remove your resume. Check your connection and try again."
+                _saveError.value = e.toUserMessage("remove your resume")
             }
         }
     }

@@ -32,7 +32,7 @@ internal fun sampleCareerTwin(
     hasRole: Boolean = true,
     displayRoleName: String = "Software Engineer",
     roleSource: String = "career_path",
-    readinessPercent: Int? = 42,
+    evidenceCoveragePercent: Int? = 42,
     skills: List<SkillTwinItemDto> = listOf(sampleSkillTwinItem()),
     biggestGapSkill: String? = "Python",
     nextActionHint: String? = "Start learning Python fundamentals.",
@@ -42,8 +42,8 @@ internal fun sampleCareerTwin(
     roleFamilyKey = "sde",
     displayRoleName = displayRoleName,
     roleSource = roleSource,
-    readinessPercent = readinessPercent,
-    readinessTrendPercent = null,
+    evidenceCoveragePercent = evidenceCoveragePercent,
+    evidenceCoverageTrendPercent = null,
     isEstimate = false,
     reasons = reasons,
     skills = skills,
@@ -70,7 +70,7 @@ class CareerTwinViewModelTest {
     fun `shows NoRole with the backend's real reason, not a fabricated one`() {
         val repository = FakeCareerTwinRepository().apply {
             careerTwinResult = {
-                sampleCareerTwin(hasRole = false, readinessPercent = null, skills = emptyList()).copy(
+                sampleCareerTwin(hasRole = false, evidenceCoveragePercent = null, skills = emptyList()).copy(
                     reasons = listOf("Select a target role to build your Career Twin."),
                 )
             }
@@ -85,7 +85,7 @@ class CareerTwinViewModelTest {
     @Test
     fun `NoRole falls back to a generic reason if the backend sends none`() {
         val repository = FakeCareerTwinRepository().apply {
-            careerTwinResult = { sampleCareerTwin(hasRole = false, readinessPercent = null, skills = emptyList()).copy(reasons = emptyList()) }
+            careerTwinResult = { sampleCareerTwin(hasRole = false, evidenceCoveragePercent = null, skills = emptyList()).copy(reasons = emptyList()) }
         }
         val viewModel = CareerTwinViewModel(repository)
 

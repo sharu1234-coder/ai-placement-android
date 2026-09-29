@@ -44,6 +44,17 @@ interface JobHuntApi {
     @GET("job-hunt/jobs/{listingId}")
     suspend fun getJob(@Path("listingId") listingId: Int): JobResultDto
 
+    /**
+     * Records a job the student found outside this app and starts tracking it, in one call.
+     *
+     * Returns the tracked row rather than a bare listing: a listing nobody is tracking is not
+     * something a student can act on, and the tracker row is what every screen after this one
+     * needs. Costs no provider quota and makes no AI call, so it works with the job provider
+     * unconfigured, down or out of budget -- which is the point of it existing.
+     */
+    @POST("job-hunt/listings")
+    suspend fun createListing(@Body body: ManualJobCreateDto): SavedJobDto
+
     @POST("job-hunt/saved")
     suspend fun saveJob(@Body body: SaveJobRequestDto): SavedJobDto
 

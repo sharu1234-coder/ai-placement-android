@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.AssessmentDto
 import com.aiplacementos.app.domain.repository.AssessmentRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +29,7 @@ class TestListViewModel(
                 _uiState.value = UiState.Success(assessmentRepository.startAssessment(blueprintId))
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(
-                    "Couldn't start the assessment. Check your connection and try again."
+                    e.toUserMessage("start the assessment")
                 )
             }
         }

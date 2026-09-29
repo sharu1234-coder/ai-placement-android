@@ -26,8 +26,11 @@ data class CareerTwinDto(
     @SerialName("role_family_key") val roleFamilyKey: String? = null,
     @SerialName("display_role_name") val displayRoleName: String? = null,
     @SerialName("role_source") val roleSource: String, // career_path/target_role/none
-    @SerialName("readiness_percent") val readinessPercent: Int? = null,
-    @SerialName("readiness_trend_percent") val readinessTrendPercent: Int? = null,
+    // EVIDENCE COVERAGE, not readiness: the weighted mean of evidence confidence across the
+    // role's skills. Renamed in Phase 2G to match what the backend has always computed.
+    // Null means the role defines no skills to weigh -- unmeasurable, not a score of zero.
+    @SerialName("evidence_coverage_percent") val evidenceCoveragePercent: Int? = null,
+    @SerialName("evidence_coverage_trend_percent") val evidenceCoverageTrendPercent: Int? = null,
     @SerialName("is_estimate") val isEstimate: Boolean = false,
     val reasons: List<String> = emptyList(),
     val skills: List<SkillTwinItemDto> = emptyList(),
@@ -45,8 +48,8 @@ data class CareerTwinReadinessDto(
     @SerialName("has_role") val hasRole: Boolean,
     @SerialName("role_family_key") val roleFamilyKey: String? = null,
     @SerialName("display_role_name") val displayRoleName: String? = null,
-    @SerialName("readiness_percent") val readinessPercent: Int? = null,
-    @SerialName("readiness_trend_percent") val readinessTrendPercent: Int? = null,
+    @SerialName("evidence_coverage_percent") val evidenceCoveragePercent: Int? = null,
+    @SerialName("evidence_coverage_trend_percent") val evidenceCoverageTrendPercent: Int? = null,
     @SerialName("is_estimate") val isEstimate: Boolean = false,
     val reasons: List<String> = emptyList(),
     @SerialName("biggest_gap_skill") val biggestGapSkill: String? = null,

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerPathProjectDto
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +30,7 @@ class CareerPathProjectDetailViewModel(
                 val project = careerPathRepository.getProjects(pathId).firstOrNull { it.id == projectId }
                 _uiState.value = if (project != null) UiState.Success(project) else UiState.Error("This project couldn't be found.")
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load this project. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("load this project"))
             }
         }
     }

@@ -47,6 +47,22 @@ interface JobHuntRepository {
     suspend fun getEntitlement(): JobHuntEntitlementDto
     suspend fun getJob(listingId: Int): JobResultDto
 
+    /**
+     * Records a job the student found off-platform and starts tracking it.
+     *
+     * The one path into the tracker that does not go through the job provider, which is what
+     * makes the whole outcome loop usable when the provider is unconfigured, down, or out of
+     * the deployment's shared quota. Blank strings are the caller's to normalise to null.
+     */
+    suspend fun addManualJob(
+        title: String,
+        company: String? = null,
+        location: String? = null,
+        url: String? = null,
+        description: String? = null,
+        status: String = "saved",
+    ): SavedJobDto
+
     /** [source] records which screen the tap came from, for tracker provenance. It is a
      * display label, never an entitlement or an ownership claim, so the client may assert it. */
     suspend fun saveJob(

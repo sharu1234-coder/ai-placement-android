@@ -77,6 +77,7 @@ fun JobHuntHomeScreen(
     onOpenJob: (Int) -> Unit = {},
     onOpenSavedSearches: () -> Unit = {},
     onOpenAlerts: () -> Unit = {},
+    onAddManualJob: () -> Unit = {},
 ) {
     val network = networkModule()
     val viewModel: JobHuntHomeViewModel = viewModel(
@@ -130,6 +131,7 @@ fun JobHuntHomeScreen(
                     onOpenJob = onOpenJob,
                     onOpenSavedSearches = onOpenSavedSearches,
                     onOpenAlerts = onOpenAlerts,
+                    onAddManualJob = onAddManualJob,
                 )
             }
         }
@@ -148,6 +150,7 @@ private fun FindJobsContent(
     onOpenJob: (Int) -> Unit,
     onOpenSavedSearches: () -> Unit,
     onOpenAlerts: () -> Unit,
+    onAddManualJob: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -216,6 +219,32 @@ private fun FindJobsContent(
                     )
                 }
             }
+        }
+
+        // Placed directly under the hero, above the search shortcuts, because this is the
+        // path that works when the other one does not. Searching costs a shared provider
+        // quota and is gated on the free tier; adding a job the student already found costs
+        // nothing and is always available. A student out of searches must not have to hunt
+        // for the one route still open to them.
+        AppCard {
+            Text(
+                text = "Found a job somewhere else?",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                text = "Campus placement, a referral, LinkedIn, a company site -- add it and " +
+                    "track it alongside everything else.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+            SecondaryButton(
+                text = "Add a job",
+                onClick = onAddManualJob,
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+            )
         }
 
         Text(

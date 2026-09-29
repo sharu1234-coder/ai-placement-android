@@ -71,7 +71,10 @@ data class RoleSuggestionsDto(
 data class JobListingDto(
     val id: Int,
     val provider: String,
-    val url: String,
+    // Null on a manually entered job with no link -- a campus placement, a referral, a role
+    // described over email. The apply button is hidden rather than opening nothing, and the
+    // client never substitutes a search URL or the company's homepage in its place.
+    val url: String? = null,
     val title: String,
     val company: String? = null,
     val location: String? = null,
@@ -180,6 +183,30 @@ data class JobSearchResponseDto(
     @SerialName("fetched_at") val fetchedAt: String,
     @SerialName("duplicates_removed") val duplicatesRemoved: Int = 0,
     @SerialName("score_version") val scoreVersion: String = "",
+)
+
+/**
+ * A job the student found somewhere this app cannot search.
+ *
+ * Every field maps to one the backend already stores on a listing. Nothing provider-internal
+ * is sent -- no provider name, no provider job id, no ranking or search metadata -- because
+ * those describe how a listing was ingested and this one was typed. `source` is absent for the
+ * same reason: the server knows this job was entered by hand, so the client asserting it would
+ * be a claim rather than a fact.
+ *
+ * Empty strings are sent as null rather than as "", so a field the student tabbed through does
+ * not become a company named one space. [status] lets a student who found this product after
+ * already interviewing record where they actually are, instead of walking a real application
+ * backwards through a pipeline it has already passed.
+ */
+@Serializable
+data class ManualJobCreateDto(
+    val title: String,
+    val company: String? = null,
+    val location: String? = null,
+    val url: String? = null,
+    val description: String? = null,
+    val status: String = "saved",
 )
 
 @Serializable

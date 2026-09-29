@@ -2,14 +2,18 @@ package com.aiplacementos.app.ui.jobprep
 
 import com.aiplacementos.app.MainDispatcherRule
 import com.aiplacementos.app.data.remote.AssessmentBlueprintDto
+import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.data.remote.GapGuidanceDto
+import com.aiplacementos.app.data.remote.InterviewPrepCategorySummaryDto
 import com.aiplacementos.app.data.remote.JobPreparationPlanDto
+import com.aiplacementos.app.data.remote.JobReadinessDto
 import com.aiplacementos.app.data.remote.JobSummaryDto
 import com.aiplacementos.app.data.remote.ProjectConnectionDto
 import com.aiplacementos.app.data.remote.RequiredSkillDto
 import com.aiplacementos.app.data.remote.ResumeRecommendationItemDto
 import com.aiplacementos.app.data.remote.ResumeRecommendationsDto
 import com.aiplacementos.app.data.remote.RoadmapDto
+import com.aiplacementos.app.data.remote.RoleOverviewDto
 import com.aiplacementos.app.data.remote.SkillGapStatusDto
 import com.aiplacementos.app.fakes.FakeAssessmentRepository
 import com.aiplacementos.app.fakes.FakeCareerPathRepository
@@ -17,6 +21,7 @@ import com.aiplacementos.app.fakes.FakeJobRepository
 import com.aiplacementos.app.fakes.FakeRoadmapRepository
 import com.aiplacementos.app.fakes.httpException
 import java.io.IOException
+import kotlinx.coroutines.awaitCancellation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -269,16 +274,201 @@ class JobMatchPrepResultViewModelTest {
     fun `updating the career path without one selected says so instead of guessing`() {
         val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
         val careerPath = FakeCareerPathRepository().apply { currentResult = { null } }
-        var done = false
 
         val vm = viewModel(job, careerPath = careerPath)
-        vm.updateCareerPath { done = true }
+        vm.updateCareerPath()
 
-        assertFalse(done)
+        assertNull(vm.updatedCareerPathId.value)
         assertEquals(
             "Select a Career Path first, then update it with this job.",
             success(vm).actionError,
         )
+        // Refusing has to leave the button usable, or the student cannot act on what it told them.
+        assertFalse(success(vm).isUpdatingCareerPath)
+    }
+
+    // --- the Career Path update's lifecycle (F12-04) ------------------------------------------
+
+    /**
+     * The state the screen is left in once the update has succeeded and it is on its way out.
+     *
+     * Every test below starts from here rather than from a hand-set flag, because the whole
+     * question is what the real transition leaves behind.
+     */
+    private fun afterASuccessfulUpdate(
+        careerPath: FakeCareerPathRepository = updatableCareerPath(),
+    ): JobMatchPrepResultViewModel {
+        val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
+        val vm = viewModel(job, careerPath = careerPath)
+        vm.updateCareerPath()
+        return vm
+    }
+
+    private fun updatableCareerPath() = FakeCareerPathRepository().apply {
+        currentResult = { testCareerPath() }
+        applyJdResult = { _, _ -> testCareerPath() }
+    }
+
+    @Test
+    fun `the button starts idle`() {
+        val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
+
+        val vm = viewModel(job)
+
+        assertFalse(success(vm).isUpdatingCareerPath)
+        assertNull(vm.updatedCareerPathId.value)
+    }
+
+    @Test
+    fun `tapping update sends one request and shows the busy state`() {
+        val careerPath = updatableCareerPath()
+
+        val vm = afterASuccessfulUpdate(careerPath)
+
+        assertEquals(42, careerPath.lastAppliedJdId)
+        // Still busy: the screen is on its way to the Career Path, and re-enabling the button here
+        // would reopen the window a duplicate tap gets through.
+        assertTrue(success(vm).isUpdatingCareerPath)
+    }
+
+    @Test
+    fun `a successful update offers the path to open exactly once`() {
+        val vm = afterASuccessfulUpdate()
+
+        assertEquals(77, vm.updatedCareerPathId.value)
+
+        // What the screen does when it navigates. Without this, the recomposition Back causes
+        // re-fires the navigation and the student cannot get off the Career Path screen.
+        vm.onUpdatedCareerPathOpened()
+
+        assertNull(vm.updatedCareerPathId.value)
+    }
+
+    @Test
+    fun `a duplicate tap while the update is in flight sends one request`() {
+        val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
+        var applyJdCalls = 0
+        val careerPath = FakeCareerPathRepository().apply {
+            currentResult = { testCareerPath() }
+            applyJdResult = { _, _ ->
+                applyJdCalls++
+                awaitCancellation() // never finishes: the update is genuinely still in flight
+            }
+        }
+
+        val vm = viewModel(job, careerPath = careerPath)
+        vm.updateCareerPath()
+        vm.updateCareerPath()
+        vm.updateCareerPath()
+
+        assertEquals(1, applyJdCalls)
+        assertTrue(success(vm).isUpdatingCareerPath)
+    }
+
+    @Test
+    fun `resuming after a successful update makes the button usable again`() {
+        val vm = afterASuccessfulUpdate()
+        assertTrue("precondition: the update left the screen busy", success(vm).isUpdatingCareerPath)
+
+        // Back from the Career Path detail screen: the entry -- and this view model -- survived it.
+        vm.onScreenResumed()
+
+        assertFalse(success(vm).isUpdatingCareerPath)
+        assertNull(success(vm).actionError)
+    }
+
+    @Test
+    fun `a second tap after coming back sends one more request`() {
+        val careerPath = updatableCareerPath()
+        var applyJdCalls = 0
+        careerPath.applyJdResult = { _, _ ->
+            applyJdCalls++
+            testCareerPath()
+        }
+        val vm = afterASuccessfulUpdate(careerPath)
+        vm.onUpdatedCareerPathOpened()
+        vm.onScreenResumed()
+
+        vm.updateCareerPath()
+
+        assertEquals(2, applyJdCalls)
+        assertEquals(77, vm.updatedCareerPathId.value)
+    }
+
+    @Test
+    fun `resuming while an update is genuinely running keeps the busy state`() {
+        val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
+        val careerPath = FakeCareerPathRepository().apply {
+            currentResult = { testCareerPath() }
+            applyJdResult = { _, _ -> awaitCancellation() }
+        }
+        val vm = viewModel(job, careerPath = careerPath)
+        vm.updateCareerPath()
+
+        // Backgrounding the app mid-update and returning must not hand the student a button that
+        // looks ready -- that is also what would let them past the in-flight guard.
+        vm.onScreenResumed()
+
+        assertTrue(success(vm).isUpdatingCareerPath)
+        assertNull(vm.updatedCareerPathId.value)
+    }
+
+    @Test
+    fun `a failed update clears the busy state, reports it, and allows a retry`() {
+        val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
+        var attempts = 0
+        val careerPath = FakeCareerPathRepository().apply {
+            currentResult = { testCareerPath() }
+            applyJdResult = { _, _ ->
+                attempts++
+                if (attempts == 1) throw IOException("offline") else testCareerPath()
+            }
+        }
+
+        val vm = viewModel(job, careerPath = careerPath)
+        vm.updateCareerPath()
+
+        assertEquals(
+            "Couldn't reach the server. Check your connection and try again.",
+            success(vm).actionError,
+        )
+        assertFalse(success(vm).isUpdatingCareerPath)
+        assertNull("a failure must not navigate", vm.updatedCareerPathId.value)
+
+        // The retry the cleared flag is there to allow.
+        vm.updateCareerPath()
+
+        assertEquals(2, attempts)
+        assertEquals(77, vm.updatedCareerPathId.value)
+        assertNull(success(vm).actionError)
+    }
+
+    @Test
+    fun `resuming leaves an idle screen alone`() {
+        val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
+        val vm = viewModel(job)
+
+        vm.onScreenResumed()
+
+        assertFalse(success(vm).isUpdatingCareerPath)
+        // Nothing else on the screen is disturbed: this is not a reload.
+        assertEquals("Data Analyst", success(vm).plan.jobSummary.jobTitle)
+    }
+
+    @Test
+    fun `resuming does not disturb the sibling actions`() {
+        // isStartingPractice and isGeneratingRoadmap are not this defect and are not touched.
+        val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
+        val careerPath = updatableCareerPath()
+        val assessment = FakeAssessmentRepository().apply {
+            createBlueprintResult = { _, _, _ -> awaitCancellation() }
+        }
+        val vm = viewModel(job, assessment = assessment, careerPath = careerPath)
+        vm.startPractice {}
+
+        vm.onScreenResumed()
+
+        assertTrue(success(vm).isStartingPractice)
     }
 
     @Test
@@ -331,6 +521,38 @@ private fun testRoadmap() = RoadmapDto(
     durationDays = 14,
     status = "active",
     tasks = emptyList(),
+)
+
+/** The student's current Career Path -- the one "Add to my Career Path" merges this job into. */
+private fun testCareerPath() = CareerPathDto(
+    id = 77,
+    roleFamilyKey = "data_analyst",
+    displayRoleName = "Data Analyst",
+    isPrimary = true,
+    generatedVia = "catalog",
+    roleOverview = RoleOverviewDto(
+        displayName = "Data Analyst",
+        category = "Data & AI",
+        shortExplanation = "Turns data into insights.",
+        responsibilities = listOf("Query databases"),
+        coreSkills = listOf("SQL"),
+        tools = listOf("Power BI"),
+        difficulty = "beginner-friendly",
+        entryLevelExpectations = "Basic SQL.",
+        interviewFocus = listOf("SQL"),
+        portfolioExpectations = "One dashboard.",
+    ),
+    phases = emptyList(),
+    skillGaps = emptyList(),
+    interviewPrep = emptyList<InterviewPrepCategorySummaryDto>(),
+    jobReadiness = JobReadinessDto(
+        overallPercent = 10,
+        skillsPercent = 10,
+        projectsPercent = 0,
+        topFocusAreas = emptyList(),
+    ),
+    createdAt = "2026-01-01T00:00:00Z",
+    updatedAt = "2026-01-01T00:00:00Z",
 )
 
 /**

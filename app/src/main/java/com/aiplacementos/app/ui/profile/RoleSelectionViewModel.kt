@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.RoleDto
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,7 +36,7 @@ class RoleSelectionViewModel(
                 val roles = profileRepository.getRoles()
                 _uiState.value = if (roles.isEmpty()) UiState.Empty else UiState.Success(roles)
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load roles. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("load roles"))
             }
         }
     }
@@ -47,7 +48,7 @@ class RoleSelectionViewModel(
                 if (isSecondary) profileRepository.selectSecondaryRole(roleId) else profileRepository.selectRole(roleId)
                 onSelected()
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't select that role. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("select that role"))
             } finally {
                 _selecting.value = false
             }
@@ -62,7 +63,7 @@ class RoleSelectionViewModel(
                 profileRepository.selectRole(roleId = null, customRole = customRole)
                 onSelected()
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't select that role. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("select that role"))
             } finally {
                 _selecting.value = false
             }

@@ -74,6 +74,24 @@ fun interviewCategoryLabel(category: String): String = when (category) {
     else -> category.replaceFirstChar { it.uppercase() }
 }
 
+/**
+ * How much of the Job Readiness average was actually measured.
+ *
+ * `overall_percent` averages only the signals that have a reading, so 78% from two signals and
+ * 78% from five are the same number standing on very different evidence. The breakdown below
+ * the ring already marks the untouched ones "Not started yet", but the headline figure carried
+ * no such mark, and the Career Path home card shows that figure with no breakdown at all.
+ *
+ * Says "measured from N of M signals", never "N% confident": the percentage is an average of
+ * what was measured, not a confidence in the result, and conflating the two on a screen a
+ * student uses to decide what to do next is the exact overclaim Phase 2F removed elsewhere.
+ */
+fun readinessCoverageLabel(contributingSignals: Int, totalSignals: Int): String = when {
+    totalSignals <= 0 || contributingSignals <= 0 -> "No signals measured yet"
+    contributingSignals >= totalSignals -> "Measured from all $totalSignals signals"
+    else -> "Measured from $contributingSignals of $totalSignals signals"
+}
+
 fun generatedViaLabel(generatedVia: String): String? = when (generatedVia) {
     "ai_generated" -> "AI-assisted plan for this role"
     "fallback" -> "Starter plan -- customize as you learn more about this role"

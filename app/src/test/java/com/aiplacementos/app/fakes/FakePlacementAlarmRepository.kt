@@ -37,8 +37,6 @@ class FakePlacementAlarmRepository : PlacementAlarmRepository {
 
     override fun observeAlarms(): Flow<List<AlarmConfigEntity>> = alarmsFlow
 
-    override suspend fun getAllEnabledAlarms(): List<AlarmConfigEntity> = alarmsFlow.value.filter { it.enabled }
-
     override suspend fun getAlarm(alarmId: Long): AlarmConfigEntity? = alarmsFlow.value.firstOrNull { it.id == alarmId }
 
     override suspend fun createAlarm(

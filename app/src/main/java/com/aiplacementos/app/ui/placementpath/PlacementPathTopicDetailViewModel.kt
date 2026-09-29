@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.PlacementPathTopicDto
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,7 +34,7 @@ class PlacementPathTopicDetailViewModel(
                 _uiState.value = if (topic != null) UiState.Success(topic) else UiState.Empty
                 _prerequisite.value = allTopics.find { it.id == topic?.prerequisiteTopicId }
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load this topic. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("load this topic"))
             }
         }
     }
@@ -49,7 +50,7 @@ class PlacementPathTopicDetailViewModel(
             try {
                 onReady(placementPathRepository.practice(topicId))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't start practice. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("start practice"))
             }
         }
     }
@@ -59,7 +60,7 @@ class PlacementPathTopicDetailViewModel(
             try {
                 _uiState.value = UiState.Success(placementPathRepository.markComplete(topicId))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't mark this topic complete. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("mark this topic complete"))
             }
         }
     }

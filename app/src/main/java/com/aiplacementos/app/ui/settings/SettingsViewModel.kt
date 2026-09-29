@@ -7,6 +7,7 @@ import com.aiplacementos.app.domain.repository.AuthRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.push.NotificationPreferences
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +63,7 @@ class SettingsViewModel(
                     if (e.code() == 403) "Incorrect password" else "Couldn't delete account (${e.code()})"
                 )
             } catch (e: Exception) {
-                _deleteAccountState.value = UiState.Error("Couldn't reach the server. Check your connection.")
+                _deleteAccountState.value = UiState.Error(e.toUserMessage("delete your account"))
             }
         }
     }

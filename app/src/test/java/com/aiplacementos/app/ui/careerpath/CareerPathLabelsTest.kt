@@ -1,6 +1,7 @@
 package com.aiplacementos.app.ui.careerpath
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -56,5 +57,38 @@ class CareerPathLabelsTest {
         assertNull(generatedViaLabel("catalog"))
         assertEquals(true, generatedViaLabel("ai_generated")?.isNotBlank())
         assertEquals(true, generatedViaLabel("fallback")?.isNotBlank())
+    }
+
+    @Test
+    fun `readinessCoverageLabel states the real denominator`() {
+        assertEquals("Measured from 2 of 5 signals", readinessCoverageLabel(2, 5))
+        assertEquals("Measured from 4 of 5 signals", readinessCoverageLabel(4, 5))
+    }
+
+    @Test
+    fun `readinessCoverageLabel still says so when every signal was measured`() {
+        // Going silent at full coverage would make the disclosure itself a bad-news signal,
+        // and leave a student unable to tell "all five" from "we stopped telling you".
+        assertEquals("Measured from all 5 signals", readinessCoverageLabel(5, 5))
+    }
+
+    @Test
+    fun `readinessCoverageLabel claims no coverage it does not have`() {
+        assertEquals("No signals measured yet", readinessCoverageLabel(0, 5))
+        assertEquals("No signals measured yet", readinessCoverageLabel(0, 0))
+    }
+
+    @Test
+    fun `readinessCoverageLabel never restates the average as a confidence`() {
+        // "78% ready" is an average of what was measured. A label reading "78% confident"
+        // would turn that into a claim about the result, which is not what was computed.
+        listOf(
+            readinessCoverageLabel(2, 5),
+            readinessCoverageLabel(5, 5),
+            readinessCoverageLabel(0, 5),
+        ).forEach { label ->
+            assertFalse(label, label.contains("%"))
+            assertFalse(label, label.contains("confiden", ignoreCase = true))
+        }
     }
 }

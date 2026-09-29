@@ -78,6 +78,9 @@ fun JobHuntResultsScreen(
     onOpenSubscriptions: () -> Unit,
     onOpenSavedSearches: () -> Unit = {},
     initialFilters: JobFilters = JobFilters(),
+    /** Set when this screen was opened by running a saved search, so the run goes through the
+     * endpoint that records it rather than replaying the filters. */
+    savedSearchId: Int? = null,
 ) {
     val network = networkModule()
     val viewModel: JobHuntSearchViewModel = viewModel(
@@ -90,6 +93,7 @@ fun JobHuntResultsScreen(
                 JobHuntSearchViewModel(
                     network.jobHuntRepository,
                     initialFilters,
+                    savedSearchId,
                     createSavedStateHandle(),
                 )
             }

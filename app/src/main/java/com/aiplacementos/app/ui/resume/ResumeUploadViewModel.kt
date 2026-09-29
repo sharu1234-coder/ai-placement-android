@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.ResumeUploadResponseDto
 import com.aiplacementos.app.domain.repository.ResumeRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,7 +55,7 @@ class ResumeUploadViewModel(private val resumeRepository: ResumeRepository) : Vi
                     }
                 )
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't reach the server. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("upload your resume"))
             }
         }
     }

@@ -13,7 +13,11 @@ data class ProgressTrendPointDto(
 
 @Serializable
 data class ProgressDashboardDto(
-    @SerialName("readiness_score") val readinessScore: Double?,
+    // PERFORMANCE: the mean of the latest test's and the latest interview's overall score,
+    // 0-1. Renamed from readiness_score in Phase 2F -- it says how the student PERFORMED on
+    // the last things they did, not how ready they are for anything. Null means neither has
+    // been completed, which is not a performance of zero.
+    @SerialName("performance_score") val performanceScore: Double?,
     @SerialName("completed_assessments") val completedAssessments: Int,
     @SerialName("completed_interviews") val completedInterviews: Int,
     @SerialName("roadmap_tasks_done") val roadmapTasksDone: Int,

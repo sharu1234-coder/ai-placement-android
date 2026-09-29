@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.InterviewQuestionDto
 import com.aiplacementos.app.domain.repository.InterviewRepository
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -85,7 +86,7 @@ class TextInterviewViewModel(
                 loadNext()
             } catch (e: Exception) {
                 _uiState.value = TextInterviewUiState.Error(
-                    "Couldn't start the interview. Check your connection and try again."
+                    e.toUserMessage("start the interview")
                 )
             }
         }
@@ -109,7 +110,7 @@ class TextInterviewViewModel(
                 }
             } catch (e: Exception) {
                 _uiState.value = TextInterviewUiState.Error(
-                    "Couldn't load the next question. Check your connection and try again."
+                    e.toUserMessage("load the next question")
                 )
             }
         }
@@ -127,7 +128,7 @@ class TextInterviewViewModel(
                 loadNext()
             } catch (e: Exception) {
                 _uiState.value = TextInterviewUiState.Error(
-                    "Couldn't submit your answer. Check your connection and try again."
+                    e.toUserMessage("submit your answer")
                 )
             }
         }

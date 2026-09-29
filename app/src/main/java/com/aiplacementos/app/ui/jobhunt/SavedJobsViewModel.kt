@@ -38,6 +38,34 @@ enum class ApplicationStage(val apiValue: String, val label: String) {
     }
 }
 
+/**
+ * The most characters the server will store in a note.
+ *
+ * Mirrors UpdateSavedJobRequest.notes' max_length exactly (app/schemas/job_hunt.py). The
+ * column itself is TEXT and unbounded, so this schema limit is the only one -- and the editor
+ * enforces it rather than letting a student type six thousand characters and lose them to a
+ * 422 they could not have predicted.
+ */
+const val MAX_NOTE_LENGTH = 5000
+
+/**
+ * One note being written, held apart from the row it belongs to.
+ *
+ * The draft lives here rather than in the composable because the failure path is the whole
+ * point: a refused save must leave the student's text exactly where it was, and state a
+ * LazyColumn row owns is state that disappears when the row scrolls out of view.
+ */
+data class NoteDraft(
+    val savedJobId: Int,
+    val text: String,
+    val error: String? = null,
+    val isSaving: Boolean = false,
+) {
+    /** Shown only as the limit approaches -- a counter on every note would be noise on the
+     * one-line notes that are most of them. */
+    val showCounter: Boolean get() = text.length > MAX_NOTE_LENGTH - 500
+}
+
 sealed interface SavedJobsUiState {
     data object Loading : SavedJobsUiState
     data class Error(val message: String, val isNetworkError: Boolean = false) : SavedJobsUiState
@@ -45,6 +73,8 @@ sealed interface SavedJobsUiState {
         val jobs: List<SavedJobDto>,
         val updatingIds: Set<Int> = emptySet(),
         val actionError: String? = null,
+        /** Non-null while the note editor is open for one tracked job. */
+        val editingNote: NoteDraft? = null,
     ) : SavedJobsUiState
 }
 
@@ -100,15 +130,79 @@ class SavedJobsViewModel(
         }
     }
 
-    fun saveNote(savedJobId: Int, note: String) {
+    /**
+     * Open the note editor for one tracked job, seeded with whatever is already stored.
+     *
+     * Opening it is a purely local act: nothing is fetched and nothing is written. The note is
+     * already on the row that was loaded with the list, so reading it costs no request, and
+     * writing on open would save a note the student never typed.
+     */
+    fun startEditingNote(savedJobId: Int) {
+        val current = _uiState.value as? SavedJobsUiState.Success ?: return
+        val job = current.jobs.find { it.id == savedJobId } ?: return
+        _uiState.value = current.copy(
+            editingNote = NoteDraft(savedJobId = savedJobId, text = job.notes.orEmpty()),
+        )
+    }
+
+    /**
+     * Typing. Capped at what the server will accept rather than letting the student write past
+     * the limit and lose it to a 422 -- and the error clears as they type, so a message about
+     * the previous attempt does not sit over the new text.
+     */
+    fun onNoteChange(text: String) {
+        val current = _uiState.value as? SavedJobsUiState.Success ?: return
+        val draft = current.editingNote ?: return
+        _uiState.value = current.copy(
+            editingNote = draft.copy(text = text.take(MAX_NOTE_LENGTH), error = null),
+        )
+    }
+
+    fun cancelNoteEdit() {
+        val current = _uiState.value as? SavedJobsUiState.Success ?: return
+        _uiState.value = current.copy(editingNote = null)
+    }
+
+    /**
+     * Write the open draft.
+     *
+     * Trimmed, and an all-whitespace note is sent as the empty string. That is not a semantic
+     * this client invents: update_saved_job assigns `notes` whenever it is not None, so ""
+     * clears the note and a missing field leaves it alone -- and a student who selected their
+     * note and deleted it means "there is no note now", not "store three spaces".
+     *
+     * One write per tap. The in-flight flag is what stands between an impatient student and
+     * five identical PATCHes racing each other to decide what the note says.
+     */
+    fun saveNote() {
+        val current = _uiState.value as? SavedJobsUiState.Success ?: return
+        val draft = current.editingNote ?: return
+        if (draft.isSaving) return
+
+        val note = draft.text.trim()
         viewModelScope.launch {
+            _uiState.value = current.copy(editingNote = draft.copy(isSaving = true, error = null))
             try {
-                val updated = jobHuntRepository.updateSaved(savedJobId, notes = note)
+                val updated = jobHuntRepository.updateSaved(draft.savedJobId, notes = note)
                 updateSuccess { state ->
-                    state.copy(jobs = state.jobs.map { if (it.id == savedJobId) updated else it })
+                    state.copy(
+                        jobs = state.jobs.map { if (it.id == draft.savedJobId) updated else it },
+                        // Closed only once the server has confirmed it. Closing on the tap
+                        // would show the row's old note back as though nothing had happened.
+                        editingNote = null,
+                    )
                 }
             } catch (e: Exception) {
-                updateSuccess { it.copy(actionError = e.toUserMessage("save your note")) }
+                updateSuccess { state ->
+                    // The editor stays open with every character still in it. Retrying is one
+                    // more tap, not retyping the note.
+                    state.copy(
+                        editingNote = state.editingNote?.copy(
+                            isSaving = false,
+                            error = e.toUserMessage("save your note"),
+                        ),
+                    )
+                }
             }
         }
     }

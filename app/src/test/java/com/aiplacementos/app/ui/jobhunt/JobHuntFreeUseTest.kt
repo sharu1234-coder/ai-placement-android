@@ -54,7 +54,7 @@ class JobHuntFreeUseTest {
     private fun viewModel(
         repository: FakeJobHuntRepository,
         handle: SavedStateHandle? = null,
-    ) = JobHuntSearchViewModel(repository, JobFilters(), handle)
+    ) = JobHuntSearchViewModel(repository, JobFilters(), savedStateHandle = handle)
 
     // -- Classification -------------------------------------------------------------------
 

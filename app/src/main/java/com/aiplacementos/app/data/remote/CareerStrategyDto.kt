@@ -15,7 +15,7 @@ import kotlinx.serialization.Serializable
  * list means "nothing to show" or "upgrade to see this", and the two look completely different
  * on screen.
  *
- * **Nullable means unknown, and unknown is never zero.** `readinessPercent`, `impact`, `effort`
+ * **Nullable means unknown, and unknown is never zero.** `evidenceCoveragePercent`, `impact`, `effort`
  * and every score here are null when the backend could not judge them. Rendering a null as 0%
  * would tell a student they failed at something they simply have not attempted yet. Every one
  * of these is defaulted so an older backend that does not send a field still deserializes
@@ -172,12 +172,16 @@ data class CareerStrategyDto(
     @SerialName("display_role_name") val displayRoleName: String? = null,
     @SerialName("role_source") val roleSource: String = "none",
     @SerialName("role_is_estimate") val roleIsEstimate: Boolean = false,
-    @SerialName("readiness_percent") val readinessPercent: Int? = null,
-    @SerialName("readiness_is_estimate") val readinessIsEstimate: Boolean = false,
+    // Career Twin's EVIDENCE COVERAGE number, carried through so the two screens cannot
+    // disagree. Renamed in Phase 2G with its two companions below -- all three describe the
+    // same metric, and splitting their names would leave the screen reading "evidence
+    // coverage" out of a field called readiness.
+    @SerialName("evidence_coverage_percent") val evidenceCoveragePercent: Int? = null,
+    @SerialName("evidence_coverage_is_estimate") val evidenceCoverageIsEstimate: Boolean = false,
     // Career Twin's own working, shown beside its number. Free: the /career-twin endpoint this
     // comes from is free, so gating it here would hide from one screen what the same student
     // reads on another.
-    @SerialName("readiness_reasons") val readinessReasons: List<String> = emptyList(),
+    @SerialName("evidence_coverage_reasons") val evidenceCoverageReasons: List<String> = emptyList(),
     @SerialName("signal_count") val signalCount: Int = 0,
     val bottleneck: StrategyBottleneckDto? = null,
     val queue: List<StrategyQueueItemDto> = emptyList(),
@@ -292,7 +296,7 @@ data class TargetStrategyDto(
     @SerialName("role_id") val roleId: Int? = null,
     @SerialName("display_role_name") val displayRoleName: String,
     @SerialName("is_current_target") val isCurrentTarget: Boolean = false,
-    @SerialName("readiness_percent") val readinessPercent: Int? = null,
+    @SerialName("evidence_coverage_percent") val evidenceCoveragePercent: Int? = null,
     val classification: String? = null,
     @SerialName("estimated_hours_to_strengthen") val estimatedHoursToStrengthen: Float? = null,
     @SerialName("is_estimate") val isEstimate: Boolean = true,

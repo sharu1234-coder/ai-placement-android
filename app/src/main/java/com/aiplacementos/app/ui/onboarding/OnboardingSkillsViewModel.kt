@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.SkillDto
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +30,7 @@ class OnboardingSkillsViewModel(private val profileRepository: ProfileRepository
                 // step's normal starting point, not an error/empty condition to special-case.
                 _uiState.value = UiState.Success(profileRepository.listSkills())
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load your skills. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("load your skills"))
             }
         }
     }
@@ -49,7 +50,7 @@ class OnboardingSkillsViewModel(private val profileRepository: ProfileRepository
                 }
                 _uiState.value = UiState.Success(profileRepository.listSkills())
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't update your skills. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("update your skills"))
             } finally {
                 _busy.value = false
             }

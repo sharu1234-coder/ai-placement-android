@@ -33,6 +33,7 @@ import com.aiplacementos.app.ui.atscheck.AtsCheckSectionAnalysisScreen
 import com.aiplacementos.app.ui.careerdecision.CareerDecisionLabScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathDetailScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathGapAnalysisScreen
+import com.aiplacementos.app.ui.careerpath.CareerPathGenerationRecovery
 import com.aiplacementos.app.ui.careerpath.CareerPathHomeScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathInterviewPrepScreen
 import com.aiplacementos.app.ui.careerpath.CareerPathProjectDetailScreen
@@ -46,6 +47,7 @@ import com.aiplacementos.app.ui.careergoal.CareerGoalDetailScreen
 import com.aiplacementos.app.ui.careergoal.CareerGoalListScreen
 import com.aiplacementos.app.ui.careerstrategy.CareerStrategyScreen
 import com.aiplacementos.app.ui.careertwin.CareerTwinScreen
+import com.aiplacementos.app.ui.common.toUserMessage
 import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderCreateScreen
 import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderDetailScreen
 import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderListScreen
@@ -56,6 +58,7 @@ import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackResultsScreen
 import com.aiplacementos.app.ui.recruiterattack.RecruiterAttackSessionScreen
 import com.aiplacementos.app.ui.jobprep.JobMatchPrepResultScreen
 import com.aiplacementos.app.ui.jobprep.JobMatchPrepScreen
+import com.aiplacementos.app.ui.jobhunt.AddManualJobScreen
 import com.aiplacementos.app.ui.jobhunt.JobDetailScreen
 import com.aiplacementos.app.ui.jobhunt.JobHuntHomeScreen
 import com.aiplacementos.app.ui.jobhunt.JobHuntResultsScreen
@@ -134,24 +137,36 @@ fun NavGraph(navController: NavHostController) {
     // LaunchedEffect. A returning, already-logged-in user must always be able to reach
     // *something* on cold start, even offline, so a failure now surfaces a retryable error
     // screen instead of an uncaught exception.
-    var sessionRestoreFailed by remember { mutableStateOf(false) }
+    var sessionRestoreError by remember { mutableStateOf<String?>(null) }
     var retryToken by remember { mutableStateOf(0) }
     LaunchedEffect(retryToken) {
-        sessionRestoreFailed = false
+        sessionRestoreError = null
         startDestination = if (!network.authRepository.isLoggedIn()) {
             Screen.Welcome.route
         } else {
             try {
                 resolvePostAuthDestination(network.profileRepository)
             } catch (e: Exception) {
-                sessionRestoreFailed = true
+                // Keeping the throwable is the point: discarding it left this screen able
+                // to say only "check your connection", including for a 500 or an expired
+                // session -- the two failures a student is most likely to hit here.
+                sessionRestoreError = e.toUserMessage("restore your session")
                 null
             }
         }
     }
-    if (sessionRestoreFailed) {
+    // A Career Path generation whose response was lost, and whose deadline has passed while the
+    // app was gone, is ended here -- see CareerPathGenerationRecovery.resolveAtLaunch.
+    LaunchedEffect(Unit) {
+        if (network.authRepository.isLoggedIn()) {
+            CareerPathGenerationRecovery(network.careerPathRepository, network.pendingOperationStore)
+                .resolveAtLaunch()
+        }
+    }
+    val restoreError = sessionRestoreError
+    if (restoreError != null) {
         ErrorState(
-            message = "Couldn't restore your session. Check your connection and try again.",
+            message = restoreError,
             onRetry = { retryToken++ },
             modifier = Modifier.fillMaxSize(),
         )
@@ -905,6 +920,7 @@ fun NavGraph(navController: NavHostController) {
                 onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
                 onOpenSavedSearches = { navController.navigate(Screen.JobHuntSavedSearches.route) },
                 onOpenAlerts = { navController.navigate(Screen.JobHuntAlerts.route) },
+                onAddManualJob = { navController.navigate(Screen.JobHuntAddManual.route) },
                 onOpenResumeUpload = { navController.navigate(Screen.ProfileResumeUpload.route) },
                 onOpenSubscriptions = { navController.navigate(Screen.Subscriptions.route) },
             )
@@ -931,6 +947,14 @@ fun NavGraph(navController: NavHostController) {
                     nullable = true
                     defaultValue = null
                 },
+                // Carried as a string rather than an Int so it can genuinely be absent: an
+                // IntType argument cannot be null, and a sentinel like -1 would have to be
+                // remembered and checked at every use.
+                navArgument("savedSearchId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             ),
         ) { backStackEntry ->
             // A malformed or stale argument opens an unfiltered search rather than crashing
@@ -939,8 +963,13 @@ fun NavGraph(navController: NavHostController) {
             val initialFilters = backStackEntry.arguments?.getString("filters")
                 ?.let { runCatching { Json.decodeFromString<JobFilters>(it) }.getOrNull() }
                 ?: JobFilters()
+            // Same tolerance, and it degrades the right way: an unreadable id means this stops
+            // being a saved-search run and becomes an ordinary search of the same filters,
+            // which shows the student the jobs they asked for rather than an error.
+            val savedSearchId = backStackEntry.arguments?.getString("savedSearchId")?.toIntOrNull()
             JobHuntResultsScreen(
                 initialFilters = initialFilters,
+                savedSearchId = savedSearchId,
                 onBack = { navController.popBackStack() },
                 onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
                 onOpenSaved = { navController.navigate(Screen.JobHuntSaved.route) },
@@ -994,8 +1023,10 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.JobHuntSavedSearches.route) {
             SavedSearchesScreen(
                 onBack = { navController.popBackStack() },
-                onRunSearch = { filters ->
-                    navController.navigate(jobHuntResultsRoute(Json.encodeToString(filters))) {
+                onRunSearch = { savedSearchId, filters ->
+                    navController.navigate(
+                        jobHuntResultsRoute(Json.encodeToString(filters), savedSearchId),
+                    ) {
                         // Replace this screen: coming "back" from results the student just
                         // asked for should return to the jobs list, not to the picker.
                         popUpTo(Screen.JobHuntSavedSearches.route) { inclusive = true }
@@ -1007,13 +1038,29 @@ fun NavGraph(navController: NavHostController) {
             SavedJobsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
+                onAddManualJob = { navController.navigate(Screen.JobHuntAddManual.route) },
             )
         }
         composable(Screen.JobHuntTracker.route) {
             SavedJobsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenJob = { listingId -> navController.navigate(jobHuntDetailRoute(listingId)) },
+                onAddManualJob = { navController.navigate(Screen.JobHuntAddManual.route) },
                 trackerMode = true,
+            )
+        }
+        composable(Screen.JobHuntAddManual.route) {
+            AddManualJobScreen(
+                onBack = { navController.popBackStack() },
+                // Straight to the tracker, and the form is popped so Back does not return to
+                // a filled-in form for a job that has already been added. The tracker reloads
+                // on resume (LifecycleResumeEffect), so the new row is there on arrival
+                // without this screen having to pass it along.
+                onAdded = {
+                    navController.navigate(Screen.JobHuntTracker.route) {
+                        popUpTo(Screen.JobHuntAddManual.route) { inclusive = true }
+                    }
+                },
             )
         }
         composable(

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +28,7 @@ class CareerPathDetailViewModel(
             try {
                 _uiState.value = UiState.Success(careerPathRepository.getPath(pathId))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load this Career Path. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("load this Career Path"))
             }
         }
     }
@@ -63,7 +64,7 @@ class CareerPathDetailViewModel(
             try {
                 _uiState.value = UiState.Success(careerPathRepository.refresh(pathId))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't refresh this Career Path. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("refresh this Career Path"))
             }
         }
     }

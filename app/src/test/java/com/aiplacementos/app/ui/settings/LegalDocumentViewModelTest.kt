@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.settings
 
 import com.aiplacementos.app.MainDispatcherRule
 import com.aiplacementos.app.data.remote.LegalDocumentDto
+import com.aiplacementos.app.fakes.httpException
 import com.aiplacementos.app.ui.common.UiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -17,22 +18,40 @@ class LegalDocumentViewModelTest {
         val document = LegalDocumentDto(version = "1", content = "policy text")
         val viewModel = LegalDocumentViewModel(
             documentLoader = { document },
-            loadErrorMessage = "Couldn't load.",
+            loadAction = "load the privacy policy",
         )
 
         assertEquals(UiState.Success(document), viewModel.uiState.value)
     }
 
     @Test
-    fun `a loader failure surfaces the given error message`() {
+    fun `a loader failure is classified rather than assumed to be connectivity`() {
         val viewModel = LegalDocumentViewModel(
             documentLoader = { throw java.io.IOException("no network") },
-            loadErrorMessage = "Couldn't load the privacy policy. Check your connection.",
+            loadAction = "load the privacy policy",
         )
 
         val state = viewModel.uiState.value
         assertTrue(state is UiState.Error)
-        assertEquals("Couldn't load the privacy policy. Check your connection.", (state as UiState.Error).message)
+        // An IOException genuinely is a connectivity failure, so this one still says so.
+        assertEquals(
+            "Couldn't reach the server. Check your connection and try again.",
+            (state as UiState.Error).message,
+        )
+    }
+
+    @Test
+    fun `a server failure loading a legal document does not blame the connection`() {
+        // The screen used to show the caller's single sentence for every failure, so a 500 on
+        // the privacy policy told the student to check a working connection.
+        val viewModel = LegalDocumentViewModel(
+            documentLoader = { throw httpException(500) },
+            loadAction = "load the privacy policy",
+        )
+
+        val state = viewModel.uiState.value as UiState.Error
+        assertTrue(state.message.contains("our server", ignoreCase = true))
+        assertTrue(!state.message.contains("connection", ignoreCase = true))
     }
 
     @Test
@@ -41,7 +60,7 @@ class LegalDocumentViewModelTest {
         val document = LegalDocumentDto(version = "1", content = "policy text")
         val viewModel = LegalDocumentViewModel(
             documentLoader = { if (shouldFail) throw java.io.IOException("no network") else document },
-            loadErrorMessage = "Couldn't load.",
+            loadAction = "load the privacy policy",
         )
         assertTrue(viewModel.uiState.value is UiState.Error)
 

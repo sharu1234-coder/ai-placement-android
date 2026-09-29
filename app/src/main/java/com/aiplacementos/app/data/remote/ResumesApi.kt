@@ -15,8 +15,9 @@ interface ResumesApi {
     @POST("resumes")
     suspend fun uploadResume(@Part file: MultipartBody.Part): ResumeUploadResponseDto
 
+    /** Empty until the student uploads a resume -- see [NullableBody]. */
     @GET("resumes/me/latest")
-    suspend fun getMyLatestResume(): ResumeSummaryDto?
+    suspend fun getMyLatestResume(): NullableBody<ResumeSummaryDto>
 
     /** @Streaming so the PDF is handed over as a stream instead of being fully buffered by
      * Retrofit before we see it -- the caller writes it straight to a cache file. */

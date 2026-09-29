@@ -47,7 +47,7 @@ class LocalAccountIsolationTest {
         database = Room.inMemoryDatabaseBuilder(context, AlarmDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        cleaner = LocalAccountDataCleaner(database, AlarmScheduler(context))
+        cleaner = LocalAccountDataCleaner(database, AlarmScheduler(context), PendingOperationStore.inMemory())
     }
 
     @After

@@ -22,7 +22,7 @@ class CareerPathRepositoryImpl(private val careerPathApi: CareerPathApi) : Caree
 
     override suspend fun getAll(): List<CareerPathSummaryDto> = careerPathApi.getAll()
 
-    override suspend fun getCurrent(): CareerPathDto? = careerPathApi.getCurrent()
+    override suspend fun getCurrent(): CareerPathDto? = careerPathApi.getCurrent().value
 
     override suspend fun getPath(pathId: Int): CareerPathDto = careerPathApi.getPath(pathId)
 

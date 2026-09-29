@@ -23,6 +23,17 @@ import com.aiplacementos.app.domain.repository.JobHuntRepository
  * (provider down, quota exhausted, Premium required) are most of what these ViewModels exist to
  * handle, and a plain value could only ever exercise the happy path.
  */
+/** Exactly what reached the repository for one manual job, so a test can assert on the
+ * normalisation the view model did rather than on what it hoped was sent. */
+data class ManualJobSubmission(
+    val title: String,
+    val company: String?,
+    val location: String?,
+    val url: String?,
+    val description: String?,
+    val status: String,
+)
+
 class FakeJobHuntRepository : JobHuntRepository {
     var profileResult: (suspend () -> JobSearchProfileDto)? = null
     var updateProfileResult: (suspend (JobSearchProfileUpdateDto) -> JobSearchProfileDto)? = null
@@ -39,6 +50,16 @@ class FakeJobHuntRepository : JobHuntRepository {
      */
     val sentIdempotencyKeys = mutableListOf<String?>()
     var getJobResult: (suspend (Int) -> JobResultDto)? = null
+    var addManualJobResult: (suspend (ManualJobSubmission) -> SavedJobDto)? = null
+
+    /**
+     * Every manual job the view model has submitted, in order.
+     *
+     * Recorded rather than only the latest, because what these tests need to prove is that a
+     * refused submit and its retry are *one* job rather than two, and that a double tap does
+     * not send twice -- and only the sequence shows either.
+     */
+    val manualJobsAdded = mutableListOf<ManualJobSubmission>()
     var saveJobResult: (suspend (Int, String) -> SavedJobDto)? = null
     var listSavedResult: (suspend (List<String>?) -> List<SavedJobDto>)? = null
     var updateSavedResult: (suspend (Int, String?, String?, String?) -> SavedJobDto)? = null
@@ -52,6 +73,16 @@ class FakeJobHuntRepository : JobHuntRepository {
     var lastCreatedSavedSearch: Pair<String, JobSearchRequestDto>? = null
 
     var runSavedSearchResult: (suspend (Int) -> JobSearchResponseDto)? = null
+
+    /**
+     * Every saved search actually run through the server's own endpoint, in order.
+     *
+     * The sequence, not just the latest, because what these tests need to show is which of the
+     * two paths a tap took -- the endpoint that records the run, or a replay of its filters
+     * through the ordinary search -- and that changing a filter afterwards stops it being a
+     * run of the saved search at all.
+     */
+    val savedSearchRunIds = mutableListOf<Int>()
     var homeResult: (suspend () -> JobHuntHomeDto)? = null
     var skillAnalysisResult: (suspend (Int) -> SkillMatchAnalysisDto)? = null
     var readinessResult: (suspend (Int) -> ApplicationReadinessDto)? = null
@@ -71,6 +102,18 @@ class FakeJobHuntRepository : JobHuntRepository {
     var lastSavedStatusFilter: List<String>? = null
     var lastUpdatedSavedJobId: Int? = null
     var lastUpdatedStatus: String? = null
+
+    /**
+     * The note text as it actually reached the repository.
+     *
+     * Recorded separately from the status because the two travel in one PATCH, and what these
+     * tests need to prove is that writing a note sends the note and nothing else -- a status
+     * riding along would move the application without the student asking.
+     */
+    var lastUpdatedNotes: String? = null
+
+    /** How many writes were attempted, so a rapid-tap test can assert one rather than five. */
+    var updateSavedCallCount: Int = 0
     val savedListingIds = mutableListOf<Int>()
     val deletedSavedIds = mutableListOf<Int>()
     var lastProfileUpdate: JobSearchProfileUpdateDto? = null
@@ -101,6 +144,20 @@ class FakeJobHuntRepository : JobHuntRepository {
     override suspend fun getJob(listingId: Int): JobResultDto =
         requireNotNull(getJobResult) { "getJobResult not configured" }(listingId)
 
+    override suspend fun addManualJob(
+        title: String,
+        company: String?,
+        location: String?,
+        url: String?,
+        description: String?,
+        status: String,
+    ): SavedJobDto {
+        manualJobsAdded += ManualJobSubmission(title, company, location, url, description, status)
+        return requireNotNull(addManualJobResult) { "addManualJobResult not configured" }(
+            manualJobsAdded.last(),
+        )
+    }
+
     override suspend fun saveJob(
         listingId: Int,
         status: String,
@@ -125,6 +182,8 @@ class FakeJobHuntRepository : JobHuntRepository {
     ): SavedJobDto {
         lastUpdatedSavedJobId = savedJobId
         lastUpdatedStatus = status
+        lastUpdatedNotes = notes
+        updateSavedCallCount++
         return requireNotNull(updateSavedResult) { "updateSavedResult not configured" }(
             savedJobId, status, notes, followUpDate,
         )
@@ -162,6 +221,7 @@ class FakeJobHuntRepository : JobHuntRepository {
         idempotencyKey: String?,
     ): JobSearchResponseDto {
         sentIdempotencyKeys += idempotencyKey
+        savedSearchRunIds += savedSearchId
         return requireNotNull(runSavedSearchResult) { "runSavedSearchResult not configured" }(
             savedSearchId,
         )

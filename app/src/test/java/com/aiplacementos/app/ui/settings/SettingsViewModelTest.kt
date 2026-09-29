@@ -72,7 +72,7 @@ class SettingsViewModelTest {
 
         val state = viewModel.deleteAccountState.value
         assertTrue(state is UiState.Error)
-        assertEquals("Couldn't reach the server. Check your connection.", (state as UiState.Error).message)
+        assertEquals("Couldn't reach the server. Check your connection and try again.", (state as UiState.Error).message)
     }
 
     @Test

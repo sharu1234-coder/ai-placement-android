@@ -73,7 +73,7 @@ class PlacementPathViewModel(private val placementPathRepository: PlacementPathR
                     }
                 )
             } catch (e: Exception) {
-                _uiState.value = PlacementPathUiState.Error("Couldn't reach the server. Check your connection.")
+                _uiState.value = PlacementPathUiState.Error(e.toUserMessage("generate your placement path"))
             }
         }
     }

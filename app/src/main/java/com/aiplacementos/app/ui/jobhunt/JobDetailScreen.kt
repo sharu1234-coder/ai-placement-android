@@ -122,15 +122,20 @@ fun JobDetailScreen(
                     // Opens the provider's own listing in a browser. The app never hosts an
                     // application form, and never claims to have submitted anything on the
                     // student's behalf.
-                    val intent = Intent(Intent.ACTION_VIEW, current.job.listing.url.toUri())
-                    try {
-                        context.startActivity(intent)
-                        viewModel.markApplied()
-                    } catch (_: ActivityNotFoundException) {
-                        // No browser to handle it. Silently marking it applied would be a lie,
-                        // so nothing is recorded -- but the tap has to say something, or the
-                        // button just looks broken.
-                        viewModel.reportNoBrowser()
+                    //
+                    // Unreachable without a link -- the button that calls this is not rendered
+                    // for a manually entered job that has none -- but read defensively rather
+                    // than forced, so a future caller cannot turn a missing link into a crash.
+                    current.job.listing.url?.let { link ->
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
+                            viewModel.markApplied()
+                        } catch (_: ActivityNotFoundException) {
+                            // No browser to handle it. Silently marking it applied would be a
+                            // lie, so nothing is recorded -- but the tap has to say something,
+                            // or the button just looks broken.
+                            viewModel.reportNoBrowser()
+                        }
                     }
                 },
                 modifier = Modifier.padding(padding),
@@ -261,15 +266,28 @@ private fun JobDetailContent(
                 enabled = !isSaving,
                 modifier = Modifier.weight(1f),
             )
-            PrimaryButton(
-                text = "Apply Now",
-                onClick = onApply,
-                modifier = Modifier.weight(1f),
-            )
+            // Hidden rather than disabled when there is no link. A manually entered job --
+            // a campus placement, a referral -- genuinely has no page to open, and a greyed
+            // "Apply Now" reads as something broken rather than as something that was never
+            // there. The Save button still fills the row.
+            if (listing.url != null) {
+                PrimaryButton(
+                    text = "Apply Now",
+                    onClick = onApply,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         Text(
-            text = "Applying opens the employer's listing in your browser.",
+            text = if (listing.url != null) {
+                "Applying opens the employer's listing in your browser."
+            } else {
+                // Says what is true rather than apologising for a missing field: the student
+                // typed this job in, so they already know where to apply.
+                "You added this job yourself, so there's no link to open. Move it through the " +
+                    "stages in My Applications as it progresses."
+            },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

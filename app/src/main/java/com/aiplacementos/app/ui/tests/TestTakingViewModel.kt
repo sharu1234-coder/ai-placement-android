@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.AnswerResultDto
 import com.aiplacementos.app.data.remote.QuestionDto
 import com.aiplacementos.app.domain.repository.AssessmentRepository
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,7 +48,7 @@ class TestTakingViewModel(
                 }
             } catch (e: Exception) {
                 _uiState.value = TestTakingUiState.Error(
-                    "Couldn't load the next question. Check your connection and try again."
+                    e.toUserMessage("load the next question")
                 )
             }
         }
@@ -68,7 +69,7 @@ class TestTakingViewModel(
                 _uiState.value = TestTakingUiState.Feedback(result)
             } catch (e: Exception) {
                 _uiState.value = TestTakingUiState.Error(
-                    "Couldn't submit your answer. Check your connection and try again."
+                    e.toUserMessage("submit your answer")
                 )
             }
         }

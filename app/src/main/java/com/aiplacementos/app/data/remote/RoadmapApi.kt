@@ -11,8 +11,9 @@ interface RoadmapApi {
     @POST("roadmap/generate")
     suspend fun generateRoadmap(@Body request: GenerateRoadmapRequestDto): RoadmapDto
 
+    /** Empty until a roadmap is generated for this scope -- see [NullableBody]. */
     @GET("roadmap/current")
-    suspend fun getCurrentRoadmap(@Query("jd_id") jdId: Int?): RoadmapDto?
+    suspend fun getCurrentRoadmap(@Query("jd_id") jdId: Int?): NullableBody<RoadmapDto>
 
     @PATCH("roadmap/tasks/{taskId}")
     suspend fun updateTask(@Path("taskId") taskId: Int, @Body request: UpdateRoadmapTaskRequestDto): RoadmapTaskDto

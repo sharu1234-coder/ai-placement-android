@@ -6,7 +6,7 @@ import com.aiplacementos.app.domain.repository.ProgressRepository
 class FakeProgressRepository : ProgressRepository {
     var dashboardResult: Result<ProgressDashboardDto> = Result.success(
         ProgressDashboardDto(
-            readinessScore = null,
+            performanceScore = null,
             completedAssessments = 0,
             completedInterviews = 0,
             roadmapTasksDone = 0,

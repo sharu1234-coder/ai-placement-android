@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.ProfileDto
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +28,7 @@ class OnboardingEducationViewModel(private val profileRepository: ProfileReposit
             try {
                 _uiState.value = UiState.Success(profileRepository.getMyProfile())
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load your profile. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("load your profile"))
             }
         }
     }
@@ -45,7 +46,7 @@ class OnboardingEducationViewModel(private val profileRepository: ProfileReposit
                 )
                 onSaved()
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't save your profile. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("save your profile"))
             } finally {
                 _saving.value = false
             }

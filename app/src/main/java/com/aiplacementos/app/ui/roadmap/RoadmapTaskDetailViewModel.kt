@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.RoadmapTaskDto
 import com.aiplacementos.app.domain.repository.RoadmapRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +32,7 @@ class RoadmapTaskDetailViewModel(
                 val task = roadmapRepository.getCurrentRoadmap(scopedJdId)?.tasks?.find { it.id == taskId }
                 _uiState.value = if (task != null) UiState.Success(task) else UiState.Empty
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load this task. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("load this task"))
             }
         }
     }
@@ -41,7 +42,7 @@ class RoadmapTaskDetailViewModel(
             try {
                 _uiState.value = UiState.Success(roadmapRepository.updateTaskStatus(taskId, status))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't update this task. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("update this task"))
             }
         }
     }

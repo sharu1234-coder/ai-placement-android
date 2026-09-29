@@ -24,8 +24,6 @@ class PlacementAlarmRepositoryImpl(
 
     override fun observeAlarms(): Flow<List<AlarmConfigEntity>> = alarmConfigDao.observeAll()
 
-    override suspend fun getAllEnabledAlarms(): List<AlarmConfigEntity> = alarmConfigDao.getAllEnabled()
-
     override suspend fun getAlarm(alarmId: Long): AlarmConfigEntity? = alarmConfigDao.getById(alarmId)
 
     override suspend fun createAlarm(

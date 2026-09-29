@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.AssessmentResultDto
 import com.aiplacementos.app.domain.repository.AssessmentRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +29,7 @@ class TestResultViewModel(
                 _uiState.value = UiState.Success(assessmentRepository.getResult(assessmentId))
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(
-                    "Couldn't load your results. Check your connection and try again."
+                    e.toUserMessage("load your results")
                 )
             }
         }

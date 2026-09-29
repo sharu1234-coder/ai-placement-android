@@ -203,6 +203,13 @@ private fun CareerPathHomeContent(
                             text = "Career Readiness: ${readiness.overallPercent}%",
                             style = MaterialTheme.typography.bodyMedium,
                         )
+                        // This card shows the headline with no breakdown beside it, so it is
+                        // the surface where an undisclosed denominator misleads most.
+                        Text(
+                            text = readinessCoverageLabel(readiness.contributingSignals, readiness.totalSignals),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         generatedViaLabel(path.generatedVia)?.let {
                             Text(
                                 text = it,

@@ -1,6 +1,9 @@
 package com.aiplacementos.app.data.remote
 
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import retrofit2.Retrofit
 
 /**
  * The one JSON configuration every backend response is decoded with.
@@ -20,3 +23,13 @@ import kotlinx.serialization.json.Json
  * instead, so the absence survives all the way to the screen.
  */
 internal val ApiJson: Json = Json { ignoreUnknownKeys = true }
+
+/**
+ * The converter chain every response goes through, in order: [NullableBody] endpoints first,
+ * then [ApiJson] for everything else -- including a NullableBody's non-null bodies, so a real
+ * object decodes the same way wherever it arrives. Shared with the wire tests for the reason
+ * above: a test that copies this chain proves the copy, not the app.
+ */
+internal fun Retrofit.Builder.addApiConverters(): Retrofit.Builder = this
+    .addConverterFactory(NullableBodyConverterFactory)
+    .addConverterFactory(ApiJson.asConverterFactory("application/json".toMediaType()))

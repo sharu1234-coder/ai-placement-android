@@ -6,6 +6,7 @@ import com.aiplacementos.app.data.remote.ChallengeAnswerResultDto
 import com.aiplacementos.app.database.entity.ChallengeQuestionEntity
 import com.aiplacementos.app.domain.repository.ChallengeWithQuestions
 import com.aiplacementos.app.domain.repository.PlacementAlarmRepository
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -61,7 +62,7 @@ class PlacementAlarmChallengeViewModel(
             } catch (e: Exception) {
                 if (_uiState.value is ChallengeUiState.Loading) {
                     _uiState.value = ChallengeUiState.Error(
-                        "Couldn't load your challenge. Check your connection and try again.",
+                        e.toUserMessage("load your challenge"),
                     )
                 }
                 // Otherwise keep showing whatever was cached -- offline but usable for the
@@ -96,7 +97,7 @@ class PlacementAlarmChallengeViewModel(
                 _uiState.value = ChallengeUiState.Feedback(result, current.index)
             } catch (e: Exception) {
                 _uiState.value = ChallengeUiState.Error(
-                    "Couldn't submit your answer. Check your connection and try again.",
+                    e.toUserMessage("submit your answer"),
                 )
             }
         }

@@ -50,8 +50,9 @@ fun CareerPathReadinessScreen(pathId: Int, onBack: () -> Unit) {
     }
 }
 
+/** Internal rather than private so a rendered test can assert the disclosure actually shows. */
 @Composable
-private fun ReadinessContent(path: CareerPathDto) {
+internal fun ReadinessContent(path: CareerPathDto) {
     val readiness = path.jobReadiness
 
     LazyColumn(
@@ -65,6 +66,14 @@ private fun ReadinessContent(path: CareerPathDto) {
                     Text(text = "Job Readiness", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(Spacing.sm))
                     ScoreRing(percent = readiness.overallPercent, size = 120.dp, displayText = "${readiness.overallPercent}%")
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+                    // Directly under the number it qualifies: the breakdown further down says
+                    // which signals are missing, this says how many the headline stands on.
+                    Text(
+                        text = readinessCoverageLabel(readiness.contributingSignals, readiness.totalSignals),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     if (readiness.isEstimate) {
                         Spacer(modifier = Modifier.height(Spacing.xs))
                         Text(

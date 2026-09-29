@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.InterviewEvaluationDto
 import com.aiplacementos.app.domain.repository.InterviewRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +29,7 @@ class InterviewEvaluationViewModel(
                 _uiState.value = UiState.Success(interviewRepository.getEvaluation(interviewId))
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(
-                    "Couldn't load your evaluation. Check your connection and try again."
+                    e.toUserMessage("load your evaluation")
                 )
             }
         }

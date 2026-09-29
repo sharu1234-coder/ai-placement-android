@@ -8,6 +8,8 @@ import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.domain.repository.JobRepository
 import com.aiplacementos.app.domain.repository.RoadmapRepository
 import com.aiplacementos.app.ui.common.toUserMessage
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +50,23 @@ class JobMatchPrepResultViewModel(
 
     private val _uiState = MutableStateFlow<JobMatchPrepResultUiState>(JobMatchPrepResultUiState.Loading)
     val uiState: StateFlow<JobMatchPrepResultUiState> = _uiState.asStateFlow()
+
+    /**
+     * The Career Path to open once this job has been merged into it, until the screen opens it.
+     *
+     * State rather than the callback this used to take. The callback was captured when the button
+     * was tapped, so it held the NavController of whichever composition was current then -- and a
+     * configuration change replaces both. Navigating with the dead one throws, inside the request's
+     * own try block, which reported a successful update as "Couldn't reach the server" (the same
+     * class of failure Phase 14 found on the role-selection screen). Whichever composition is
+     * current reads this instead, and navigating happens outside the network try/catch entirely.
+     */
+    private val _updatedCareerPathId = MutableStateFlow<Int?>(null)
+    val updatedCareerPathId: StateFlow<Int?> = _updatedCareerPathId.asStateFlow()
+
+    /** The Career Path update currently in flight, if any. Only read to tell "still running" from
+     * "finished and navigated away" -- see [onScreenResumed]. */
+    private var careerPathUpdateJob: Job? = null
 
     init {
         load()
@@ -140,10 +159,15 @@ class JobMatchPrepResultViewModel(
 
     /** Merges this job's requirements into the student's current Career Path. With none
      * selected, says so rather than silently doing nothing or guessing a role. */
-    fun updateCareerPath(onDone: (pathId: Int) -> Unit) {
+    fun updateCareerPath() {
         val current = _uiState.value as? JobMatchPrepResultUiState.Success ?: return
+        // A second tap while one update is in flight would send a second POST for one intention
+        // and spend two of the ten the backend allows an hour. Uses the isUpdatingCareerPath this
+        // screen already shows rather than adding a second piece of state to hold a lock -- and
+        // because the flag outlives the success (below), it also covers the taps that can land on
+        // the outgoing screen while the Career Path is sliding in over it.
         if (current.isUpdatingCareerPath) return
-        viewModelScope.launch {
+        careerPathUpdateJob = viewModelScope.launch {
             _uiState.value = current.copy(isUpdatingCareerPath = true, actionError = null)
             try {
                 val currentPath = careerPathRepository.getCurrent()
@@ -155,7 +179,13 @@ class JobMatchPrepResultViewModel(
                     return@launch
                 }
                 careerPathRepository.applyJd(currentPath.id, jdId)
-                onDone(currentPath.id)
+                // isUpdatingCareerPath stays true on purpose: the screen is about to leave, and
+                // re-enabling the button here would both flicker its label over the outgoing
+                // screen and re-open the window a duplicate tap could get through.
+                // onScreenResumed retires it when the student comes back.
+                _updatedCareerPathId.value = currentPath.id
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = current.copy(
                     isUpdatingCareerPath = false,
@@ -163,6 +193,38 @@ class JobMatchPrepResultViewModel(
                 )
             }
         }
+    }
+
+    /** The screen opened [updatedCareerPathId]; it must not be opened again. */
+    fun onUpdatedCareerPathOpened() {
+        _updatedCareerPathId.value = null
+    }
+
+    /**
+     * The screen became visible again.
+     *
+     * A successful Career Path update deliberately does not clear isUpdatingCareerPath where it
+     * happens -- see updateCareerPath. But nothing cleared it afterwards either, and NavGraph
+     * navigates to the Career Path detail screen without popUpTo, which is what the product wants:
+     * Back has to come back here. So this screen's back-stack entry -- and this view model with it
+     * -- outlives the navigation. The observed result was a screen that returned on Back with
+     * "Add to my Career Path" reading "Updating...", disabled, permanently, for an update that had
+     * already succeeded; tapping it sent nothing (F12-04).
+     *
+     * Resuming is the right moment because it is the first point at which the screen is both
+     * visible and no longer mid-transition. The job check is what keeps this honest: a student who
+     * backgrounds the app while an update is genuinely still running and comes back must still see
+     * "Updating...", and must still be unable to send a second one.
+     *
+     * Only isUpdatingCareerPath is retired. isGeneratingRoadmap needs no equivalent because its
+     * destination pops this screen off the back stack, and isStartingPractice is cleared where it
+     * finishes; the audit checked both and neither is this defect.
+     */
+    fun onScreenResumed() {
+        val current = _uiState.value as? JobMatchPrepResultUiState.Success ?: return
+        if (!current.isUpdatingCareerPath) return
+        if (careerPathUpdateJob?.isActive == true) return
+        _uiState.value = current.copy(isUpdatingCareerPath = false)
     }
 
     fun clearActionError() {

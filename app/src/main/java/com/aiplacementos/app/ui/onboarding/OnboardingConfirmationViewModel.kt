@@ -8,6 +8,7 @@ import com.aiplacementos.app.data.remote.SkillDto
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,7 +43,7 @@ class OnboardingConfirmationViewModel(
                 val roles = profileRepository.getRoles()
                 _uiState.value = UiState.Success(OnboardingSummary(profile, skills, roles))
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load your details. Check your connection.")
+                _uiState.value = UiState.Error(e.toUserMessage("load your details"))
             }
         }
     }
@@ -64,7 +65,7 @@ class OnboardingConfirmationViewModel(
                 )
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(
-                    "Couldn't reach the server. Roadmap generation can take a couple of minutes -- check your connection and try again."
+                    e.toUserMessage("generate your roadmap")
                 )
             } finally {
                 _creating.value = false

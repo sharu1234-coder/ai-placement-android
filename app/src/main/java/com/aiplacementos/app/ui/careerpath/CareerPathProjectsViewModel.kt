@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerPathProjectDto
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +29,7 @@ class CareerPathProjectsViewModel(
                 val projects = careerPathRepository.getProjects(pathId)
                 _uiState.value = if (projects.isEmpty()) UiState.Empty else UiState.Success(projects)
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load projects. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("load projects"))
             }
         }
     }

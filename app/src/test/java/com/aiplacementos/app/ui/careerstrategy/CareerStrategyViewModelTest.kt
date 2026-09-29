@@ -48,19 +48,19 @@ internal fun sampleStrategy(
     bottleneck: StrategyBottleneckDto? = sampleBottleneck(),
     stateReason: String = "Your technical side is holding up. How you come across is not.",
     signalCount: Int = 12,
-    readinessPercent: Int? = 64,
-    readinessReasons: List<String> = emptyList(),
+    evidenceCoveragePercent: Int? = 64,
+    evidenceCoverageReasons: List<String> = emptyList(),
 ) = CareerStrategyDto(
     isPremium = isPremium,
     lockedSections = lockedSections,
     state = state,
     stateReason = stateReason,
-    readinessReasons = readinessReasons,
+    evidenceCoverageReasons = evidenceCoverageReasons,
     strategyVersion = 2,
     hasRole = true,
     displayRoleName = "Data Engineer",
     roleSource = "target_role",
-    readinessPercent = readinessPercent,
+    evidenceCoveragePercent = evidenceCoveragePercent,
     signalCount = signalCount,
     bottleneck = bottleneck,
 )
@@ -87,7 +87,7 @@ class CareerStrategyViewModelTest {
     fun `no target role is a real screen, not an error`() {
         val repository = FakeCareerStrategyRepository().apply {
             strategyResult = {
-                sampleStrategy(state = "FOCUS_ON_TARGET_ROLE", bottleneck = null, readinessPercent = null)
+                sampleStrategy(state = "FOCUS_ON_TARGET_ROLE", bottleneck = null, evidenceCoveragePercent = null)
             }
         }
         val state = viewModelWith(repository).uiState.value
@@ -103,7 +103,7 @@ class CareerStrategyViewModelTest {
                 sampleStrategy(
                     state = "INSUFFICIENT_INFORMATION",
                     bottleneck = null,
-                    readinessPercent = null,
+                    evidenceCoveragePercent = null,
                     signalCount = 1,
                 )
             }
@@ -166,10 +166,10 @@ class CareerStrategyViewModelTest {
     @Test
     fun `unknown readiness stays null rather than becoming zero`() {
         val repository = FakeCareerStrategyRepository().apply {
-            strategyResult = { sampleStrategy(readinessPercent = null) }
+            strategyResult = { sampleStrategy(evidenceCoveragePercent = null) }
         }
         val state = viewModelWith(repository).uiState.value as CareerStrategyUiState.Success
-        assertNull(state.strategy.readinessPercent)
+        assertNull(state.strategy.evidenceCoveragePercent)
     }
 
     // -- error classification -------------------------------------------------------------------
@@ -337,6 +337,8 @@ class CareerStrategyViewModelTest {
         assertTrue(loaded.data.missingSkills.isEmpty())
         assertEquals(listOf("Kafka"), loaded.data.unclearSkills)
         // And no readiness number is shown for a decision that refused to stand behind one.
+        // This one IS readiness: job_hunt's apply-readiness for a single advert, which Phase 2G
+        // deliberately left alone because it is a different metric from Career Twin's coverage.
         assertNull(loaded.data.readinessPercent)
     }
 
@@ -388,16 +390,16 @@ class CareerStrategyViewModelTest {
         val repository = FakeCareerStrategyRepository().apply {
             strategyResult = {
                 sampleStrategy(
-                    readinessPercent = 64,
-                    readinessReasons = listOf("3 verified, 1 strong out of 6.", "2 skills still need real evidence."),
+                    evidenceCoveragePercent = 64,
+                    evidenceCoverageReasons = listOf("3 verified, 1 strong out of 6.", "2 skills still need real evidence."),
                 )
             }
         }
         val viewModel = viewModelWith(repository)
 
         val strategy = (viewModel.uiState.value as CareerStrategyUiState.Success).strategy
-        assertEquals(64, strategy.readinessPercent)
-        assertEquals(2, strategy.readinessReasons.size)
+        assertEquals(64, strategy.evidenceCoveragePercent)
+        assertEquals(2, strategy.evidenceCoverageReasons.size)
     }
 
     @Test
@@ -410,15 +412,15 @@ class CareerStrategyViewModelTest {
                 sampleStrategy(
                     isPremium = false,
                     lockedSections = listOf("queue", "diminishing_returns", "contradictions"),
-                    readinessReasons = listOf("3 verified, 1 strong out of 6."),
+                    evidenceCoverageReasons = listOf("3 verified, 1 strong out of 6."),
                 )
             }
         }
         val viewModel = viewModelWith(repository)
 
         val strategy = (viewModel.uiState.value as CareerStrategyUiState.Success).strategy
-        assertTrue(strategy.readinessReasons.isNotEmpty())
-        assertEquals(64, strategy.readinessPercent)
+        assertTrue(strategy.evidenceCoverageReasons.isNotEmpty())
+        assertEquals(64, strategy.evidenceCoveragePercent)
         // And nothing gated came with them.
         assertTrue(strategy.queue.isEmpty())
         assertTrue(strategy.diminishingReturns.isEmpty())
@@ -427,13 +429,13 @@ class CareerStrategyViewModelTest {
     @Test
     fun `unknown readiness carries no reasons and no zero`() {
         val repository = FakeCareerStrategyRepository().apply {
-            strategyResult = { sampleStrategy(readinessPercent = null) }
+            strategyResult = { sampleStrategy(evidenceCoveragePercent = null) }
         }
         val viewModel = viewModelWith(repository)
 
         val strategy = (viewModel.uiState.value as CareerStrategyUiState.Success).strategy
-        assertNull(strategy.readinessPercent)
-        assertTrue(strategy.readinessReasons.isEmpty())
+        assertNull(strategy.evidenceCoveragePercent)
+        assertTrue(strategy.evidenceCoverageReasons.isEmpty())
     }
 
     @Test

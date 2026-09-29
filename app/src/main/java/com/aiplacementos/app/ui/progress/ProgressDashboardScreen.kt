@@ -73,19 +73,20 @@ private fun DashboardContent(dashboard: ProgressDashboardDto) {
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 Text(
-                    text = "Readiness score",
+                    // Names the formula: the mean of the latest test and interview score.
+                    text = "Test & interview performance",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-                if (dashboard.readinessScore != null) {
+                if (dashboard.performanceScore != null) {
                     ScoreRing(
-                        percent = (dashboard.readinessScore * 100).roundToInt(),
+                        percent = (dashboard.performanceScore * 100).roundToInt(),
                         ringColor = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                     )
                 } else {
                     Text(
-                        text = "Complete a test or interview to see your readiness score here.",
+                        text = "Complete a test or interview to see your performance here.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )

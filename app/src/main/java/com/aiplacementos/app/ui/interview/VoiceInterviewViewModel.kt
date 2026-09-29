@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.InterviewQuestionDto
 import com.aiplacementos.app.domain.repository.InterviewRepository
+import com.aiplacementos.app.ui.common.toUserMessage
 import com.aiplacementos.app.voice.AudioRecordingException
 import com.aiplacementos.app.voice.VoiceInterviewManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,7 +71,7 @@ class VoiceInterviewViewModel(
                 loadNextTurn()
             } catch (e: Exception) {
                 _uiState.value = VoiceInterviewUiState.Error(
-                    "Couldn't start the voice interview. Check your connection and try again."
+                    e.toUserMessage("start the voice interview")
                 )
             }
         }
@@ -94,7 +95,7 @@ class VoiceInterviewViewModel(
                 _uiState.value = VoiceInterviewUiState.Turn(question, VoiceTurnPhase.READY_TO_RECORD)
             } catch (e: Exception) {
                 _uiState.value = VoiceInterviewUiState.Error(
-                    "Couldn't load the next question. Check your connection and try again."
+                    e.toUserMessage("load the next question")
                 )
             }
         }
@@ -136,7 +137,7 @@ class VoiceInterviewViewModel(
                 )
             } catch (e: Exception) {
                 _uiState.value = VoiceInterviewUiState.Error(
-                    "Couldn't submit your answer. Check your connection and try again."
+                    e.toUserMessage("submit your answer")
                 )
             }
         }

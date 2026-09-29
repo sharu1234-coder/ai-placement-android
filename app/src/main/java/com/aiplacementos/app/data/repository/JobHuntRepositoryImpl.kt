@@ -15,6 +15,7 @@ import com.aiplacementos.app.data.remote.JobSearchProfileDto
 import com.aiplacementos.app.data.remote.JobSearchProfileUpdateDto
 import com.aiplacementos.app.data.remote.JobSearchRequestDto
 import com.aiplacementos.app.data.remote.JobSearchResponseDto
+import com.aiplacementos.app.data.remote.ManualJobCreateDto
 import com.aiplacementos.app.data.remote.SaveJobRequestDto
 import com.aiplacementos.app.data.remote.SavedJobDto
 import com.aiplacementos.app.data.remote.SavedSearchCreateDto
@@ -39,6 +40,24 @@ class JobHuntRepositoryImpl(private val jobHuntApi: JobHuntApi) : JobHuntReposit
     override suspend fun getEntitlement(): JobHuntEntitlementDto = jobHuntApi.getEntitlement()
 
     override suspend fun getJob(listingId: Int): JobResultDto = jobHuntApi.getJob(listingId)
+
+    override suspend fun addManualJob(
+        title: String,
+        company: String?,
+        location: String?,
+        url: String?,
+        description: String?,
+        status: String,
+    ): SavedJobDto = jobHuntApi.createListing(
+        ManualJobCreateDto(
+            title = title,
+            company = company,
+            location = location,
+            url = url,
+            description = description,
+            status = status,
+        ),
+    )
 
     override suspend fun saveJob(
         listingId: Int,

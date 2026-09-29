@@ -161,8 +161,16 @@ sealed class Screen(val route: String) {
     // Optional `filters` argument carries a whole JobFilters as JSON, so re-running a saved
     // search is a plain navigation rather than a shared mutable holder between two screens.
     // Absent means "no filters", which is exactly what a normal visit wants.
-    data object JobHuntResults : Screen("job-hunt/results?filters={filters}")
+    // `savedSearchId` alongside `filters` rather than instead of it. The id is what makes the
+    // server record the run; the filters seed the filter sheet and build the request for page
+    // two onward, which the run endpoint does not cover. Both absent is an ordinary search.
+    data object JobHuntResults :
+        Screen("job-hunt/results?filters={filters}&savedSearchId={savedSearchId}")
     data object JobHuntSaved : Screen("job-hunt/saved")
+    // Adding a job the student found off-platform. Under job-hunt/ because it produces the
+    // same tracked application a search does -- not a separate feature with its own top-level
+    // section, which would suggest manual jobs are tracked somewhere different.
+    data object JobHuntAddManual : Screen("job-hunt/add")
     data object JobHuntSavedSearches : Screen("job-hunt/saved-searches")
     data object JobHuntAlerts : Screen("job-hunt/alerts")
     data object JobHuntSkillAnalysis : Screen("job-hunt/jobs/{listingId}/skill-analysis")
@@ -275,11 +283,14 @@ fun jobHuntSkillAnalysisRoute(listingId: Int): String =
 
 fun jobHuntReadinessRoute(listingId: Int): String = "job-hunt/jobs/$listingId/readiness"
 
-fun jobHuntResultsRoute(filtersJson: String? = null): String =
-    if (filtersJson.isNullOrBlank()) {
-        "job-hunt/results"
-    } else {
-        "job-hunt/results?filters=${android.net.Uri.encode(filtersJson)}"
-    }
+fun jobHuntResultsRoute(filtersJson: String? = null, savedSearchId: Int? = null): String {
+    val query = listOfNotNull(
+        filtersJson?.takeIf { it.isNotBlank() }?.let { "filters=" + android.net.Uri.encode(it) },
+        savedSearchId?.let { "savedSearchId=" + it },
+    )
+    // No query at all for a plain visit, so the commonest route stays the simple string it has
+    // always been rather than gaining two empty parameters.
+    return if (query.isEmpty()) "job-hunt/results" else "job-hunt/results?" + query.joinToString("&")
+}
 
 fun skillPassportDetailRoute(skill: String): String = "skill-passport/${android.net.Uri.encode(skill)}"

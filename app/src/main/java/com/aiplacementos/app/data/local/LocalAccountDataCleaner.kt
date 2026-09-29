@@ -36,6 +36,7 @@ import com.aiplacementos.app.database.AlarmDatabase
 class LocalAccountDataCleaner(
     private val database: AlarmDatabase,
     private val alarmScheduler: AlarmScheduler,
+    private val pendingOperations: PendingOperationStore,
 ) {
 
     /**
@@ -57,5 +58,8 @@ class LocalAccountDataCleaner(
         database.challengeDao().deleteAllChallenges()
         alarmConfigDao.deleteAll()
         database.notificationDao().deleteAll()
+        // A generation still finishing belongs to this account too: left behind, the next
+        // account would be shown it as "still finishing" and checked against its own path.
+        pendingOperations.clearAll()
     }
 }

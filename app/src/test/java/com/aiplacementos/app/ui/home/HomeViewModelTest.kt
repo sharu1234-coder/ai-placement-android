@@ -1,448 +1,492 @@
 package com.aiplacementos.app.ui.home
 
 import com.aiplacementos.app.MainDispatcherRule
-import com.aiplacementos.app.data.remote.AtsCheckListItemDto
+import com.aiplacementos.app.data.remote.CareerGoalListItemDto
+import com.aiplacementos.app.data.remote.CareerPathSummaryDto
 import com.aiplacementos.app.data.remote.CareerTwinDto
-import com.aiplacementos.app.data.remote.NextBestActionDto
-import com.aiplacementos.app.data.remote.PlacementPathDto
+import com.aiplacementos.app.data.remote.ProfileDto
 import com.aiplacementos.app.data.remote.ProgressDashboardDto
-import com.aiplacementos.app.data.remote.ProgressTrendPointDto
-import com.aiplacementos.app.data.remote.RoadmapDto
-import com.aiplacementos.app.data.remote.RoadmapTaskDto
-import com.aiplacementos.app.data.remote.SkillTwinItemDto
-import com.aiplacementos.app.fakes.FakeAtsCheckRepository
+import com.aiplacementos.app.data.remote.RecommendedActionDto
+import com.aiplacementos.app.data.remote.RoleDto
+import com.aiplacementos.app.fakes.FakeCareerGoalRepository
 import com.aiplacementos.app.fakes.FakeCareerPathRepository
 import com.aiplacementos.app.fakes.FakeCareerTwinRepository
-import com.aiplacementos.app.fakes.FakePlacementAlarmRepository
-import com.aiplacementos.app.fakes.FakePlacementPathRepository
+import com.aiplacementos.app.fakes.FakeNextBestActionRepository
 import com.aiplacementos.app.fakes.FakeProfileRepository
 import com.aiplacementos.app.fakes.FakeProgressRepository
-import com.aiplacementos.app.fakes.FakeRoadmapRepository
 import com.aiplacementos.app.ui.common.UiState
-import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
+import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-/** An ISO-8601 UTC timestamp [days] days before now.
+/**
+ * Home as the career spine.
  *
- * "Recent Win" is bounded to the last week, so these tests have to express age relative to
- * today. A fixed literal like "2026-02-01T00:00:00Z" would pass on the day it was written and
- * then quietly change meaning every day afterwards until it fell out of the window entirely --
- * a test that rots into a false pass and then a confusing failure. */
-private fun isoDaysAgo(days: Long): String =
-    OffsetDateTime.now(ZoneOffset.UTC).minusDays(days).toString()
-
+ * Two rules run through every test below and they are the reason the ViewModel exposes a
+ * [SectionState] per section rather than a bare nullable:
+ *
+ *     a measured zero is a number      0% coverage is a real reading and must survive as 0
+ *     an absent measurement is null    and must never be rendered as 0
+ *     a failed request is neither      it is UNAVAILABLE, and says so in its own words
+ *
+ * The third is the one a dashboard gets wrong most easily. A dropped connection and a student
+ * with no evidence both produce "no number", and collapsing them turns a network blip into a
+ * confident statement about someone's career.
+ */
 class HomeViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private fun path() = PlacementPathDto(
-        id = 1,
-        status = "active",
+    private fun goal(
+        id: Int = 1,
+        title: String = "Data Engineer",
+        company: String = "Contoso",
+        location: String? = "Hyderabad",
+        status: String = "active",
+        applicationStatus: String? = null,
+        preparationState: String = "in_progress",
+        updatedAt: String = "2026-03-01T00:00:00Z",
+    ) = CareerGoalListItemDto(
+        id = id,
+        title = title,
+        company = company,
+        location = location,
+        status = status,
+        isAnalyzed = true,
+        preparationState = preparationState,
+        applicationStatus = applicationStatus,
         createdAt = "2026-01-01T00:00:00Z",
-        completedTopics = 5,
-        totalTopics = 9,
-        stages = emptyList(),
-        nextBestAction = NextBestActionDto(topicId = 1, title = "SQL JOINs", reason = "next up"),
+        updatedAt = updatedAt,
     )
 
-    private fun dashboard(trend: List<ProgressTrendPointDto> = emptyList()) = ProgressDashboardDto(
-        readinessScore = 0.68,
+    private fun pathSummary(
+        preparationPercent: Int? = 60,
+        completedItems: Int = 6,
+        totalItems: Int = 10,
+        isPrimary: Boolean = true,
+    ) = CareerPathSummaryDto(
+        id = 1,
+        roleFamilyKey = "data_engineer",
+        displayRoleName = "Data Engineer",
+        isPrimary = isPrimary,
+        preparationPercent = preparationPercent,
+        completedItems = completedItems,
+        totalItems = totalItems,
+        generatedVia = "catalog",
+        createdAt = "2026-01-01T00:00:00Z",
+        updatedAt = "2026-01-01T00:00:00Z",
+    )
+
+    private fun dashboard(performanceScore: Double? = 0.68) = ProgressDashboardDto(
+        performanceScore = performanceScore,
         completedAssessments = 24,
         completedInterviews = 3,
         roadmapTasksDone = 10,
         roadmapTasksTotal = 20,
-        topWeaknesses = listOf("SQL JOINs", "Dynamic Programming"),
-        trend = trend,
+        topWeaknesses = emptyList(),
+        trend = emptyList(),
     )
 
-    /** hasRole=false by default -- matches the real repository's "no target role yet" shape and
-     * keeps every pre-existing dashboard-only test asserting the old fallback behavior. */
-    private fun noRoleCareerTwin() = CareerTwinDto(hasRole = false, roleSource = "none")
+    private fun twin(
+        hasRole: Boolean = true,
+        evidenceCoveragePercent: Int? = 73,
+    ) = CareerTwinDto(
+        hasRole = hasRole,
+        roleSource = if (hasRole) "career_path" else "none",
+        evidenceCoveragePercent = evidenceCoveragePercent,
+    )
+
+    private fun action(
+        hasRecommendation: Boolean = true,
+        title: String = "Practice technical interview",
+        destination: String? = "interview",
+    ) = RecommendedActionDto(
+        hasRecommendation = hasRecommendation,
+        title = title,
+        actionType = "practice",
+        destination = destination,
+    )
 
     private fun viewModel(
-        path: PlacementPathDto? = path(),
-        dashboard: ProgressDashboardDto? = dashboard(),
-        roadmap: RoadmapDto? = null,
-        careerTwin: CareerTwinDto = noRoleCareerTwin(),
-    ): HomeViewModel {
-        val placementPathRepository = FakePlacementPathRepository().apply { currentResult = { path } }
-        val progressRepository = FakeProgressRepository().apply {
-            dashboardResult = dashboard?.let { Result.success(it) } ?: Result.failure(java.io.IOException("down"))
-        }
-        val placementAlarmRepository = FakePlacementAlarmRepository()
-        val roadmapRepository = FakeRoadmapRepository().apply { currentResult = { roadmap } }
-        val careerPathRepository = FakeCareerPathRepository().apply { currentResult = { null } }
-        val atsCheckRepository = FakeAtsCheckRepository()
-        val careerTwinRepository = FakeCareerTwinRepository().apply { careerTwinResult = { careerTwin } }
-        return HomeViewModel(
-            placementPathRepository,
-            progressRepository,
-            placementAlarmRepository,
-            roadmapRepository,
-            careerPathRepository,
-            atsCheckRepository,
-            FakeProfileRepository(),
-            careerTwinRepository,
-        )
+        goals: Result<List<CareerGoalListItemDto>> = Result.success(listOf(goal())),
+        paths: Result<List<CareerPathSummaryDto>> = Result.success(listOf(pathSummary())),
+        dashboard: Result<ProgressDashboardDto> = Result.success(dashboard()),
+        careerTwin: Result<CareerTwinDto> = Result.success(twin()),
+        nextAction: Result<RecommendedActionDto> = Result.success(action()),
+        profile: FakeProfileRepository = FakeProfileRepository(),
+    ): HomeViewModel = HomeViewModel(
+        progressRepository = FakeProgressRepository().apply { dashboardResult = dashboard },
+        careerPathRepository = FakeCareerPathRepository().apply { allResult = { paths.getOrThrow() } },
+        profileRepository = profile,
+        careerTwinRepository = FakeCareerTwinRepository().apply { careerTwinResult = { careerTwin.getOrThrow() } },
+        careerGoalRepository = FakeCareerGoalRepository().apply { listGoalsResult = { goals.getOrThrow() } },
+        nextBestActionRepository = FakeNextBestActionRepository().apply { result = { nextAction.getOrThrow() } },
+    )
+
+    /** Loads once, the way the screen's LifecycleResumeEffect does, then reads the result.
+     * The ViewModel has no init{} auto-load -- see its own note for why. */
+    private fun data(viewModel: HomeViewModel): HomeData {
+        viewModel.load()
+        return (viewModel.uiState.value as UiState.Success).data
+    }
+
+    // ======================================================================================
+    // A-C. The active goal
+    // ======================================================================================
+
+    @Test
+    fun `no career goal reports an empty target rather than inventing one`() {
+        val data = data(viewModel(goals = Result.success(emptyList())))
+
+        assertNull(data.activeGoal)
+        assertEquals(SectionState.EMPTY, data.goalState)
+        assertEquals(0, data.otherActiveGoalCount)
     }
 
     @Test
-    fun `computes readiness percent and sub-metrics from real repository data`() {
-        val viewModel = viewModel()
+    fun `one active goal becomes the target`() {
+        val data = data(viewModel())
 
-        val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
-        assertEquals(68, data.readinessPercent)
-        assertTrue(data.subMetrics.any { it.label == "Roadmap" && it.value == "56%" })
-        assertTrue(data.subMetrics.any { it.label == "Tests Completed" && it.value == "24" })
-        assertEquals("SQL JOINs", data.nextBestActionTitle)
+        assertEquals("Data Engineer", data.activeGoal?.title)
+        assertEquals("Contoso", data.activeGoal?.company)
+        assertEquals("Hyderabad", data.activeGoal?.location)
+        assertEquals(SectionState.AVAILABLE, data.goalState)
+        assertEquals(0, data.otherActiveGoalCount)
     }
 
     @Test
-    fun `todays plan only includes tasks due today`() {
-        val today = LocalDate.now().toString()
-        val roadmap = RoadmapDto(
-            id = 1,
-            jdId = null,
-            durationDays = 30,
-            status = "active",
-            tasks = listOf(
-                RoadmapTaskDto(1, 1, "practice", "DSA", "Arrays", "desc", "not_started", today),
-                RoadmapTaskDto(2, 1, "practice", "SQL", "Joins", "desc", "done", today),
-                RoadmapTaskDto(3, 2, "practice", "Aptitude", "Reasoning", "desc", "not_started", "2020-01-01"),
-            ),
-        )
-
-        val data = (viewModel(roadmap = roadmap).uiState.value as UiState.Success<HomeData>).data
-
-        assertEquals(2, data.todaysPlan.size)
-        assertTrue(data.todaysPlan.any { it.title == "Arrays" && !it.done })
-        assertTrue(data.todaysPlan.any { it.title == "Joins" && it.done })
-    }
-
-    @Test
-    fun `streak is computed from real trend timestamps, not fabricated`() {
-        val today = LocalDate.now()
-        val trend = listOf(
-            ProgressTrendPointDto(createdAt = "${today}T10:00:00Z", kind = "assessment", label = "SQL Test", score = 0.8),
-            ProgressTrendPointDto(createdAt = "${today.minusDays(1)}T10:00:00Z", kind = "interview", label = "Mock", score = 0.7),
-        )
-
-        val data = (viewModel(dashboard = dashboard(trend)).uiState.value as UiState.Success<HomeData>).data
-
-        assertEquals(2, data.currentStreakDays)
-    }
-
-    @Test
-    fun `recommended for you leads with real weak areas, then fills remaining slots from other signals`() {
-        val data = (viewModel().uiState.value as UiState.Success<HomeData>).data
-
-        assertEquals(
-            listOf(
-                "Your SQL JOINs is weak -- practice it",
-                "Your Dynamic Programming is weak -- practice it",
-                "Run an ATS check on your resume to see how it scores.",
-            ),
-            data.recommendedForYou,
-        )
-    }
-
-    @Test
-    fun `recommended for you surfaces test, interview, resume and target-role gaps when there are no weaknesses`() {
-        val noWeaknessDashboard = dashboard().copy(completedAssessments = 0, completedInterviews = 0, topWeaknesses = emptyList())
-
-        val data = (viewModel(dashboard = noWeaknessDashboard).uiState.value as UiState.Success<HomeData>).data
-
-        assertEquals(
-            listOf(
-                "You haven't taken any tests yet -- start with a quick practice test.",
-                "Try a mock interview to build your confidence.",
-                "Run an ATS check on your resume to see how it scores.",
-            ),
-            data.recommendedForYou,
-        )
-    }
-
-    @Test
-    fun `recommended for you flags a low resume score once a check exists`() {
-        val atsCheckRepository = FakeAtsCheckRepository().apply {
-            listResult = Result.success(
-                listOf(
-                    AtsCheckListItemDto(
-                        id = 1,
-                        resumeId = 1,
-                        resumeFilename = "resume.pdf",
-                        overallScore = 40,
-                        scoreCategory = "Needs Work",
-                        createdAt = "2026-01-01T00:00:00Z",
+    fun `the target is the first active goal in the backend's own order, not a ranking of ours`() {
+        // list_goals returns updated_at DESC, id DESC. Home takes the first still-active row
+        // and counts the rest -- it never sorts, scores or otherwise picks a favourite.
+        val data = data(
+            viewModel(
+                goals = Result.success(
+                    listOf(
+                        goal(id = 7, title = "Most recently worked on"),
+                        goal(id = 3, title = "Older goal"),
                     ),
                 ),
-            )
-        }
-        val viewModel = HomeViewModel(
-            FakePlacementPathRepository().apply { currentResult = { path() } },
-            FakeProgressRepository().apply { dashboardResult = Result.success(dashboard()) },
-            FakePlacementAlarmRepository(),
-            FakeRoadmapRepository().apply { currentResult = { null } },
-            FakeCareerPathRepository().apply { currentResult = { null } },
-            atsCheckRepository,
-            FakeProfileRepository(),
-            FakeCareerTwinRepository().apply { careerTwinResult = { noRoleCareerTwin() } },
-        )
-
-        val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
-
-        assertTrue(data.recommendedForYou.contains("Your resume ATS score is low -- review the improvement plan."))
-    }
-
-    @Test
-    fun `todays plan surfaces not-done tasks before completed ones`() {
-        val today = LocalDate.now().toString()
-        val roadmap = RoadmapDto(
-            id = 1,
-            jdId = null,
-            durationDays = 30,
-            status = "active",
-            tasks = listOf(
-                RoadmapTaskDto(1, 1, "practice", "SQL", "Joins", "desc", "done", today),
-                RoadmapTaskDto(2, 1, "practice", "DSA", "Arrays", "desc", "not_started", today),
             ),
         )
 
-        val data = (viewModel(roadmap = roadmap).uiState.value as UiState.Success<HomeData>).data
-
-        assertEquals("Arrays", data.todaysPlan.first().title)
-        assertFalse(data.todaysPlan.first().done)
+        assertEquals(7, data.activeGoal?.id)
+        assertEquals(1, data.otherActiveGoalCount)
     }
 
     @Test
-    fun `resume health reflects the latest ats check, or null when none has been run`() {
-        val atsCheckRepository = FakeAtsCheckRepository().apply {
-            listResult = Result.success(
-                listOf(
-                    AtsCheckListItemDto(
-                        id = 7,
-                        resumeId = 1,
-                        resumeFilename = "resume.pdf",
-                        overallScore = 82,
-                        scoreCategory = "Strong",
-                        createdAt = "2026-01-01T00:00:00Z",
+    fun `an archived goal is never presented as the active target`() {
+        val data = data(
+            viewModel(
+                goals = Result.success(
+                    listOf(
+                        goal(id = 9, title = "Archived", status = "archived"),
+                        goal(id = 4, title = "Still active", status = "active"),
                     ),
                 ),
-            )
+            ),
+        )
+
+        assertEquals("Still active", data.activeGoal?.title)
+        assertEquals(0, data.otherActiveGoalCount, )
+    }
+
+    @Test
+    fun `paused and completed goals are not the active target either`() {
+        val data = data(
+            viewModel(
+                goals = Result.success(
+                    listOf(goal(id = 1, status = "paused"), goal(id = 2, status = "completed")),
+                ),
+            ),
+        )
+
+        assertNull(data.activeGoal)
+        assertEquals(SectionState.EMPTY, data.goalState)
+    }
+
+    // ======================================================================================
+    // D-K. Application state
+    // ======================================================================================
+
+    @Test
+    fun `a goal with no linked application reports null, which is not the same as not applied`() {
+        val data = data(viewModel(goals = Result.success(listOf(goal(applicationStatus = null)))))
+
+        assertNull(data.activeGoal?.applicationStatus)
+    }
+
+    @Test
+    fun `every application stage reaches Home unchanged`() {
+        // Phase 2E's vocabulary, carried through verbatim. Home reinterprets none of it: an
+        // outcome means what the tracker says it means, and nothing here maps one to another.
+        for (status in listOf("saved", "applied", "assessment", "interview", "offer", "rejected", "closed")) {
+            val data = data(viewModel(goals = Result.success(listOf(goal(applicationStatus = status)))))
+
+            assertEquals(status, data.activeGoal?.applicationStatus)
         }
-        val placementPathRepository = FakePlacementPathRepository().apply { currentResult = { path() } }
-        val progressRepository = FakeProgressRepository().apply { dashboardResult = Result.success(dashboard()) }
-        val roadmapRepository = FakeRoadmapRepository().apply { currentResult = { null } }
-        val careerPathRepository = FakeCareerPathRepository().apply { currentResult = { null } }
-        val viewModel = HomeViewModel(
-            placementPathRepository,
-            progressRepository,
-            FakePlacementAlarmRepository(),
-            roadmapRepository,
-            careerPathRepository,
-            atsCheckRepository,
-            FakeProfileRepository(),
-            FakeCareerTwinRepository().apply { careerTwinResult = { noRoleCareerTwin() } },
+    }
+
+    // ======================================================================================
+    // L-N. Evidence coverage
+    // ======================================================================================
+
+    @Test
+    fun `evidence coverage null is empty, never zero`() {
+        val data = data(viewModel(careerTwin = Result.success(twin(evidenceCoveragePercent = null))))
+
+        assertNull(data.evidenceCoveragePercent)
+        assertEquals(SectionState.EMPTY, data.evidenceState)
+    }
+
+    @Test
+    fun `evidence coverage zero is a measurement and survives as zero`() {
+        val data = data(viewModel(careerTwin = Result.success(twin(evidenceCoveragePercent = 0))))
+
+        assertNotNull(data.evidenceCoveragePercent)
+        assertEquals(0, data.evidenceCoveragePercent)
+        assertEquals(SectionState.AVAILABLE, data.evidenceState)
+    }
+
+    @Test
+    fun `evidence coverage is read from career twin, not recomputed`() {
+        val data = data(viewModel(careerTwin = Result.success(twin(evidenceCoveragePercent = 73))))
+
+        assertEquals(73, data.evidenceCoveragePercent)
+    }
+
+    @Test
+    fun `a twin with no role has nothing for coverage to be coverage of`() {
+        val data = data(
+            viewModel(careerTwin = Result.success(twin(hasRole = false, evidenceCoveragePercent = 40))),
         )
 
-        val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
+        assertNull(data.evidenceCoveragePercent)
+        assertEquals(SectionState.EMPTY, data.evidenceState)
+    }
 
-        assertEquals(82, data.resumeHealth?.overallScore)
+    // ======================================================================================
+    // O-Q. Preparation
+    // ======================================================================================
+
+    @Test
+    fun `preparation null is empty, never zero`() {
+        val data = data(viewModel(paths = Result.success(listOf(pathSummary(preparationPercent = null, totalItems = 0)))))
+
+        assertNull(data.preparationPercent)
+        assertEquals(SectionState.EMPTY, data.preparationState)
     }
 
     @Test
-    fun `target role name prefers the custom target role over a catalog role lookup`() {
-        val profileRepository = FakeProfileRepository().apply {
-            profileResult = profileResult.getOrThrow().copy(customTargetRole = "Quant Researcher").let { Result.success(it) }
-        }
-        val viewModel = HomeViewModel(
-            FakePlacementPathRepository().apply { currentResult = { path() } },
-            FakeProgressRepository().apply { dashboardResult = Result.success(dashboard()) },
-            FakePlacementAlarmRepository(),
-            FakeRoadmapRepository().apply { currentResult = { null } },
-            FakeCareerPathRepository().apply { currentResult = { null } },
-            FakeAtsCheckRepository(),
-            profileRepository,
-            FakeCareerTwinRepository().apply { careerTwinResult = { noRoleCareerTwin() } },
-        )
-
-        val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
-
-        assertEquals("Quant Researcher", data.targetRoleName)
-    }
-
-    @Test
-    fun `target role name is null when the profile has no target role set`() {
-        val data = (viewModel().uiState.value as UiState.Success<HomeData>).data
-
-        assertNull(data.targetRoleName)
-    }
-
-    @Test
-    fun `biggest gap is the top weakness from real progress history, or null with no history`() {
-        val withWeakness = (viewModel().uiState.value as UiState.Success<HomeData>).data
-        assertEquals("SQL JOINs", withWeakness.biggestGap)
-
-        val noWeaknessDashboard = dashboard().copy(topWeaknesses = emptyList())
-        val withoutWeakness = (viewModel(dashboard = noWeaknessDashboard).uiState.value as UiState.Success<HomeData>).data
-        assertNull(withoutWeakness.biggestGap)
-    }
-
-    @Test
-    fun `a failing dashboard degrades gracefully instead of blanking the whole screen`() {
-        val data = (viewModel(dashboard = null).uiState.value as UiState.Success<HomeData>).data
-
-        assertNull(data.readinessPercent)
-        assertEquals(0, data.currentStreakDays)
-        // Weakness tips are dashboard-sourced and drop out, but resume/career-path tips are
-        // independent signals that still populate -- Home never goes fully blank.
-        assertEquals(
-            listOf(
-                "Run an ATS check on your resume to see how it scores.",
-                "Pick a target role in Career Path for a focused prep plan.",
-            ),
-            data.recommendedForYou,
-        )
-        // The OTHER sources (placement path) still populate normally.
-        assertEquals("SQL JOINs", data.nextBestActionTitle)
-    }
-
-    @Test
-    fun `career twin readiness replaces the dashboard readiness once a target role is set`() {
-        val twin = CareerTwinDto(
-            hasRole = true,
-            roleSource = "career_path",
-            readinessPercent = 82,
-            readinessTrendPercent = 6,
-            isEstimate = true,
-            biggestGapSkill = "System Design",
-        )
-
-        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
-
-        assertEquals(82, data.readinessPercent)
-        assertEquals(6, data.readinessTrendPercent)
-        assertTrue(data.readinessIsEstimate)
-        // Career Twin's biggest gap takes priority over the dashboard's top weakness.
-        assertEquals("System Design", data.biggestGap)
-    }
-
-    @Test
-    fun `recent win surfaces the most recently verified skill and its confidence band, or null when none is verified yet`() {
-        // Dates are relative to today on purpose: "Recent Win" is time-bounded now, so
-        // hard-coded calendar dates would silently stop qualifying as the suite ages.
-        val twin = CareerTwinDto(
-            hasRole = true,
-            roleSource = "career_path",
-            skills = listOf(
-                SkillTwinItemDto(skill = "SQL", weight = 1f, confidencePercent = 90, confidenceBand = "very_high", state = "verified", lastVerifiedAt = isoDaysAgo(5)),
-                SkillTwinItemDto(skill = "Python", weight = 1f, confidencePercent = 90, confidenceBand = "very_high", state = "verified", lastVerifiedAt = isoDaysAgo(1)),
-                SkillTwinItemDto(skill = "DSA", weight = 1f, confidencePercent = 40, confidenceBand = "moderate", state = "supported"),
+    fun `preparation zero with a real checklist is a measured zero`() {
+        val data = data(
+            viewModel(
+                paths = Result.success(
+                    listOf(pathSummary(preparationPercent = 0, completedItems = 0, totalItems = 10)),
+                ),
             ),
         )
 
-        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
-
-        assertEquals("Python", data.recentWinSkill)
-        assertEquals("very_high", data.recentWinBand)
-        assertEquals(2, data.verifiedSkillCount)
-
-        val noEvidence = (viewModel().uiState.value as UiState.Success<HomeData>).data
-        assertNull(noEvidence.recentWinSkill)
-        assertNull(noEvidence.recentWinBand)
-        assertNull(noEvidence.verifiedSkillCount)
+        assertEquals(0, data.preparationPercent)
+        assertEquals(SectionState.AVAILABLE, data.preparationState)
+        assertEquals(10, data.preparationTotalItems)
     }
 
     @Test
-    fun `a verification older than the recent-win window is not announced as something that just happened`() {
-        // Regression: "just reached Verified status" used to be shown for the newest verified
-        // skill regardless of age. The Evidence Engine only marks evidence stale after 90
-        // days, so a student returning after a long break was congratulated for something
-        // that had happened months earlier as though it were today's news. The skill is still
-        // counted as verified -- it just is not a *recent* win.
-        val twin = CareerTwinDto(
-            hasRole = true,
-            roleSource = "career_path",
-            skills = listOf(
-                SkillTwinItemDto(skill = "SQL", weight = 1f, confidencePercent = 90, confidenceBand = "very_high", state = "verified", lastVerifiedAt = isoDaysAgo(60)),
+    fun `preparation comes from the primary path's own percentage`() {
+        val data = data(
+            viewModel(
+                paths = Result.success(
+                    listOf(
+                        pathSummary(preparationPercent = 20, isPrimary = false),
+                        pathSummary(preparationPercent = 60, isPrimary = true),
+                    ),
+                ),
             ),
         )
 
-        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
+        assertEquals(60, data.preparationPercent)
+    }
 
-        assertNull(data.recentWinSkill)
-        assertNull(data.recentWinBand)
-        assertEquals(1, data.verifiedSkillCount)
+    @Test
+    fun `no career path at all leaves preparation empty`() {
+        val data = data(viewModel(paths = Result.success(emptyList())))
+
+        assertNull(data.preparationPercent)
+        assertEquals(SectionState.EMPTY, data.preparationState)
+    }
+
+    // ======================================================================================
+    // R-T. Performance
+    // ======================================================================================
+
+    @Test
+    fun `performance null is empty, never zero`() {
+        val data = data(viewModel(dashboard = Result.success(dashboard(performanceScore = null))))
+
+        assertNull(data.performanceScore)
+        assertEquals(SectionState.EMPTY, data.performanceState)
+    }
+
+    @Test
+    fun `performance zero is a measured zero`() {
+        val data = data(viewModel(dashboard = Result.success(dashboard(performanceScore = 0.0))))
+
+        assertNotNull(data.performanceScore)
+        assertEquals(0.0, data.performanceScore!!, 0.0001)
+        assertEquals(SectionState.AVAILABLE, data.performanceState)
+    }
+
+    @Test
+    fun `performance keeps the dashboard's own 0 to 1 scale`() {
+        // Converting to a percentage is a rendering decision, made in the composable. Doing it
+        // here would put a second representation of one number into the data layer.
+        val data = data(viewModel(dashboard = Result.success(dashboard(performanceScore = 0.68))))
+
+        assertEquals(0.68, data.performanceScore!!, 0.0001)
+    }
+
+    // ======================================================================================
+    // U-V. Next Best Action
+    // ======================================================================================
+
+    @Test
+    fun `the next action is the next best action service's, not a locally invented one`() {
+        val data = data(viewModel(nextAction = Result.success(action(title = "Practice technical interview"))))
+
+        assertEquals("Practice technical interview", data.nextBestAction?.title)
+        assertEquals("interview", data.nextBestAction?.destination)
+        assertEquals(SectionState.AVAILABLE, data.nextActionState)
+    }
+
+    @Test
+    fun `no recommendation means no action shown, never a filler one`() {
+        val data = data(viewModel(nextAction = Result.success(action(hasRecommendation = false))))
+
+        assertNull(data.nextBestAction)
+        assertEquals(SectionState.EMPTY, data.nextActionState)
+    }
+
+    // ======================================================================================
+    // Y-Z. Partial and multiple failure
+    // ======================================================================================
+
+    @Test
+    fun `one failing source degrades its own section and leaves the rest intact`() {
+        val data = data(viewModel(dashboard = Result.failure(IOException("down"))))
+
+        assertEquals(SectionState.UNAVAILABLE, data.performanceState)
+        assertNull(data.performanceScore)
+        // Everything else still rendered.
+        assertEquals(SectionState.AVAILABLE, data.goalState)
+        assertEquals(SectionState.AVAILABLE, data.evidenceState)
+        assertEquals(SectionState.AVAILABLE, data.preparationState)
+        assertEquals(SectionState.AVAILABLE, data.nextActionState)
+    }
+
+    @Test
+    fun `a failed source is unavailable, never an empty result`() {
+        // The distinction this whole design exists for: a dropped request must not read as
+        // "we measured you and found nothing".
+        val data = data(viewModel(careerTwin = Result.failure(IOException("down"))))
+
+        assertEquals(SectionState.UNAVAILABLE, data.evidenceState)
+        assertNull(data.evidenceCoveragePercent)
+    }
+
+    @Test
+    fun `every source failing still renders Home rather than blanking it`() {
+        val data = data(
+            viewModel(
+                goals = Result.failure(IOException("down")),
+                paths = Result.failure(IOException("down")),
+                dashboard = Result.failure(IOException("down")),
+                careerTwin = Result.failure(IOException("down")),
+                nextAction = Result.failure(IOException("down")),
+            ),
+        )
+
+        assertEquals(SectionState.UNAVAILABLE, data.goalState)
+        assertEquals(SectionState.UNAVAILABLE, data.evidenceState)
+        assertEquals(SectionState.UNAVAILABLE, data.preparationState)
+        assertEquals(SectionState.UNAVAILABLE, data.performanceState)
+        assertEquals(SectionState.UNAVAILABLE, data.nextActionState)
+        // And not one fabricated number among them.
+        assertNull(data.evidenceCoveragePercent)
+        assertNull(data.preparationPercent)
+        assertNull(data.performanceScore)
+        assertNull(data.activeGoal)
+    }
+
+    @Test
+    fun `a failing goal source is unavailable, not an empty goal list`() {
+        val data = data(viewModel(goals = Result.failure(IOException("down"))))
+
+        assertEquals(SectionState.UNAVAILABLE, data.goalState)
+        assertNull(data.activeGoal)
+    }
+
+    // ======================================================================================
+    // AM. No fake values, and the greeting
+    // ======================================================================================
+
+    @Test
+    fun `a brand new student gets no fabricated numbers anywhere`() {
+        val data = data(
+            viewModel(
+                goals = Result.success(emptyList()),
+                paths = Result.success(emptyList()),
+                dashboard = Result.success(dashboard(performanceScore = null)),
+                careerTwin = Result.success(twin(hasRole = false)),
+                nextAction = Result.success(action(hasRecommendation = false)),
+            ),
+        )
+
+        assertNull(data.activeGoal)
+        assertNull(data.evidenceCoveragePercent)
+        assertNull(data.preparationPercent)
+        assertNull(data.performanceScore)
+        assertNull(data.nextBestAction)
+        assertNull(data.biggestGap)
     }
 
     @Test
     fun `greeting includes the student's first name when the profile has one, never a full name`() {
-        val profileRepository = FakeProfileRepository().apply {
-            profileResult = profileResult.getOrThrow().copy(fullName = "Sharath Kumar").let { Result.success(it) }
+        val profile = FakeProfileRepository().apply {
+            profileResult = Result.success(
+                (profileResult.getOrThrow() as ProfileDto).copy(fullName = "Priya Raman"),
+            )
         }
-        val viewModel = HomeViewModel(
-            FakePlacementPathRepository().apply { currentResult = { path() } },
-            FakeProgressRepository().apply { dashboardResult = Result.success(dashboard()) },
-            FakePlacementAlarmRepository(),
-            FakeRoadmapRepository().apply { currentResult = { null } },
-            FakeCareerPathRepository().apply { currentResult = { null } },
-            FakeAtsCheckRepository(),
-            profileRepository,
-            FakeCareerTwinRepository().apply { careerTwinResult = { noRoleCareerTwin() } },
-        )
+        val data = data(viewModel(profile = profile))
 
-        val data = (viewModel.uiState.value as UiState.Success<HomeData>).data
-
-        assertTrue(data.greeting.contains("Sharath"))
-        assertFalse(data.greeting.contains("Kumar"))
+        assertTrue(data.greeting.contains("Priya"))
+        assertFalse(data.greeting.contains("Raman"))
     }
 
     @Test
-    fun `greeting has no name when the profile has none set`() {
-        val data = (viewModel().uiState.value as UiState.Success<HomeData>).data
+    fun `target role name prefers the custom target role over a catalog lookup`() {
+        val profile = FakeProfileRepository().apply {
+            profileResult = Result.success(
+                (profileResult.getOrThrow() as ProfileDto).copy(customTargetRole = "ML Platform Engineer"),
+            )
+            rolesResult = Result.success(listOf(RoleDto(id = 1, name = "SDE", category = "Engineering")))
+        }
+        val data = data(viewModel(profile = profile))
 
-        assertFalse(data.greeting.contains(","))
+        assertEquals("ML Platform Engineer", data.targetRoleName)
     }
 
     @Test
-    fun `biggest gap confidence band comes from career twin's own skill data, never the dashboard-only fallback`() {
-        val twin = CareerTwinDto(
-            hasRole = true,
-            roleSource = "career_path",
-            biggestGapSkill = "Kafka",
-            skills = listOf(SkillTwinItemDto(skill = "Kafka", weight = 1f, confidencePercent = 0, confidenceBand = "none", state = "claimed")),
-        )
-        val withTwinGap = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
-        assertEquals("Kafka", withTwinGap.biggestGap)
-        assertEquals("none", withTwinGap.biggestGapBand)
+    fun `a failing profile leaves the greeting nameless instead of blanking Home`() {
+        val profile = FakeProfileRepository().apply { profileResult = Result.failure(IOException("down")) }
+        val data = data(viewModel(profile = profile))
 
-        // Falls back to the dashboard's top weakness with no associated confidence to show.
-        val dashboardOnly = (viewModel().uiState.value as UiState.Success<HomeData>).data
-        assertEquals("SQL JOINs", dashboardOnly.biggestGap)
-        assertNull(dashboardOnly.biggestGapBand)
-    }
-
-    @Test
-    fun `next milestone is the smallest real threshold above current readiness, never a fabricated mission count`() {
-        val twin = CareerTwinDto(hasRole = true, roleSource = "career_path", readinessPercent = 78)
-        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
-
-        assertEquals(78, data.readinessPercent)
-        assertEquals(85, data.nextMilestonePercent)
-    }
-
-    @Test
-    fun `next milestone is null once the highest threshold is already cleared`() {
-        val twin = CareerTwinDto(hasRole = true, roleSource = "career_path", readinessPercent = 97)
-        val data = (viewModel(careerTwin = twin).uiState.value as UiState.Success<HomeData>).data
-
-        assertNull(data.nextMilestonePercent)
+        assertNull(data.targetRoleName)
+        assertTrue(data.greeting.isNotEmpty())
+        assertEquals(SectionState.AVAILABLE, data.goalState)
     }
 }

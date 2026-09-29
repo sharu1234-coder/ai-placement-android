@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerPathSummaryDto
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +26,7 @@ class CareerPathSavedRolesViewModel(private val careerPathRepository: CareerPath
                 val all = careerPathRepository.getAll()
                 _uiState.value = if (all.isEmpty()) UiState.Empty else UiState.Success(all)
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load your saved roles. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("load your saved roles"))
             }
         }
     }

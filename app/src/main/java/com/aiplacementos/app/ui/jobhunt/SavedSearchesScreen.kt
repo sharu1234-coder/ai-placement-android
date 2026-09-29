@@ -22,6 +22,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,9 +46,11 @@ import com.aiplacementos.app.ui.theme.Spacing
 /**
  * Saved searches — a named set of filters the student can re-run.
  *
- * Re-running hands the saved filters straight back to the results screen rather than
- * reproducing the search here, so there is exactly one path that turns filters into jobs and
- * exactly one place that classifies its failures.
+ * Running one hands its id, not just its filters, to the results screen, which asks the server
+ * to run that saved search. The jobs that come back are the same either way; what differs is
+ * that the server records the run. Replaying the filters through the ordinary search endpoint
+ * left last_run_at and last_result_count permanently NULL, so the line under each row could
+ * only ever say nothing however many times the student had run it.
  *
  * Nothing on a row is invented. A search that has never run shows no result count at all,
  * because rendering "0 jobs" for a search we never performed would tell a student the market
@@ -55,7 +59,7 @@ import com.aiplacementos.app.ui.theme.Spacing
 @Composable
 fun SavedSearchesScreen(
     onBack: () -> Unit,
-    onRunSearch: (JobFilters) -> Unit,
+    onRunSearch: (Int, JobFilters) -> Unit,
 ) {
     val network = networkModule()
     val viewModel: SavedSearchesViewModel = viewModel(
@@ -63,6 +67,10 @@ fun SavedSearchesScreen(
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    // One run per visit to this screen. Running navigates away and replaces this entry, but a
+    // second tap can land before the transition does -- and each results screen mints its own
+    // operation id, so two would be two runs against the student's search allowance.
+    var hasRun by remember { mutableStateOf(false) }
 
     val actionError = (state as? SavedSearchesUiState.Success)?.actionError
     LaunchedEffect(actionError) {
@@ -108,7 +116,13 @@ fun SavedSearchesScreen(
                             SavedSearchRow(
                                 search = search,
                                 isDeleting = search.id in current.deletingIds,
-                                onRun = { onRunSearch(search.filters.toFilters()) },
+                                canRun = !hasRun,
+                                onRun = {
+                                    if (!hasRun) {
+                                        hasRun = true
+                                        onRunSearch(search.id, search.filters.toFilters())
+                                    }
+                                },
                                 onDelete = { viewModel.delete(search.id) },
                             )
                         }
@@ -120,9 +134,10 @@ fun SavedSearchesScreen(
 }
 
 @Composable
-private fun SavedSearchRow(
+internal fun SavedSearchRow(
     search: SavedSearchDto,
     isDeleting: Boolean,
+    canRun: Boolean,
     onRun: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -141,16 +156,16 @@ private fun SavedSearchRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = Spacing.xs),
                 )
-                // Only when it has actually run. See savedSearchLastRunLabel.
-                val lastRun = savedSearchLastRunLabel(search)
-                if (lastRun != null) {
-                    Text(
-                        text = lastRun,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = Spacing.xs),
-                    )
-                }
+                // What happened the last time this search ran -- including that it has never
+                // run, and including that the last attempt did not finish. Before the run
+                // button reached the server's own endpoint this line had nothing to say,
+                // because nothing the app did ever wrote the fields it reads.
+                Text(
+                    text = savedSearchRunStateLabel(search),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                )
             }
             IconButton(onClick = onDelete, enabled = !isDeleting) {
                 Icon(
@@ -162,6 +177,7 @@ private fun SavedSearchRow(
         SecondaryButton(
             text = "Run this search",
             onClick = onRun,
+            enabled = canRun && !isDeleting,
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
         )
     }

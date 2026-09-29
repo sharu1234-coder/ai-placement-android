@@ -9,7 +9,7 @@ import com.aiplacementos.app.domain.repository.PlacementPathRepository
 class PlacementPathRepositoryImpl(private val placementPathApi: PlacementPathApi) : PlacementPathRepository {
     override suspend fun generate(): PlacementPathDto = placementPathApi.generate()
 
-    override suspend fun getCurrent(): PlacementPathDto? = placementPathApi.getCurrent()
+    override suspend fun getCurrent(): PlacementPathDto? = placementPathApi.getCurrent().value
 
     override suspend fun getHistory(): List<PlacementPathDto> = placementPathApi.getHistory()
 

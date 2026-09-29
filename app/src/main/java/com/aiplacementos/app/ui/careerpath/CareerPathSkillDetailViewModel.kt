@@ -6,6 +6,7 @@ import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.data.remote.SkillItemDto
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.ui.common.UiState
+import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +38,7 @@ class CareerPathSkillDetailViewModel(
                     UiState.Error("This skill couldn't be found.")
                 }
             } catch (e: Exception) {
-                _uiState.value = UiState.Error("Couldn't load this skill. Check your connection and try again.")
+                _uiState.value = UiState.Error(e.toUserMessage("load this skill"))
             }
         }
     }
