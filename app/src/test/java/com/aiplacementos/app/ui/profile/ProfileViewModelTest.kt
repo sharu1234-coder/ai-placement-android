@@ -17,6 +17,57 @@ class ProfileViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    private fun skillRepository(failing: Boolean) = FakeProfileRepository().apply {
+        profileResult = Result.success(testProfile())
+        skillsResult = Result.success(emptyList())
+        addSkillResult = if (failing) {
+            Result.failure(java.net.UnknownHostException("reply lost"))
+        } else {
+            Result.success(SkillDto(id = 7, name = "React"))
+        }
+    }
+
+    @Test
+    fun `adding a skill keys the operation, and a second skill is a second operation`() {
+        val profileRepository = skillRepository(failing = true)
+        val viewModel = ProfileViewModel(profileRepository, FakeResumeRepository())
+
+        viewModel.toggleSkill("React")
+        viewModel.toggleSkill("React")
+        viewModel.toggleSkill("Kotlin")
+
+        assertEquals(3, profileRepository.keys.size)
+        assertEquals(2, profileRepository.keys.distinct().size)
+        assertEquals(profileRepository.keys[0], profileRepository.keys[1])
+    }
+
+    @Test
+    fun `the identity is the name as sent, so case is not flattened`() {
+        // The server fingerprints the name it receives. A client identity that lowercased it
+        // would hand "react" the key already used for "React" and be answered with a conflict
+        // instead of a replay.
+        val profileRepository = skillRepository(failing = true)
+        val viewModel = ProfileViewModel(profileRepository, FakeResumeRepository())
+
+        viewModel.toggleSkill("React")
+        viewModel.toggleSkill("react")
+
+        assertEquals(2, profileRepository.keys.distinct().size)
+    }
+
+    @Test
+    fun `a skill that was added consumes its key`() {
+        val profileRepository = skillRepository(failing = false)
+        val viewModel = ProfileViewModel(profileRepository, FakeResumeRepository())
+
+        viewModel.toggleSkill("React")
+        viewModel.toggleSkill("React")
+
+        assertEquals(2, profileRepository.keys.distinct().size)
+    }
+
     @Test
     fun `loads the profile, skills, and resume on init`() {
         val profile = testProfile(fullName = "Jane Doe", college = "IIT Bombay", graduationYear = 2027)

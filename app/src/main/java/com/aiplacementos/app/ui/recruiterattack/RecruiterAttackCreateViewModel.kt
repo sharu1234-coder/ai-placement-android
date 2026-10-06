@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.recruiterattack
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.data.remote.ProjectBuildListItemDto
 import com.aiplacementos.app.domain.repository.ProjectBuilderRepository
 import com.aiplacementos.app.domain.repository.RecruiterAttackRepository
@@ -29,6 +30,13 @@ class RecruiterAttackCreateViewModel(
     private val _uiState = MutableStateFlow<RecruiterAttackCreateUiState>(RecruiterAttackCreateUiState.Loading)
     val uiState: StateFlow<RecruiterAttackCreateUiState> = _uiState.asStateFlow()
 
+    /**
+     * One key per source the session is being built from, so picking project A, failing, then
+     * picking project B does not hand B's request A's key -- the server would answer that with a
+     * conflict, because the source is part of the request it fingerprints.
+     */
+    private val startKeys = OperationKeyHolder()
+
     init {
         load()
     }
@@ -51,7 +59,11 @@ class RecruiterAttackCreateViewModel(
         viewModelScope.launch {
             _uiState.value = current.copy(submitting = true, submitError = null)
             try {
-                val session = recruiterAttackRepository.startSession("project_build", buildId, null)
+                val identity = "project_build:$buildId"
+                val session = recruiterAttackRepository.startSession(
+                    "project_build", buildId, null, startKeys.keyFor(identity),
+                )
+                startKeys.consume(identity)
                 _uiState.value = RecruiterAttackCreateUiState.Success(session.id, session.sourceLabel)
             } catch (e: Exception) {
                 _uiState.value = current.copy(submitting = false, submitError = e.toUserMessage("start this session"))
@@ -70,7 +82,11 @@ class RecruiterAttackCreateViewModel(
         viewModelScope.launch {
             _uiState.value = current.copy(submitting = true, submitError = null)
             try {
-                val session = recruiterAttackRepository.startSession("resume_claim", null, trimmed)
+                val identity = "resume_claim:$trimmed"
+                val session = recruiterAttackRepository.startSession(
+                    "resume_claim", null, trimmed, startKeys.keyFor(identity),
+                )
+                startKeys.consume(identity)
                 _uiState.value = RecruiterAttackCreateUiState.Success(session.id, session.sourceLabel)
             } catch (e: Exception) {
                 _uiState.value = current.copy(submitting = false, submitError = e.toUserMessage("start this session"))

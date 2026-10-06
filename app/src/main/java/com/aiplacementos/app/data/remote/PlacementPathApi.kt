@@ -3,12 +3,15 @@ package com.aiplacementos.app.data.remote
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 
 interface PlacementPathApi {
     @POST("placement-path/generate")
-    suspend fun generate(): PlacementPathDto
+    suspend fun generate(
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): PlacementPathDto
 
     /** Empty until a placement path is generated -- see [NullableBody]. */
     @GET("placement-path/current")

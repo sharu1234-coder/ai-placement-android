@@ -23,7 +23,11 @@ class FakeAtsCheckRepository : AtsCheckRepository {
     var createCallCount: Int = 0
         private set
 
-    override suspend fun createAtsCheck(resumeId: Int, targetRole: String?): AtsCheckReportDto {
+    override suspend fun createAtsCheck(
+        resumeId: Int,
+        targetRole: String?,
+        idempotencyKey: String?,
+    ): AtsCheckReportDto {
         createCallCount++
         lastCreateResumeId = resumeId
         lastCreateTargetRole = targetRole

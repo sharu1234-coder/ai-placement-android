@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.data.remote.ProfileDto
 import com.aiplacementos.app.data.remote.RoleDto
 import com.aiplacementos.app.data.remote.SkillDto
@@ -30,6 +31,16 @@ class OnboardingConfirmationViewModel(
     private val _creating = MutableStateFlow(false)
     val creating: StateFlow<Boolean> = _creating.asStateFlow()
 
+    /**
+     * The key for generating the first placement path.
+     *
+     * Phase 24-B counted /placement-path/generate as fully keyed because the Placement Path
+     * screen keys it; this second caller did not, and it is the more expensive one -- it is the
+     * generation every new student pays for at the end of onboarding. One identity is enough,
+     * since the request carries no parameters at all.
+     */
+    private val generateKeys = OperationKeyHolder()
+
     init {
         load()
     }
@@ -52,8 +63,13 @@ class OnboardingConfirmationViewModel(
         viewModelScope.launch {
             _creating.value = true
             try {
-                placementPathRepository.generate()
+                placementPathRepository.generate(generateKeys.keyFor())
                 profileRepository.completeOnboarding()
+                // Consumed only once onboarding is genuinely marked complete. Clearing it right
+                // after generate() returned would mean a completeOnboarding failure, followed by
+                // the student tapping again, paid for a second full generation -- the first one
+                // having already committed.
+                generateKeys.consume()
                 onDone()
             } catch (e: HttpException) {
                 _uiState.value = UiState.Error(

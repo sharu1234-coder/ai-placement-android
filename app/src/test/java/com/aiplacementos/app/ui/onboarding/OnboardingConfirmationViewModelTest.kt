@@ -7,6 +7,7 @@ import com.aiplacementos.app.fakes.FakeProfileRepository
 import com.aiplacementos.app.fakes.httpException
 import com.aiplacementos.app.ui.common.UiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -24,6 +25,47 @@ private fun fakePath() = PlacementPathDto(
 class OnboardingConfirmationViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `the first placement path generation carries a key`() {
+        val pathRepository = FakePlacementPathRepository().apply { generateResult = { fakePath() } }
+        val viewModel = OnboardingConfirmationViewModel(FakeProfileRepository(), pathRepository)
+
+        viewModel.createRoadmap {}
+
+        assertEquals(1, pathRepository.keys.size)
+        assertNotNull(pathRepository.keys.single())
+    }
+
+    @Test
+    fun `completing onboarding failing keeps the generation key for the retry`() {
+        // generate() committed; completeOnboarding() did not. Tapping again has to replay the
+        // generation the student already paid for, not buy a second one.
+        val pathRepository = FakePlacementPathRepository().apply { generateResult = { fakePath() } }
+        val profileRepository = FakeProfileRepository().apply {
+            completeOnboardingResult = Result.failure(java.net.UnknownHostException("reply lost"))
+        }
+        val viewModel = OnboardingConfirmationViewModel(profileRepository, pathRepository)
+
+        viewModel.createRoadmap {}
+        viewModel.createRoadmap {}
+
+        assertEquals(2, pathRepository.keys.size)
+        assertEquals(1, pathRepository.keys.distinct().size)
+    }
+
+    @Test
+    fun `a completed onboarding consumes the key`() {
+        val pathRepository = FakePlacementPathRepository().apply { generateResult = { fakePath() } }
+        val viewModel = OnboardingConfirmationViewModel(FakeProfileRepository(), pathRepository)
+
+        viewModel.createRoadmap {}
+        viewModel.createRoadmap {}
+
+        assertEquals(2, pathRepository.keys.distinct().size)
+    }
 
     @Test
     fun `loads the profile, skills, and roles for the summary`() {

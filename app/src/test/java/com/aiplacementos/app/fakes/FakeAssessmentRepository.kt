@@ -9,6 +9,11 @@ import com.aiplacementos.app.data.remote.NextQuestionResponseDto
 import com.aiplacementos.app.domain.repository.AssessmentRepository
 
 class FakeAssessmentRepository : AssessmentRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var createBlueprintResult: (suspend (Int?, Int?, String?) -> AssessmentBlueprintDto)? = null
     var startAssessmentResult: (suspend (Int) -> AssessmentDto)? = null
     var nextQuestionResult: (suspend (Int) -> NextQuestionResponseDto)? = null
@@ -18,13 +23,19 @@ class FakeAssessmentRepository : AssessmentRepository {
 
     var lastCreateBlueprintArgs: Triple<Int?, Int?, String?>? = null
 
-    override suspend fun createBlueprint(roleId: Int?, jdId: Int?, category: String?): AssessmentBlueprintDto {
+    override suspend fun createBlueprint(
+        roleId: Int?,
+        jdId: Int?,
+        category: String?,
+        idempotencyKey: String?,
+    ): AssessmentBlueprintDto {
+        keys += idempotencyKey
         lastCreateBlueprintArgs = Triple(roleId, jdId, category)
         val fn = requireNotNull(createBlueprintResult) { "createBlueprintResult not configured" }
         return fn(roleId, jdId, category)
     }
 
-    override suspend fun startAssessment(blueprintId: Int): AssessmentDto {
+    override suspend fun startAssessment(blueprintId: Int, idempotencyKey: String?): AssessmentDto {
         val fn = requireNotNull(startAssessmentResult) { "startAssessmentResult not configured" }
         return fn(blueprintId)
     }

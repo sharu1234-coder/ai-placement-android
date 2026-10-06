@@ -32,6 +32,60 @@ class CareerGoalTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `an unresolved goal create keeps its key, and an edited goal gets a new one`() {
+        val repository = FakeCareerGoalRepository().apply {
+            listGoalsResult = { emptyList() }
+            createGoalResult = { throw java.net.UnknownHostException("reply lost") }
+        }
+        val viewModel = CareerGoalListViewModel(repository)
+
+        viewModel.createGoal("Data Engineer", "Acme", "Pune", "We are hiring.")
+        viewModel.createGoal("Data Engineer", "Acme", "Pune", "We are hiring.")
+        assertEquals(1, repository.keys.distinct().size)
+
+        viewModel.createGoal("Senior Data Engineer", "Acme", "Pune", "We are hiring.")
+
+        assertEquals(3, repository.keys.size)
+        assertEquals(2, repository.keys.distinct().size)
+    }
+
+    @Test
+    fun `an analysis that failed is retried as the same operation`() {
+        val repository = FakeCareerGoalRepository().apply {
+            getGoalResult = { detail() }
+            analyzeGoalResult = { throw java.net.UnknownHostException("reply lost") }
+        }
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
+
+        viewModel.analyze()
+        viewModel.analyze()
+
+        assertEquals(2, repository.keys.size)
+        assertEquals("one analysis, however many transmissions", 1, repository.keys.distinct().size)
+    }
+
+    @Test
+    fun `an analysis that succeeded consumes its key`() {
+        val repository = FakeCareerGoalRepository().apply {
+            getGoalResult = { detail() }
+            analyzeGoalResult = {
+                ApiJson.decodeFromString(
+                    """{"id": 1, "is_analyzed": true, "detected_role_title": "Data Engineer",
+                        "requirements_found": 8, "skills_found": 5}""".trimIndent(),
+                )
+            }
+        }
+        val viewModel = CareerGoalDetailViewModel(1, repository, FakeJobHuntRepository())
+
+        viewModel.analyze()
+        viewModel.analyze()
+
+        assertEquals(2, repository.keys.distinct().size)
+    }
+
     // ----------------------------------------------------------------------------------
     // Wire contract
     // ----------------------------------------------------------------------------------

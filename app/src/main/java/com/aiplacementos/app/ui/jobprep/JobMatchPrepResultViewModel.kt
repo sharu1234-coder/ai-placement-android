@@ -2,7 +2,9 @@ package com.aiplacementos.app.ui.jobprep
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKey
 import com.aiplacementos.app.data.remote.JobPreparationPlanDto
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.domain.repository.AssessmentRepository
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.domain.repository.JobRepository
@@ -68,6 +70,35 @@ class JobMatchPrepResultViewModel(
      * "finished and navigated away" -- see [onScreenResumed]. */
     private var careerPathUpdateJob: Job? = null
 
+    /**
+     * One key per roadmap generation asked for from this screen; see OperationKey.
+     *
+     * Keyed by jd id and duration, the pair the server fingerprints. A single slot meant that
+     * asking for 30 days, failing, and then asking for 60 sent the 30-day key with a 60-day
+     * body -- a 409 on a request the student had every right to make.
+     *
+     * Separate from JobMatchPrepViewModel's own roadmap key deliberately: that screen generates
+     * as the last step of one analysis, this one generates on demand afterwards, and they are
+     * different operations with different lifecycles even when the numbers coincide.
+     */
+    private val roadmapKeys = OperationKeyHolder()
+
+    /**
+     * Keys for this screen's other two mutations. Both take a single identity: the jd id is
+     * fixed for the screen, and neither request carries anything else the server fingerprints.
+     *
+     * The plan key covers load()'s 404 branch. Reading first already stops a *reopened* screen
+     * from generating a second plan, and surviving process death is handled the same way -- but
+     * neither helps inside a single attempt whose reply is lost after the plan was committed,
+     * which is what the key is for.
+     *
+     * startPractice is the second caller of /assessments/blueprint. Phase 24-B counted that
+     * endpoint as fully keyed on the strength of the Test Center's caller; this one was sending
+     * no key at all.
+     */
+    private val planKeys = OperationKeyHolder()
+    private val practiceKeys = OperationKeyHolder()
+
     init {
         load()
     }
@@ -88,7 +119,13 @@ class JobMatchPrepResultViewModel(
                 } catch (e: HttpException) {
                     // Reopening an analysis whose plan generation never finished, or one saved
                     // before plans existed at all.
-                    if (e.code() == 404) jobRepository.generatePreparationPlan(jdId, null, null) else throw e
+                    if (e.code() == 404) {
+                        jobRepository.generatePreparationPlan(
+                            jdId, null, null, idempotencyKey = planKeys.keyFor(),
+                        ).also { planKeys.consume() }
+                    } else {
+                        throw e
+                    }
                 }
                 _uiState.value = JobMatchPrepResultUiState.Success(plan)
             } catch (e: Exception) {
@@ -109,7 +146,9 @@ class JobMatchPrepResultViewModel(
         viewModelScope.launch {
             _uiState.value = current.copy(isGeneratingRoadmap = true, actionError = null)
             try {
-                roadmapRepository.generateRoadmap(jdId, durationDays)
+                val identity = "$jdId\u0000$durationDays"
+                roadmapRepository.generateRoadmap(jdId, durationDays, roadmapKeys.keyFor(identity))
+                roadmapKeys.consume(identity)
                 onReady()
             } catch (e: Exception) {
                 _uiState.value = current.copy(
@@ -133,7 +172,12 @@ class JobMatchPrepResultViewModel(
         viewModelScope.launch {
             _uiState.value = current.copy(isStartingPractice = true, actionError = null)
             try {
-                val blueprint = assessmentRepository.createBlueprint(roleId = null, jdId = jdId)
+                val blueprint = assessmentRepository.createBlueprint(
+                    roleId = null,
+                    jdId = jdId,
+                    idempotencyKey = practiceKeys.keyFor(),
+                )
+                practiceKeys.consume()
                 onReady(blueprint.id)
                 _uiState.value = current.copy(isStartingPractice = false)
             } catch (e: Exception) {

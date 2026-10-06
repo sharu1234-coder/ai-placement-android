@@ -12,9 +12,10 @@ import com.aiplacementos.app.domain.repository.RecruiterAttackRepository
 
 class RecruiterAttackRepositoryImpl(private val recruiterAttackApi: RecruiterAttackApi) : RecruiterAttackRepository {
     override suspend fun startSession(
-        sourceType: String, projectBuildId: Int?, claimText: String?
+        sourceType: String, projectBuildId: Int?, claimText: String?,
+        idempotencyKey: String?,
     ): RecruiterAttackSessionDto =
-        recruiterAttackApi.startSession(StartRecruiterAttackSessionRequestDto(sourceType, projectBuildId, claimText))
+        recruiterAttackApi.startSession(StartRecruiterAttackSessionRequestDto(sourceType, projectBuildId, claimText), idempotencyKey)
 
     override suspend fun listSessions(): List<RecruiterAttackSessionListItemDto> = recruiterAttackApi.listSessions()
 

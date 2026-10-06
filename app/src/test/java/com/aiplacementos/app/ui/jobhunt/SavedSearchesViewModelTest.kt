@@ -5,6 +5,7 @@ import com.aiplacementos.app.data.remote.JobSearchRequestDto
 import com.aiplacementos.app.data.remote.SavedSearchDto
 import com.aiplacementos.app.fakes.FakeJobHuntRepository
 import org.junit.Assert.assertEquals
+import com.aiplacementos.app.ui.jobhunt.JobFilters
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -28,6 +29,40 @@ private fun savedSearch(
 class SavedSearchesViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `the same name with different filters is a different operation`() {
+        val repository = FakeJobHuntRepository().apply {
+            listSavedSearchesResult = { emptyList() }
+            createSavedSearchResult = { _, _ -> throw java.net.UnknownHostException("reply lost") }
+        }
+        val vm = SavedSearchesViewModel(repository)
+
+        vm.save("Remote Python", JobFilters(keywords = "python", workMode = "remote"))
+        vm.save("Remote Python", JobFilters(keywords = "python", workMode = "remote"))
+        assertEquals("a retry of the same save", 1, repository.keys.distinct().size)
+
+        vm.save("Remote Python", JobFilters(keywords = "python", workMode = "onsite"))
+
+        assertEquals(3, repository.keys.size)
+        assertEquals("the filters are part of what the server fingerprints", 2, repository.keys.distinct().size)
+    }
+
+    @Test
+    fun `a search that was saved consumes its key`() {
+        val repository = FakeJobHuntRepository().apply {
+            listSavedSearchesResult = { emptyList() }
+            createSavedSearchResult = { _, _ -> savedSearch() }
+        }
+        val vm = SavedSearchesViewModel(repository)
+
+        vm.save("Remote Python", JobFilters(keywords = "python"))
+        vm.save("Remote Python", JobFilters(keywords = "python"))
+
+        assertEquals(2, repository.keys.distinct().size)
+    }
 
     @Test
     fun `lists saved searches`() {

@@ -8,13 +8,24 @@ import com.aiplacementos.app.data.remote.RecruiterAttackTurnDto
 import com.aiplacementos.app.domain.repository.RecruiterAttackRepository
 
 class FakeRecruiterAttackRepository : RecruiterAttackRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var startSessionResult: (suspend (String, Int?, String?) -> RecruiterAttackSessionDto)? = null
     var listSessionsResult: (suspend () -> List<RecruiterAttackSessionListItemDto>)? = null
     var nextTurnResult: (suspend (Int) -> NextRecruiterAttackTurnResponseDto)? = null
     var answerResult: (suspend (Int, Int, String) -> RecruiterAttackTurnDto)? = null
     var getResultsResult: (suspend (Int) -> RecruiterAttackResultsDto)? = null
 
-    override suspend fun startSession(sourceType: String, projectBuildId: Int?, claimText: String?): RecruiterAttackSessionDto {
+    override suspend fun startSession(
+        sourceType: String,
+        projectBuildId: Int?,
+        claimText: String?,
+        idempotencyKey: String?,
+    ): RecruiterAttackSessionDto {
+        keys += idempotencyKey
         val fn = requireNotNull(startSessionResult) { "startSessionResult not configured" }
         return fn(sourceType, projectBuildId, claimText)
     }

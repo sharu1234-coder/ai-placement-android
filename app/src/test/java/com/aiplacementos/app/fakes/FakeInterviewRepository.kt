@@ -9,6 +9,11 @@ import com.aiplacementos.app.domain.repository.InterviewRepository
 import java.io.File
 
 class FakeInterviewRepository : InterviewRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var listResult: Result<List<InterviewHistoryItemDto>> = Result.success(emptyList())
     var startResult: (suspend (String, String, Int?) -> InterviewDto)? = null
     var nextQuestionResult: (suspend (Int) -> NextInterviewQuestionResponseDto)? = null
@@ -19,7 +24,13 @@ class FakeInterviewRepository : InterviewRepository {
 
     override suspend fun listInterviews(): List<InterviewHistoryItemDto> = listResult.getOrThrow()
 
-    override suspend fun startInterview(type: String, mode: String, jdId: Int?): InterviewDto {
+    override suspend fun startInterview(
+        type: String,
+        mode: String,
+        jdId: Int?,
+        idempotencyKey: String?,
+    ): InterviewDto {
+        keys += idempotencyKey
         lastStartArgs = Triple(type, mode, jdId)
         val fn = requireNotNull(startResult) { "startResult not configured" }
         return fn(type, mode, jdId)

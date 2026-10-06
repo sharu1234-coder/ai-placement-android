@@ -15,8 +15,18 @@ class FakeResumeRepository : ResumeRepository {
 
     var lastDeletedResumeId: Int? = null
 
-    override suspend fun uploadResume(fileName: String, bytes: ByteArray): ResumeUploadResponseDto =
-        requireNotNull(uploadResult) { "uploadResult not configured" }.getOrThrow()
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per operation. */
+    val keys = mutableListOf<String?>()
+
+    override suspend fun uploadResume(
+        fileName: String,
+        bytes: ByteArray,
+        idempotencyKey: String?,
+    ): ResumeUploadResponseDto {
+        keys += idempotencyKey
+        return requireNotNull(uploadResult) { "uploadResult not configured" }.getOrThrow()
+    }
 
     override suspend fun getLatestResume(): ResumeSummaryDto? = latestResumeResult.getOrThrow()
 

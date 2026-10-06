@@ -23,6 +23,7 @@ import com.aiplacementos.app.fakes.httpException
 import java.io.IOException
 import kotlinx.coroutines.awaitCancellation
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -39,6 +40,57 @@ import org.junit.Test
 class JobMatchPrepResultViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    // --- operation-key identity (Phase 24-D) ---
+
+    @Test
+    fun `asking for a different roadmap duration gets a new key`() {
+        val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
+        val roadmap = FakeRoadmapRepository().apply {
+            generateResult = { _, _ -> throw java.net.UnknownHostException("reply lost") }
+        }
+        val vm = viewModel(job, roadmap = roadmap)
+
+        vm.generateRoadmap(30) {}
+        vm.generateRoadmap(30) {}
+        vm.generateRoadmap(60) {}
+
+        assertEquals(3, roadmap.keys.size)
+        assertEquals(roadmap.keys[0], roadmap.keys[1])
+        assertNotEquals(roadmap.keys[0], roadmap.keys[2])
+    }
+
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `the 404 recovery generate carries a key`() {
+        val job = FakeJobRepository().apply {
+            getPlanResult = { throw httpException(404) }
+            generatePlanResult = { _, _, _ -> testPlan() }
+        }
+
+        viewModel(job)
+
+        assertEquals(1, job.keys.size)
+        assertNotNull(job.keys.single())
+    }
+
+    @Test
+    fun `starting practice carries a key, and a second start is a new operation`() {
+        // The second caller of /assessments/blueprint, which Phase 24-B counted as fully keyed
+        // on the strength of the Test Center's caller alone.
+        val job = FakeJobRepository().apply { getPlanResult = { testPlan() } }
+        val assessment = FakeAssessmentRepository().apply {
+            createBlueprintResult = { _, _, _ -> throw java.net.UnknownHostException("reply lost") }
+        }
+        val vm = viewModel(job, assessment = assessment)
+
+        vm.startPractice {}
+        vm.startPractice {}
+
+        assertEquals(2, assessment.keys.size)
+        assertEquals("a retry of one practice start", 1, assessment.keys.distinct().size)
+    }
 
     private fun viewModel(
         job: FakeJobRepository,

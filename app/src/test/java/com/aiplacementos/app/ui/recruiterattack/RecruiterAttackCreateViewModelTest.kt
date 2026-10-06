@@ -23,6 +23,57 @@ class RecruiterAttackCreateViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    private fun recruiter(failing: Boolean) = FakeRecruiterAttackRepository().apply {
+        startSessionResult = { _, _, _ ->
+            if (failing) throw java.net.UnknownHostException("reply lost") else sampleSession()
+        }
+    }
+
+    private fun builds() = FakeProjectBuilderRepository().apply {
+        listResult = { listOf(sampleBuild(1, "completed"), sampleBuild(2, "completed")) }
+    }
+
+    @Test
+    fun `a double tap on one project is a single logical session start`() {
+        val repository = recruiter(failing = true)
+        val viewModel = RecruiterAttackCreateViewModel(repository, builds())
+
+        viewModel.startFromProject(1)
+        viewModel.startFromProject(1)
+
+        assertEquals(2, repository.keys.size)
+        assertEquals(1, repository.keys.distinct().size)
+    }
+
+    @Test
+    fun `a different project, and a resume claim, each get their own key`() {
+        val repository = recruiter(failing = true)
+        val viewModel = RecruiterAttackCreateViewModel(repository, builds())
+
+        viewModel.startFromProject(1)
+        viewModel.startFromProject(2)
+        viewModel.startFromResumeClaim("Cut p99 latency by 40%")
+        viewModel.startFromProject(1)
+
+        assertEquals(4, repository.keys.size)
+        assertEquals(3, repository.keys.distinct().size)
+        assertEquals("project 1's retry is still project 1", repository.keys[0], repository.keys[3])
+    }
+
+    @Test
+    fun `a session that started consumes its key`() {
+        val repository = recruiter(failing = false)
+        val viewModel = RecruiterAttackCreateViewModel(repository, builds())
+
+        viewModel.startFromProject(1)
+        viewModel.load()
+        viewModel.startFromProject(1)
+
+        assertEquals(2, repository.keys.distinct().size)
+    }
+
     @Test
     fun `loads and filters to only completed project builds`() {
         val projectBuilderRepository = FakeProjectBuilderRepository().apply {

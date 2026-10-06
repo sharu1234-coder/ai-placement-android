@@ -11,7 +11,10 @@ import com.aiplacementos.app.domain.repository.ArenaRepository
 class ArenaRepositoryImpl(private val arenaApi: ArenaApi) : ArenaRepository {
     override suspend fun listChallenges(): List<ArenaChallengeDto> = arenaApi.listChallenges()
 
-    override suspend fun startAttempt(challengeKey: String): ArenaAttemptStartDto = arenaApi.startAttempt(challengeKey)
+    override suspend fun startAttempt(
+        challengeKey: String,
+        idempotencyKey: String?,
+    ): ArenaAttemptStartDto = arenaApi.startAttempt(challengeKey, idempotencyKey)
 
     override suspend fun completeAttempt(arenaAttemptId: Int, timeTakenSeconds: Int): ArenaAttemptResultDto =
         arenaApi.completeAttempt(arenaAttemptId, CompleteArenaAttemptRequestDto(timeTakenSeconds))

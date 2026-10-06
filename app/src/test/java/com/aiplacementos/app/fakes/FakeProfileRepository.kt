@@ -6,6 +6,11 @@ import com.aiplacementos.app.data.remote.SkillDto
 import com.aiplacementos.app.domain.repository.ProfileRepository
 
 class FakeProfileRepository : ProfileRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var rolesResult: Result<List<RoleDto>> = Result.success(emptyList())
     var profileResult: Result<ProfileDto> = Result.success(
         ProfileDto(
@@ -84,7 +89,12 @@ class FakeProfileRepository : ProfileRepository {
 
     override suspend fun completeOnboarding(): ProfileDto = (completeOnboardingResult ?: profileResult).getOrThrow()
 
-    override suspend fun addSkill(name: String, proficiency: String?): SkillDto {
+    override suspend fun addSkill(
+        name: String,
+        proficiency: String?,
+        idempotencyKey: String?,
+    ): SkillDto {
+        keys += idempotencyKey
         lastAddSkillArgs = name to proficiency
         return addSkillResult.getOrThrow()
     }

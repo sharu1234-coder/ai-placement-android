@@ -67,7 +67,8 @@ class CareerPathRoleSelectionResumeTest {
         override suspend fun getCurrent(): CareerPathDto? = null
         override suspend fun getPath(pathId: Int) = throw UnsupportedOperationException()
         override suspend fun setCurrent(pathId: Int) = throw UnsupportedOperationException()
-        override suspend fun refresh(pathId: Int) = throw UnsupportedOperationException()
+        override suspend fun refresh(pathId: Int, idempotencyKey: String?) =
+            throw UnsupportedOperationException()
         override suspend fun getProjects(pathId: Int): List<CareerPathProjectDto> = emptyList()
         override suspend fun practiceSkillItem(itemId: Int) = throw UnsupportedOperationException()
         override suspend fun markSkillItemStatus(itemId: Int, status: String): SkillItemDto =

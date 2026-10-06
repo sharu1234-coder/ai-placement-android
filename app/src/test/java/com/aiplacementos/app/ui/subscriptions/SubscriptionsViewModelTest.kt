@@ -9,6 +9,8 @@ import com.aiplacementos.app.payment.RazorpayCheckoutBridge
 import com.aiplacementos.app.ui.common.UiState
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -22,6 +24,71 @@ private class TestActivity : Activity()
 class SubscriptionsViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    // --- operation-key identity (Phase 24-D) ---
+
+    @Test
+    fun `switching plan after an uncertain checkout gets a new key`() {
+        // The most expensive version of this defect: the server fingerprints the plan, so
+        // Monthly's key sent with an Annual body came back 409 and the student could not buy
+        // anything until it aged out.
+        val repository = FakeSubscriptionRepository().apply {
+            checkoutResult = Result.failure(java.net.UnknownHostException("reply lost"))
+        }
+        val (viewModel, _, _) = viewModel(repository)
+
+        viewModel.startCheckout(fakeActivity, com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30))
+        viewModel.startCheckout(fakeActivity, com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30))
+        viewModel.startCheckout(fakeActivity, com.aiplacementos.app.data.remote.PlanDto("12_month", "12 Months", 149_900, 365))
+
+        assertEquals(3, repository.keys.size)
+        assertEquals("retrying Monthly is the same checkout", repository.keys[0], repository.keys[1])
+        assertNotEquals("Annual is a different checkout", repository.keys[0], repository.keys[2])
+    }
+
+    @Test
+    fun `an unresolved checkout key survives the ViewModel being recreated`() {
+        // Razorpay's Checkout is a separate Activity, so this ViewModel can die mid-purchase.
+        // A fresh key on return would be a second live order.
+        val handle = SavedStateHandle()
+        val repository = FakeSubscriptionRepository().apply {
+            checkoutResult = Result.failure(java.net.UnknownHostException("reply lost"))
+        }
+        SubscriptionsViewModel(
+            repository = repository,
+            checkoutResults = MutableSharedFlow(extraBufferCapacity = 1),
+            openCheckout = { _, _, _, _, _ -> },
+            savedStateHandle = handle,
+        ).startCheckout(fakeActivity, com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30))
+        val first = repository.keys.single()
+
+        SubscriptionsViewModel(
+            repository = repository,
+            checkoutResults = MutableSharedFlow(extraBufferCapacity = 1),
+            openCheckout = { _, _, _, _, _ -> },
+            savedStateHandle = handle,
+        ).startCheckout(fakeActivity, com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30))
+
+        assertEquals("the recreated screen asked about the same checkout", first, repository.keys[1])
+    }
+
+    @Test
+    fun `a completed checkout consumes only that plan's key`() {
+        // startCheckout refuses a second call while Razorpay's Activity is open, so the proof
+        // that the key was consumed is read from where it is held rather than by calling again.
+        val handle = SavedStateHandle()
+        val repository = FakeSubscriptionRepository()
+        SubscriptionsViewModel(
+            repository = repository,
+            checkoutResults = MutableSharedFlow(extraBufferCapacity = 1),
+            openCheckout = { _, _, _, _, _ -> },
+            savedStateHandle = handle,
+        ).startCheckout(fakeActivity, com.aiplacementos.app.data.remote.PlanDto("1_month", "1 Month", 19_900, 30))
+
+        assertEquals("the order was placed", 1, repository.keys.size)
+        val stored = handle.get<HashMap<String, String>>("checkoutOperationKeys").orEmpty()
+        assertFalse("the completed plan's key is gone", stored.containsKey("1_month"))
+    }
 
     private val fakeActivity: Activity = TestActivity()
 

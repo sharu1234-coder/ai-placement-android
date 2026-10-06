@@ -7,7 +7,12 @@ import com.aiplacementos.app.data.remote.ProjectBuildStageDto
 import com.aiplacementos.app.data.remote.ProjectProofDto
 
 interface ProjectBuilderRepository {
-    suspend fun createBuild(title: String, stackSummary: String?): ProjectBuildDto
+    /** [idempotencyKey] names the logical operation, so a transport replay of it is free. */
+    suspend fun createBuild(
+        title: String,
+        stackSummary: String?,
+        idempotencyKey: String? = null,
+    ): ProjectBuildDto
     suspend fun listBuilds(): List<ProjectBuildListItemDto>
     suspend fun getBuild(buildId: Int): ProjectBuildDto
     suspend fun startStage(buildId: Int, stageKey: String): ProjectBuildStageDto

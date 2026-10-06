@@ -3,6 +3,7 @@ package com.aiplacementos.app.ui.careergoal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerGoalListItemDto
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.domain.repository.CareerGoalRepository
 import com.aiplacementos.app.ui.common.isNetworkError
 import com.aiplacementos.app.ui.common.isTimeoutError
@@ -33,6 +34,17 @@ class CareerGoalListViewModel(private val repository: CareerGoalRepository) : Vi
     /** A create that failed, as a message for the form. Null once shown and dismissed. */
     private val _saveError = MutableStateFlow<String?>(null)
     val saveError: StateFlow<String?> = _saveError.asStateFlow()
+
+    /**
+     * One key per distinct goal being saved.
+     *
+     * Keyed by the values actually sent, not by a single slot, and that is the whole point: the
+     * server hashes those same values into its fingerprint, so a key kept across an edit would
+     * come back as a conflict rather than a replay. Identity built from the trimmed values means
+     * correcting a typo and resending is honestly a new operation, while resending the same form
+     * untouched is honestly the same one.
+     */
+    private val createKeys = OperationKeyHolder()
 
     init {
         load()
@@ -71,14 +83,21 @@ class CareerGoalListViewModel(private val repository: CareerGoalRepository) : Vi
             _isSaving.value = true
             _saveError.value = null
             try {
+                val sentTitle = title.trim()
+                val sentCompany = company.trim()
+                // Blank becomes null rather than "": the backend stores an honest absence,
+                // and sending "" would make "they didn't say" look like "they said nothing".
+                val sentLocation = location.trim().takeIf { it.isNotEmpty() }
+                val identity = listOf(sentTitle, sentCompany, sentLocation.orEmpty(), jobDescription)
+                    .joinToString("\u0000")
                 val created = repository.createGoal(
-                    title = title.trim(),
-                    company = company.trim(),
-                    // Blank becomes null rather than "": the backend stores an honest absence,
-                    // and sending "" would make "they didn't say" look like "they said nothing".
-                    location = location.trim().takeIf { it.isNotEmpty() },
+                    title = sentTitle,
+                    company = sentCompany,
+                    location = sentLocation,
                     jobDescription = jobDescription,
+                    idempotencyKey = createKeys.keyFor(identity),
                 )
+                createKeys.consume(identity)
                 load()
                 onSaved(created.id)
             } catch (e: Exception) {

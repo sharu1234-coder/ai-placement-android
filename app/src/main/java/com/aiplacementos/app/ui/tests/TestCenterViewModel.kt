@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.tests
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKey
 import com.aiplacementos.app.data.remote.AssessmentHistoryItemDto
 import com.aiplacementos.app.domain.repository.AssessmentRepository
 import com.aiplacementos.app.domain.repository.ProfileRepository
@@ -95,6 +96,12 @@ class TestCenterViewModel(
         }
     }
 
+    // One key per category the student tapped, kept until that blueprint exists. Keyed by
+    // category because tapping DSA and then SQL are two different intents, while tapping DSA
+    // twice after a failure is one -- and the first of those taps may have created the
+    // blueprint before its reply was lost.
+    private val blueprintKeys = mutableMapOf<String, String>()
+
     fun startCategory(category: TestCategory, onBlueprintReady: (blueprintId: Int) -> Unit) {
         val roleId = (_uiState.value as? UiState.Success<TestCenterData>)?.data?.targetRoleId
         if (roleId == null) {
@@ -105,7 +112,11 @@ class TestCenterViewModel(
             _startError.value = null
             _startingCategory.value = category.label
             try {
-                val blueprint = assessmentRepository.createBlueprint(roleId, null, category.assessmentType)
+                val key = blueprintKeys.getOrPut(category.label) { OperationKey.newKey() }
+                val blueprint = assessmentRepository.createBlueprint(
+                    roleId, null, category.assessmentType, key,
+                )
+                blueprintKeys.remove(category.label)
                 onBlueprintReady(blueprint.id)
             } catch (e: HttpException) {
                 _startError.value = if (e.code() == 422) {

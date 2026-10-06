@@ -53,7 +53,10 @@ interface JobHuntApi {
      * unconfigured, down or out of budget -- which is the point of it existing.
      */
     @POST("job-hunt/listings")
-    suspend fun createListing(@Body body: ManualJobCreateDto): SavedJobDto
+    suspend fun createListing(
+        @Body body: ManualJobCreateDto,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): SavedJobDto
 
     @POST("job-hunt/saved")
     suspend fun saveJob(@Body body: SaveJobRequestDto): SavedJobDto
@@ -72,7 +75,10 @@ interface JobHuntApi {
     suspend fun deleteSaved(@Path("savedJobId") savedJobId: Int)
 
     @POST("job-hunt/saved-searches")
-    suspend fun createSavedSearch(@Body body: SavedSearchCreateDto): SavedSearchDto
+    suspend fun createSavedSearch(
+        @Body body: SavedSearchCreateDto,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): SavedSearchDto
 
     @GET("job-hunt/saved-searches")
     suspend fun listSavedSearches(): List<SavedSearchDto>
@@ -110,7 +116,10 @@ interface JobHuntApi {
     suspend fun getAlertHistory(): List<JobAlertHistoryDto>
 
     @POST("job-hunt/alerts")
-    suspend fun createAlert(@Body body: JobAlertCreateDto): JobAlertDto
+    suspend fun createAlert(
+        @Body body: JobAlertCreateDto,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): JobAlertDto
 
     @PATCH("job-hunt/alerts/{alertId}")
     suspend fun updateAlert(

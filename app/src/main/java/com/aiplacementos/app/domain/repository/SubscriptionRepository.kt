@@ -7,6 +7,6 @@ import com.aiplacementos.app.data.remote.SubscriptionStatusDto
 interface SubscriptionRepository {
     suspend fun getPlans(): List<PlanDto>
     suspend fun getStatus(): SubscriptionStatusDto
-    suspend fun checkout(plan: String): CheckoutResponseDto
+    suspend fun checkout(plan: String, idempotencyKey: String? = null): CheckoutResponseDto
     suspend fun verify(razorpayOrderId: String, razorpayPaymentId: String, razorpaySignature: String): SubscriptionStatusDto
 }

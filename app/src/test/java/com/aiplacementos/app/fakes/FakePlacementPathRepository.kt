@@ -5,6 +5,11 @@ import com.aiplacementos.app.data.remote.PlacementPathTopicDto
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
 
 class FakePlacementPathRepository : PlacementPathRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var currentResult: (suspend () -> PlacementPathDto?)? = null
     var historyResult: (suspend () -> List<PlacementPathDto>)? = null
     var generateResult: (suspend () -> PlacementPathDto)? = null
@@ -26,7 +31,10 @@ class FakePlacementPathRepository : PlacementPathRepository {
         return fn()
     }
 
-    override suspend fun generate(): PlacementPathDto {
+    override suspend fun generate(
+        idempotencyKey: String?,
+    ): PlacementPathDto {
+        keys += idempotencyKey
         val fn = requireNotNull(generateResult) { "generateResult not configured" }
         return fn()
     }

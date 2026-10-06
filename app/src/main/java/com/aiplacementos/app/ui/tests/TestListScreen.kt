@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -28,7 +29,9 @@ fun TestListScreen(blueprintId: Int, onStartTest: (assessmentId: Int) -> Unit) {
     val network = networkModule()
     val viewModel: TestListViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { TestListViewModel(blueprintId, network.assessmentRepository) }
+            initializer {
+                TestListViewModel(blueprintId, network.assessmentRepository, createSavedStateHandle())
+            }
         },
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()

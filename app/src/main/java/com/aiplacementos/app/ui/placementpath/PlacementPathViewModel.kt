@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.placementpath
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKey
 import com.aiplacementos.app.data.remote.PlacementPathDto
 import com.aiplacementos.app.data.remote.PlacementPathTopicDto
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
@@ -57,13 +58,23 @@ class PlacementPathViewModel(private val placementPathRepository: PlacementPathR
         }
     }
 
+    // ~163s of inference per call, measured, and it supersedes the student's current path, so
+    // a replay is the most expensive duplicate in the app.
+    private var pendingGenerateKey: String? = null
+
     /** Used for both first-time generation and explicit regeneration -- the backend treats
      * them as the same operation (see placement_path_service.generate_placement_path). */
     fun generate() {
         viewModelScope.launch {
             _uiState.value = PlacementPathUiState.Loading
             try {
-                _uiState.value = PlacementPathUiState.Success(placementPathRepository.generate())
+                val key = pendingGenerateKey ?: OperationKey.newKey().also { pendingGenerateKey = it }
+                val generated = placementPathRepository.generate(key)
+                // Cleared on success only: a retry of this generation is the same operation,
+                // while a later deliberate regeneration is a new one and must not be answered
+                // with the path this call produced.
+                pendingGenerateKey = null
+                _uiState.value = PlacementPathUiState.Success(generated)
             } catch (e: HttpException) {
                 _uiState.value = PlacementPathUiState.Error(
                     if (e.code() == 422) {

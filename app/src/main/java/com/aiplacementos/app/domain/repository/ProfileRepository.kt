@@ -20,7 +20,11 @@ interface ProfileRepository {
     suspend fun selectRole(roleId: Int?, customRole: String? = null): ProfileDto
     suspend fun selectSecondaryRole(roleId: Int): ProfileDto
     suspend fun completeOnboarding(): ProfileDto
-    suspend fun addSkill(name: String, proficiency: String?): SkillDto
+    suspend fun addSkill(
+        name: String,
+        proficiency: String?,
+        idempotencyKey: String? = null,
+    ): SkillDto
     suspend fun listSkills(): List<SkillDto>
     suspend fun deleteSkill(id: Int)
     suspend fun deleteMyAccount(password: String)

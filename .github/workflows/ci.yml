@@ -109,6 +109,22 @@ jobs:
       - name: Unit tests
         run: ./gradlew testDevDebugUnitTest testProdDebugUnitTest
 
+      # Compile-only, and deliberately so. The instrumentation suite had been uncompilable for
+      # several phases without anything noticing: the androidTest sources are not built by
+      # assembleDevDebug or by the unit-test tasks, so every job above stayed green while
+      # `connectedDevDebugAndroidTest` could not even be built. It was found by hand in Phase
+      # 27, which is not a mechanism that catches it a second time.
+      #
+      # What broke it is worth recording, because it is the ordinary case rather than an exotic
+      # one: a repository interface gained a parameter, the fakes in androidTest that implement
+      # it did not, and nothing in the build graph related the two. That is a plain Kotlin
+      # compile error, so compiling is enough to catch it -- no emulator, no device, no extra
+      # service, and no new infrastructure to maintain. Running the 99 tests in CI would need a
+      # hosted API 36 emulator; that is a bigger change than this gap justifies, and the
+      # compile step closes the specific hole that let the breakage survive.
+      - name: Compile instrumentation tests (no emulator required)
+        run: ./gradlew assembleDevDebugAndroidTest
+
       - name: Lint
         run: ./gradlew lintDevDebug
 

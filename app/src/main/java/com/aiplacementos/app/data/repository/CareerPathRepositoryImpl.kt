@@ -28,7 +28,10 @@ class CareerPathRepositoryImpl(private val careerPathApi: CareerPathApi) : Caree
 
     override suspend fun setCurrent(pathId: Int): CareerPathDto = careerPathApi.setCurrent(pathId)
 
-    override suspend fun refresh(pathId: Int): CareerPathDto = careerPathApi.refresh(pathId)
+    override suspend fun refresh(
+        pathId: Int,
+        idempotencyKey: String?,
+    ): CareerPathDto = careerPathApi.refresh(pathId, idempotencyKey)
 
     override suspend fun getProjects(pathId: Int): List<CareerPathProjectDto> = careerPathApi.getProjects(pathId)
 

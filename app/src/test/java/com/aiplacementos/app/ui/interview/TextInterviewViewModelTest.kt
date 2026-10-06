@@ -7,6 +7,8 @@ import com.aiplacementos.app.data.remote.InterviewQuestionDto
 import com.aiplacementos.app.data.remote.NextInterviewQuestionResponseDto
 import com.aiplacementos.app.fakes.FakeInterviewRepository
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -18,6 +20,69 @@ private fun question(id: Int = 101) = InterviewQuestionDto(id = id, orderIndex =
 class TextInterviewViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `a start whose reply was lost, then process death, reuses the same key`() {
+        // start() runs from init, so a killed-and-recreated screen starts again by itself.
+        // Without a key held in SavedStateHandle that second start is a second interview -- the
+        // server may well have committed the first one before its reply was lost.
+        val handle = SavedStateHandle()
+        val repository = FakeInterviewRepository().apply {
+            startResult = { _, _, _ -> throw java.net.UnknownHostException("reply lost") }
+        }
+        TextInterviewViewModel(0, "technical", repository, handle)
+        val firstKey = repository.keys.single()
+        assertNotNull(firstKey)
+
+        repository.startResult = { _, _, _ -> interview() }
+        repository.nextQuestionResult = { NextInterviewQuestionResponseDto(completed = false, question = question()) }
+        TextInterviewViewModel(0, "technical", repository, handle)
+
+        assertEquals(2, repository.keys.size)
+        assertEquals("the recreated screen asked about the same operation", firstKey, repository.keys[1])
+    }
+
+    @Test
+    fun `an explicit retry after a failed start reuses the key`() {
+        val handle = SavedStateHandle()
+        val repository = FakeInterviewRepository().apply {
+            startResult = { _, _, _ -> throw java.net.UnknownHostException("reply lost") }
+        }
+        val viewModel = TextInterviewViewModel(0, "technical", repository, handle)
+
+        viewModel.retry()
+
+        assertEquals(2, repository.keys.size)
+        assertEquals(1, repository.keys.distinct().size)
+    }
+
+    @Test
+    fun `once the interview exists its start key is consumed`() {
+        val handle = SavedStateHandle()
+        val repository = FakeInterviewRepository().apply {
+            startResult = { _, _, _ -> interview() }
+            nextQuestionResult = { NextInterviewQuestionResponseDto(completed = false, question = question()) }
+        }
+        TextInterviewViewModel(0, "technical", repository, handle)
+
+        assertEquals(1, repository.keys.size)
+        assertNull("nothing left to replay", handle.get<String>("interviewStartKey"))
+    }
+
+    @Test
+    fun `a recreated screen that already has an interview does not start a second one`() {
+        val handle = SavedStateHandle()
+        val repository = FakeInterviewRepository().apply {
+            startResult = { _, _, _ -> interview() }
+            nextQuestionResult = { NextInterviewQuestionResponseDto(completed = false, question = question()) }
+        }
+        TextInterviewViewModel(0, "technical", repository, handle)
+        TextInterviewViewModel(0, "technical", repository, handle)
+
+        assertEquals("the second screen resumed rather than started", 1, repository.keys.size)
+    }
 
     @Test
     fun `retry re-creates the interview when start itself failed`() {

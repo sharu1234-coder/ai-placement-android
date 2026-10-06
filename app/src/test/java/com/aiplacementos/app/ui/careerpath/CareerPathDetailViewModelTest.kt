@@ -4,6 +4,7 @@ import com.aiplacementos.app.MainDispatcherRule
 import com.aiplacementos.app.fakes.FakeCareerPathRepository
 import com.aiplacementos.app.ui.common.UiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -12,6 +13,29 @@ import org.junit.Test
 class CareerPathDetailViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `a failed refresh keeps its key, and a refresh that worked gets a new one`() {
+        val repository = FakeCareerPathRepository().apply {
+            pathResult = { sampleCareerPath() }
+            refreshResult = { throw java.net.UnknownHostException("reply lost") }
+        }
+        val viewModel = CareerPathDetailViewModel(1, repository)
+
+        viewModel.refresh()
+        viewModel.refresh()
+        assertEquals("a retry of the same refresh", 1, repository.keys.distinct().size)
+
+        repository.refreshResult = { sampleCareerPath() }
+        viewModel.refresh()
+        val afterSuccess = repository.keys.last()
+        viewModel.refresh()
+
+        assertEquals("the key survived until it succeeded", repository.keys[0], afterSuccess)
+        assertNotEquals("and the next refresh is a new operation", afterSuccess, repository.keys.last())
+    }
 
     @Test
     fun `load surfaces the path`() {

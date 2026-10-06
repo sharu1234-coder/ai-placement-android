@@ -107,7 +107,7 @@ class JobMatchPrepCareerPathLifecycleTest {
         override suspend fun getAll(): List<CareerPathSummaryDto> = emptyList()
         override suspend fun getPath(pathId: Int) = unreached()
         override suspend fun setCurrent(pathId: Int) = unreached()
-        override suspend fun refresh(pathId: Int) = unreached()
+        override suspend fun refresh(pathId: Int, idempotencyKey: String?) = unreached()
         override suspend fun getProjects(pathId: Int): List<CareerPathProjectDto> = emptyList()
         override suspend fun practiceSkillItem(itemId: Int): Int = unreached()
         override suspend fun markSkillItemStatus(itemId: Int, status: String): SkillItemDto = unreached()
@@ -117,25 +117,51 @@ class JobMatchPrepCareerPathLifecycleTest {
     private class Jobs(private val plan: JobPreparationPlanDto) : JobRepository {
         override suspend fun getPreparationPlan(jdId: Int) = plan
         override suspend fun listJobDescriptions(): List<JobDescriptionListItemDto> = emptyList()
-        override suspend fun parseJobDescription(rawText: String): JobDescriptionParseResponseDto = unreached()
-        override suspend fun uploadJobDescription(fileName: String, bytes: ByteArray):
-            JobDescriptionParseResponseDto = unreached()
-        override suspend fun matchJob(jdId: Int): JobMatchDto = unreached()
-        override suspend fun generatePreparationPlan(jdId: Int, companyName: String?, jobTitle: String?) = unreached()
+        override suspend fun parseJobDescription(
+            rawText: String,
+            idempotencyKey: String?,
+        ): JobDescriptionParseResponseDto = unreached()
+        override suspend fun uploadJobDescription(
+            fileName: String,
+            bytes: ByteArray,
+            idempotencyKey: String?,
+        ): JobDescriptionParseResponseDto = unreached()
+        override suspend fun matchJob(jdId: Int, idempotencyKey: String?): JobMatchDto =
+            unreached()
+        override suspend fun generatePreparationPlan(
+            jdId: Int,
+            companyName: String?,
+            jobTitle: String?,
+            idempotencyKey: String?,
+        ) = unreached()
         override suspend fun deleteJobDescription(jdId: Int) = unreached()
     }
 
     private class Roadmaps : RoadmapRepository {
-        override suspend fun generateRoadmap(jdId: Int?, durationDays: Int): RoadmapDto = unreached()
+        override suspend fun generateRoadmap(
+            jdId: Int?,
+            durationDays: Int,
+            idempotencyKey: String?,
+        ): RoadmapDto = unreached()
         override suspend fun getCurrentRoadmap(jdId: Int?): RoadmapDto? = null
         override suspend fun updateTaskStatus(taskId: Int, status: String): RoadmapTaskDto = unreached()
-        override suspend fun reassessRoadmap(roadmapId: Int): RoadmapDto = unreached()
+        override suspend fun reassessRoadmap(
+            roadmapId: Int,
+            idempotencyKey: String?,
+        ): RoadmapDto = unreached()
     }
 
     private class Assessments : AssessmentRepository {
-        override suspend fun createBlueprint(roleId: Int?, jdId: Int?, category: String?):
-            AssessmentBlueprintDto = unreached()
-        override suspend fun startAssessment(blueprintId: Int): AssessmentDto = unreached()
+        override suspend fun createBlueprint(
+            roleId: Int?,
+            jdId: Int?,
+            category: String?,
+            idempotencyKey: String?,
+        ): AssessmentBlueprintDto = unreached()
+        override suspend fun startAssessment(
+            blueprintId: Int,
+            idempotencyKey: String?,
+        ): AssessmentDto = unreached()
         override suspend fun nextQuestion(assessmentId: Int): NextQuestionResponseDto = unreached()
         override suspend fun submitAnswer(
             assessmentId: Int,

@@ -8,6 +8,11 @@ import com.aiplacementos.app.data.remote.ProjectProofDto
 import com.aiplacementos.app.domain.repository.ProjectBuilderRepository
 
 class FakeProjectBuilderRepository : ProjectBuilderRepository {
+    /** Every Idempotency-Key this fake was handed, in order. Equal keys across retries prove
+     * the caller holds one key per logical operation; different keys after a changed request
+     * prove it does not reuse one across identities. */
+    val keys = mutableListOf<String?>()
+
     var createResult: (suspend (String, String?) -> ProjectBuildDto)? = null
     var listResult: (suspend () -> List<ProjectBuildListItemDto>)? = null
     var getBuildResult: (suspend (Int) -> ProjectBuildDto)? = null
@@ -16,7 +21,12 @@ class FakeProjectBuilderRepository : ProjectBuilderRepository {
     var proofResult: (suspend (Int) -> ProjectProofDto)? = null
     var checkGithubResult: (suspend (Int, String) -> GitHubEvidenceDto)? = null
 
-    override suspend fun createBuild(title: String, stackSummary: String?): ProjectBuildDto {
+    override suspend fun createBuild(
+        title: String,
+        stackSummary: String?,
+        idempotencyKey: String?,
+    ): ProjectBuildDto {
+        keys += idempotencyKey
         val fn = requireNotNull(createResult) { "createResult not configured" }
         return fn(title, stackSummary)
     }

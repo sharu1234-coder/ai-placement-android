@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.jobhunt
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.data.remote.SavedSearchDto
 import com.aiplacementos.app.domain.repository.JobHuntRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +56,13 @@ class SavedSearchesViewModel(private val jobHuntRepository: JobHuntRepository) :
         }
     }
 
+    /**
+     * One key per distinct saved search. Identity is the name plus the filters, which is what
+     * the server fingerprints -- so saving "Bangalore SDE", failing, widening the filters and
+     * saving again is honestly a second search rather than a conflict.
+     */
+    private val saveKeys = OperationKeyHolder()
+
     fun retry() = load()
 
     fun save(name: String, filters: JobFilters) {
@@ -62,7 +70,14 @@ class SavedSearchesViewModel(private val jobHuntRepository: JobHuntRepository) :
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             try {
-                jobHuntRepository.createSavedSearch(trimmed, filters.toRequest())
+                val request = filters.toRequest()
+                val identity = "$trimmed\u0000$request"
+                jobHuntRepository.createSavedSearch(
+                    trimmed,
+                    request,
+                    idempotencyKey = saveKeys.keyFor(identity),
+                )
+                saveKeys.consume(identity)
                 val refreshed = jobHuntRepository.listSavedSearches()
                 _uiState.value = SavedSearchesUiState.Success(refreshed, justSavedName = trimmed)
             } catch (e: Exception) {

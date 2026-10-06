@@ -13,6 +13,42 @@ class OnboardingSkillsViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `a skill whose add failed is retried as the same operation`() {
+        val repository = FakeProfileRepository().apply {
+            skillsResult = Result.success(emptyList())
+            addSkillResult = Result.failure(java.net.UnknownHostException("reply lost"))
+        }
+        val viewModel = OnboardingSkillsViewModel(repository)
+
+        viewModel.toggleSkill("Python")
+        // A failed add turns this screen into an Error, and toggleSkill does nothing unless the
+        // list is on screen -- so reloading is how the student actually gets back to retrying.
+        viewModel.load()
+        viewModel.toggleSkill("Python")
+
+        assertEquals(2, repository.keys.size)
+        assertEquals("one skill, one operation", 1, repository.keys.distinct().size)
+    }
+
+    @Test
+    fun `each skill added gets its own key, and re-adding one is a new operation`() {
+        val repository = FakeProfileRepository().apply {
+            skillsResult = Result.success(emptyList())
+            addSkillResult = Result.success(SkillDto(id = 3, name = "Python"))
+        }
+        val viewModel = OnboardingSkillsViewModel(repository)
+
+        viewModel.toggleSkill("Python")
+        viewModel.toggleSkill("SQL")
+        viewModel.toggleSkill("Python")
+
+        assertEquals(3, repository.keys.size)
+        assertEquals("each add succeeded, so each is its own operation", 3, repository.keys.distinct().size)
+    }
+
     @Test
     fun `loads the student's current skills`() {
         val repository = FakeProfileRepository().apply {

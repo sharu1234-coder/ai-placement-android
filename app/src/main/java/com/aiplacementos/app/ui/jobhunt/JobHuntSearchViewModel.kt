@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.JobResultDto
 import com.aiplacementos.app.data.remote.JobSearchRequestDto
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.domain.repository.JobHuntRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -193,6 +194,14 @@ class JobHuntSearchViewModel(
         }
 
     private var inMemoryOperationId: String? = null
+
+    /**
+     * Saving a search is a separate operation from running one, so it gets its own keys rather
+     * than borrowing [operationId]: that id identifies the search being executed, and reusing it
+     * for the save would be one key covering two different requests -- which the server answers
+     * with a conflict, since the operation name is part of what it fingerprints.
+     */
+    private val saveKeys = OperationKeyHolder()
 
     private fun newOperationId(): String =
         // Prefixed so a key is recognisable in a server log, and trimmed to stay inside the
@@ -456,7 +465,14 @@ class JobHuntSearchViewModel(
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             try {
-                jobHuntRepository.createSavedSearch(trimmed, effectiveRequest())
+                val request = effectiveRequest()
+                val identity = "$trimmed\u0000$request"
+                jobHuntRepository.createSavedSearch(
+                    trimmed,
+                    request,
+                    idempotencyKey = saveKeys.keyFor(identity),
+                )
+                saveKeys.consume(identity)
                 updateSuccess { it.copy(actionError = "Saved \"$trimmed\"") }
             } catch (e: Exception) {
                 updateSuccess { it.copy(actionError = e.toJobSearchFailure().message) }

@@ -7,6 +7,11 @@ import com.aiplacementos.app.data.remote.ArenaChallengeHistoryDto
 import com.aiplacementos.app.domain.repository.ArenaRepository
 
 class FakeArenaRepository : ArenaRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var listChallengesResult: (suspend () -> List<ArenaChallengeDto>)? = null
     var startAttemptResult: (suspend (String) -> ArenaAttemptStartDto)? = null
     var completeAttemptResult: (suspend (Int, Int) -> ArenaAttemptResultDto)? = null
@@ -19,7 +24,11 @@ class FakeArenaRepository : ArenaRepository {
         return fn()
     }
 
-    override suspend fun startAttempt(challengeKey: String): ArenaAttemptStartDto {
+    override suspend fun startAttempt(
+        challengeKey: String,
+        idempotencyKey: String?,
+    ): ArenaAttemptStartDto {
+        keys += idempotencyKey
         val fn = requireNotNull(startAttemptResult) { "startAttemptResult not configured" }
         return fn(challengeKey)
     }

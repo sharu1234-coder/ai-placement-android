@@ -4,6 +4,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.HTTP
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -28,7 +29,10 @@ interface UsersApi {
     suspend fun completeOnboarding(): ProfileDto
 
     @POST("users/me/skills")
-    suspend fun addSkill(@Body request: SkillCreateDto): SkillDto
+    suspend fun addSkill(
+        @Body request: SkillCreateDto,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): SkillDto
 
     @GET("users/me/skills")
     suspend fun listSkills(): List<SkillDto>

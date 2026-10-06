@@ -12,8 +12,15 @@ import com.aiplacementos.app.data.remote.ProjectProofDto
 import com.aiplacementos.app.domain.repository.ProjectBuilderRepository
 
 class ProjectBuilderRepositoryImpl(private val projectBuilderApi: ProjectBuilderApi) : ProjectBuilderRepository {
-    override suspend fun createBuild(title: String, stackSummary: String?): ProjectBuildDto =
-        projectBuilderApi.createBuild(CreateProjectBuildRequestDto(title, stackSummary))
+    override suspend fun createBuild(
+        title: String,
+        stackSummary: String?,
+        idempotencyKey: String?,
+    ): ProjectBuildDto =
+        projectBuilderApi.createBuild(
+            CreateProjectBuildRequestDto(title, stackSummary),
+            idempotencyKey,
+        )
 
     override suspend fun listBuilds(): List<ProjectBuildListItemDto> = projectBuilderApi.listBuilds()
 

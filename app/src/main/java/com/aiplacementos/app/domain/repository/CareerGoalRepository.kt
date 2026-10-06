@@ -15,6 +15,7 @@ interface CareerGoalRepository {
         company: String,
         location: String?,
         jobDescription: String,
+        idempotencyKey: String? = null,
     ): CareerGoalListItemDto
 
     suspend fun getGoal(careerGoalId: Int): CareerGoalDetailDto
@@ -23,7 +24,10 @@ interface CareerGoalRepository {
 
     suspend fun deleteGoal(careerGoalId: Int)
 
-    suspend fun analyzeGoal(careerGoalId: Int): CareerGoalAnalyzeResponseDto
+    suspend fun analyzeGoal(
+        careerGoalId: Int,
+        idempotencyKey: String? = null,
+    ): CareerGoalAnalyzeResponseDto
 
     /** Link this goal to one of the student's own tracked applications. Runs no AI. */
     suspend fun linkApplication(careerGoalId: Int, savedJobId: Int): CareerGoalListItemDto

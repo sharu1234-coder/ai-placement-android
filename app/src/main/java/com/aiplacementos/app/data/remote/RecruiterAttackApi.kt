@@ -2,12 +2,16 @@ package com.aiplacementos.app.data.remote
 
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 
 interface RecruiterAttackApi {
     @POST("recruiter-attack/sessions")
-    suspend fun startSession(@Body request: StartRecruiterAttackSessionRequestDto): RecruiterAttackSessionDto
+    suspend fun startSession(
+        @Body request: StartRecruiterAttackSessionRequestDto,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): RecruiterAttackSessionDto
 
     @GET("recruiter-attack/sessions")
     suspend fun listSessions(): List<RecruiterAttackSessionListItemDto>

@@ -16,29 +16,38 @@ class JobRepositoryImpl(private val jobsApi: JobsApi) : JobRepository {
     override suspend fun listJobDescriptions(): List<JobDescriptionListItemDto> =
         jobsApi.listJobDescriptions()
 
-    override suspend fun parseJobDescription(rawText: String): JobDescriptionParseResponseDto =
-        jobsApi.createJobDescription(ParseJdRequestDto(rawText = rawText))
+    override suspend fun parseJobDescription(
+        rawText: String,
+        idempotencyKey: String?,
+    ): JobDescriptionParseResponseDto =
+        jobsApi.createJobDescription(ParseJdRequestDto(rawText = rawText), idempotencyKey)
 
     override suspend fun uploadJobDescription(
         fileName: String,
         bytes: ByteArray,
+        idempotencyKey: String?,
     ): JobDescriptionParseResponseDto {
         // Identical shape to ResumeRepositoryImpl.uploadResume -- same server-side multipart
         // handling, so there is no reason for the two to differ.
         val requestBody = bytes.toRequestBody("application/pdf".toMediaType())
         val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
-        return jobsApi.uploadJobDescription(part)
+        return jobsApi.uploadJobDescription(part, idempotencyKey)
     }
 
-    override suspend fun matchJob(jdId: Int): JobMatchDto = jobsApi.matchJob(jdId)
+    override suspend fun matchJob(
+        jdId: Int,
+        idempotencyKey: String?,
+    ): JobMatchDto = jobsApi.matchJob(jdId, idempotencyKey)
 
     override suspend fun generatePreparationPlan(
         jdId: Int,
         companyName: String?,
         jobTitle: String?,
+        idempotencyKey: String?,
     ): JobPreparationPlanDto = jobsApi.generatePreparationPlan(
         jdId,
         GeneratePreparationPlanRequestDto(companyName = companyName, jobTitle = jobTitle),
+        idempotencyKey,
     )
 
     override suspend fun getPreparationPlan(jdId: Int): JobPreparationPlanDto =

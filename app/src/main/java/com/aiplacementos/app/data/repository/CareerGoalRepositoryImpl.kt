@@ -17,6 +17,7 @@ class CareerGoalRepositoryImpl(private val careerGoalsApi: CareerGoalsApi) : Car
         company: String,
         location: String?,
         jobDescription: String,
+        idempotencyKey: String?,
     ): CareerGoalListItemDto = careerGoalsApi.createGoal(
         CareerGoalCreateRequest(
             title = title,
@@ -24,7 +25,8 @@ class CareerGoalRepositoryImpl(private val careerGoalsApi: CareerGoalsApi) : Car
             location = location,
             jobDescription = jobDescription,
         ),
-    )
+            idempotencyKey,
+        )
 
     override suspend fun getGoal(careerGoalId: Int): CareerGoalDetailDto =
         careerGoalsApi.getGoal(careerGoalId)
@@ -36,8 +38,11 @@ class CareerGoalRepositoryImpl(private val careerGoalsApi: CareerGoalsApi) : Car
 
     override suspend fun deleteGoal(careerGoalId: Int) = careerGoalsApi.deleteGoal(careerGoalId)
 
-    override suspend fun analyzeGoal(careerGoalId: Int): CareerGoalAnalyzeResponseDto =
-        careerGoalsApi.analyzeGoal(careerGoalId)
+    override suspend fun analyzeGoal(
+        careerGoalId: Int,
+        idempotencyKey: String?,
+    ): CareerGoalAnalyzeResponseDto =
+        careerGoalsApi.analyzeGoal(careerGoalId, idempotencyKey)
 
     override suspend fun linkApplication(careerGoalId: Int, savedJobId: Int): CareerGoalListItemDto =
         careerGoalsApi.linkApplication(careerGoalId, LinkApplicationRequest(savedJobId = savedJobId))

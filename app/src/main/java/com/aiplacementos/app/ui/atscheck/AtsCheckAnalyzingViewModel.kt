@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.atscheck
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKey
 import com.aiplacementos.app.domain.repository.AtsCheckRepository
 import com.aiplacementos.app.ui.common.toUserMessage
 import kotlinx.coroutines.Job
@@ -63,6 +64,11 @@ class AtsCheckAnalyzingViewModel(
     // is navigated to. Double-tapping "Try Again" on the error state did the same thing.
     private var runningJob: Job? = null
 
+    // The analysis this screen is for, named once. runningJob already stops a rotation from
+    // starting a second one, and Phase 24 showed what it cannot stop: a process death, or the
+    // transport replaying a request whose paid analysis had already committed.
+    private val analysisKey: String by lazy { OperationKey.newKey() }
+
     /** Idempotent while an analysis is in flight -- a repeat call (rotation re-running the
      * screen's LaunchedEffect, or an impatient second tap on "Try Again") joins the existing
      * run instead of starting a competing one. */
@@ -71,7 +77,7 @@ class AtsCheckAnalyzingViewModel(
         if (_uiState.value is AtsCheckAnalyzingUiState.Completed) return
         runningJob = viewModelScope.launch {
             _uiState.value = AtsCheckAnalyzingUiState.InProgress(0)
-            val networkDeferred = async { runCatching { atsCheckRepository.createAtsCheck(resumeId, targetRole) } }
+            val networkDeferred = async { runCatching { atsCheckRepository.createAtsCheck(resumeId, targetRole, analysisKey) } }
 
             for (stage in 0 until AtsCheckStageLabels.size - 1) {
                 _uiState.value = AtsCheckAnalyzingUiState.InProgress(stage)

@@ -3,6 +3,7 @@ package com.aiplacementos.app.ui.jobprep
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.JobDescriptionListItemDto
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.data.remote.ResumeSummaryDto
 import com.aiplacementos.app.domain.repository.JobRepository
 import com.aiplacementos.app.domain.repository.ResumeRepository
@@ -104,6 +105,25 @@ class JobMatchPrepViewModel(
      * Guarded against a second concurrent run: a double tap, or a recomposition that re-fires
      * the click, must not spend two AI generations (and two of the student's twenty per hour).
      */
+    /**
+     * Keys for the two mutations one "Analyse" spends: parsing the job description into a JD
+     * row, and generating its preparation plan.
+     *
+     * Both are consumed together, at the very end, and that is deliberate. Clearing the parse
+     * key as soon as parsing succeeded would mean a plan failure followed by Try Again parsed
+     * the same job description a second time -- a second JD row and a second AI call for one
+     * intent. Holding both until the whole analysis is through makes the retry replay step one
+     * and re-attempt step two, which is what the student asked for.
+     *
+     * The PDF identity is the file's name and size, the most the client knows before reading
+     * it; the server fingerprints a digest of the text it extracted, which is strictly more
+     * precise. Two genuinely different PDFs sharing a name and a byte size within one screen
+     * session would collide, and the server would answer the second with a conflict rather than
+     * a wrong plan.
+     */
+    private val jdKeys = OperationKeyHolder()
+    private val planKeys = OperationKeyHolder()
+
     fun analyze(
         mode: JdInputMode,
         rawText: String,
@@ -127,26 +147,43 @@ class JobMatchPrepViewModel(
         viewModelScope.launch {
             _analyzeError.value = null
             try {
+                val jdIdentity = when (mode) {
+                    JdInputMode.PASTE -> "paste\u0000${rawText.trim()}"
+                    JdInputMode.PDF -> "pdf\u0000${pdf?.name}\u0000${pdf?.sizeBytes}"
+                }
                 val parsed = when (mode) {
                     JdInputMode.PASTE -> {
                         _stage.value = AnalysisStage.ANALYSING_JOB
-                        jobRepository.parseJobDescription(rawText.trim())
+                        jobRepository.parseJobDescription(
+                            rawText.trim(),
+                            idempotencyKey = jdKeys.keyFor(jdIdentity),
+                        )
                     }
                     JdInputMode.PDF -> {
                         _stage.value = AnalysisStage.READING_PDF
                         val picked = requireNotNull(pdf)
                         val bytes = readPdfBytes()
                         _stage.value = AnalysisStage.ANALYSING_JOB
-                        jobRepository.uploadJobDescription(picked.name, bytes)
+                        jobRepository.uploadJobDescription(
+                            picked.name,
+                            bytes,
+                            idempotencyKey = jdKeys.keyFor(jdIdentity),
+                        )
                     }
                 }
 
                 _stage.value = AnalysisStage.BUILDING_PLAN
+                val sentCompany = companyName.trim().ifBlank { null }
+                val sentTitle = jobTitle.trim().ifBlank { null }
+                val planIdentity = "${parsed.id}\u0000${sentCompany.orEmpty()}\u0000${sentTitle.orEmpty()}"
                 jobRepository.generatePreparationPlan(
                     parsed.id,
-                    companyName.trim().ifBlank { null },
-                    jobTitle.trim().ifBlank { null },
+                    sentCompany,
+                    sentTitle,
+                    idempotencyKey = planKeys.keyFor(planIdentity),
                 )
+                jdKeys.consume(jdIdentity)
+                planKeys.consume(planIdentity)
                 onAnalyzed(parsed.id)
             } catch (e: HttpException) {
                 _analyzeError.value = when (e.code()) {

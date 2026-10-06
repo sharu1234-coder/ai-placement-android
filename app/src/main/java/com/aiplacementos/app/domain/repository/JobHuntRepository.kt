@@ -61,6 +61,7 @@ interface JobHuntRepository {
         url: String? = null,
         description: String? = null,
         status: String = "saved",
+        idempotencyKey: String? = null,
     ): SavedJobDto
 
     /** [source] records which screen the tap came from, for tracker provenance. It is a
@@ -84,6 +85,7 @@ interface JobHuntRepository {
         name: String,
         filters: JobSearchRequestDto,
         notifyEnabled: Boolean = false,
+        idempotencyKey: String? = null,
     ): SavedSearchDto
     suspend fun listSavedSearches(): List<SavedSearchDto>
     suspend fun deleteSavedSearch(savedSearchId: Int)
@@ -102,7 +104,10 @@ interface JobHuntRepository {
     suspend fun listAlerts(): List<JobAlertDto>
     suspend fun getAlertQuota(): JobAlertQuotaDto
     suspend fun getAlertHistory(): List<JobAlertHistoryDto>
-    suspend fun createAlert(body: JobAlertCreateDto): JobAlertDto
+    suspend fun createAlert(
+        body: JobAlertCreateDto,
+        idempotencyKey: String? = null,
+    ): JobAlertDto
     suspend fun updateAlert(alertId: Int, body: JobAlertUpdateDto): JobAlertDto
     suspend fun deleteAlert(alertId: Int)
 }

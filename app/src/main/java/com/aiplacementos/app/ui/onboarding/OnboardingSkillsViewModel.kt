@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.data.remote.SkillDto
 import com.aiplacementos.app.domain.repository.ProfileRepository
 import com.aiplacementos.app.ui.common.UiState
@@ -17,6 +18,18 @@ class OnboardingSkillsViewModel(private val profileRepository: ProfileRepository
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
+
+    /**
+     * One key per skill being added.
+     *
+     * Keyed by the name exactly as it is sent -- not lowercased, because the server fingerprints
+     * the name it receives, and a client identity that is *less* discriminating than that
+     * fingerprint would hand "react" the key already used for "React" and get a conflict back.
+     *
+     * Adding is the only direction that needs this. Deleting by id is already idempotent: the
+     * row is either there to remove or it is not.
+     */
+    private val addSkillKeys = OperationKeyHolder()
 
     init {
         load()
@@ -46,7 +59,12 @@ class OnboardingSkillsViewModel(private val profileRepository: ProfileRepository
                 if (existing != null) {
                     profileRepository.deleteSkill(existing.id)
                 } else {
-                    profileRepository.addSkill(name, proficiency = null)
+                    profileRepository.addSkill(
+                        name,
+                        proficiency = null,
+                        idempotencyKey = addSkillKeys.keyFor(name),
+                    )
+                    addSkillKeys.consume(name)
                 }
                 _uiState.value = UiState.Success(profileRepository.listSkills())
             } catch (e: Exception) {

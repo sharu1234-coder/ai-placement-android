@@ -7,8 +7,16 @@ import com.aiplacementos.app.data.remote.CreateAtsCheckRequestDto
 import com.aiplacementos.app.domain.repository.AtsCheckRepository
 
 class AtsCheckRepositoryImpl(private val atsCheckApi: AtsCheckApi) : AtsCheckRepository {
-    override suspend fun createAtsCheck(resumeId: Int, targetRole: String?): AtsCheckReportDto =
-        atsCheckApi.createAtsCheck(resumeId, CreateAtsCheckRequestDto(targetRole = targetRole))
+    override suspend fun createAtsCheck(
+        resumeId: Int,
+        targetRole: String?,
+        idempotencyKey: String?,
+    ): AtsCheckReportDto =
+        atsCheckApi.createAtsCheck(
+            resumeId,
+            CreateAtsCheckRequestDto(targetRole = targetRole),
+            idempotencyKey,
+        )
 
     override suspend fun listAtsChecks(): List<AtsCheckListItemDto> = atsCheckApi.listAtsChecks()
 

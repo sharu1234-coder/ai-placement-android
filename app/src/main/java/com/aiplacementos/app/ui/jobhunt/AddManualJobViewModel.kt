@@ -2,6 +2,7 @@ package com.aiplacementos.app.ui.jobhunt
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.data.remote.SavedJobDto
 import com.aiplacementos.app.domain.repository.JobHuntRepository
 import com.aiplacementos.app.ui.common.toUserMessage
@@ -88,6 +89,17 @@ class AddManualJobViewModel(
 
     fun onStageChange(stage: ApplicationStage) = update { it.copy(stage = stage) }
 
+    /**
+     * One key per distinct listing being added.
+     *
+     * The form's own isSubmitting flag already stops a second concurrent tap; this covers the
+     * case that flag cannot see -- the request arrived, the listing was created, and the reply
+     * was lost on the way back, so the transport asks again by itself. Keyed by the values
+     * sent, so correcting a field and resending is a new listing while resending the same form
+     * is the same one.
+     */
+    private val createKeys = OperationKeyHolder()
+
     fun submit() {
         val current = _uiState.value
         // One in-flight request at a time. Two taps on a form with no link would otherwise
@@ -102,17 +114,27 @@ class AddManualJobViewModel(
         viewModelScope.launch {
             _uiState.value = current.copy(isSubmitting = true, submitError = null)
             try {
+                val title = current.title.trim()
+                // Blank becomes absent rather than "". The server treats whitespace the
+                // same way, but sending it would still be the client asserting a company
+                // named one space.
+                val company = current.company.trim().ifBlank { null }
+                val location = current.location.trim().ifBlank { null }
+                val url = current.url.trim().ifBlank { null }
+                val description = current.description.trim().ifBlank { null }
+                val status = current.stage.apiValue
+                val identity = listOf(title, company, location, url, description, status)
+                    .joinToString("\u0000") { it.orEmpty() }
                 val saved = jobHuntRepository.addManualJob(
-                    title = current.title.trim(),
-                    // Blank becomes absent rather than "". The server treats whitespace the
-                    // same way, but sending it would still be the client asserting a company
-                    // named one space.
-                    company = current.company.trim().ifBlank { null },
-                    location = current.location.trim().ifBlank { null },
-                    url = current.url.trim().ifBlank { null },
-                    description = current.description.trim().ifBlank { null },
-                    status = current.stage.apiValue,
+                    title = title,
+                    company = company,
+                    location = location,
+                    url = url,
+                    description = description,
+                    status = status,
+                    idempotencyKey = createKeys.keyFor(identity),
                 )
+                createKeys.consume(identity)
                 update { it.copy(isSubmitting = false, added = saved) }
             } catch (e: Exception) {
                 update {

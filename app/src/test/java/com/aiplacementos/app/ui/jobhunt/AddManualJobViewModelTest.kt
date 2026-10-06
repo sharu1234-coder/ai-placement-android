@@ -30,6 +30,41 @@ class AddManualJobViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `an unresolved submit keeps its key, and editing the form starts a new operation`() {
+        val repository = FakeJobHuntRepository().apply {
+            addManualJobResult = { throw java.net.UnknownHostException("reply lost") }
+        }
+        val viewModel = AddManualJobViewModel(repository)
+        viewModel.onTitleChange("Data Engineer")
+
+        viewModel.submit()
+        viewModel.submit()
+        assertEquals("a retry of the same listing", 1, repository.keys.distinct().size)
+
+        // Correcting the form is honestly a different listing. Reusing the key here would be
+        // answered with a conflict, because the server fingerprints these same values.
+        viewModel.onTitleChange("Senior Data Engineer")
+        viewModel.submit()
+
+        assertEquals(3, repository.keys.size)
+        assertEquals(2, repository.keys.distinct().size)
+    }
+
+    @Test
+    fun `a listing that was added consumes its key`() {
+        val repository = FakeJobHuntRepository().apply { addManualJobResult = { savedJob() } }
+        val viewModel = AddManualJobViewModel(repository)
+        viewModel.onTitleChange("Data Engineer")
+
+        viewModel.submit()
+        viewModel.submit()
+
+        assertEquals(2, repository.keys.distinct().size)
+    }
+
     private fun savedJob(id: Int = 1, status: String = "saved") = SavedJobDto(
         id = id,
         status = status,

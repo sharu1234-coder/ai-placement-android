@@ -7,7 +7,8 @@ import com.aiplacementos.app.data.remote.UpdatePlacementPathTopicRequestDto
 import com.aiplacementos.app.domain.repository.PlacementPathRepository
 
 class PlacementPathRepositoryImpl(private val placementPathApi: PlacementPathApi) : PlacementPathRepository {
-    override suspend fun generate(): PlacementPathDto = placementPathApi.generate()
+    override suspend fun generate(idempotencyKey: String?): PlacementPathDto =
+        placementPathApi.generate(idempotencyKey)
 
     override suspend fun getCurrent(): PlacementPathDto? = placementPathApi.getCurrent().value
 

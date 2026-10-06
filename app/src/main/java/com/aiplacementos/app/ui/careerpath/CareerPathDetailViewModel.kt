@@ -3,6 +3,7 @@ package com.aiplacementos.app.ui.careerpath
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerPathDto
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.domain.repository.CareerPathRepository
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.toUserMessage
@@ -17,6 +18,17 @@ class CareerPathDetailViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<CareerPathDto>>(UiState.Loading)
     val uiState: StateFlow<UiState<CareerPathDto>> = _uiState.asStateFlow()
+
+    /**
+     * The refresh key. The path id is fixed for this screen and is all the server fingerprints,
+     * so one identity is enough.
+     *
+     * Refresh only. Career Path *generation* keeps its Phase 14 durable pending record and its
+     * Phase 16 transport exemption and is not touched from here: generation runs for minutes and
+     * recovers by reconciling against server state, while refresh re-plans a path that already
+     * exists and recovers by being asked again.
+     */
+    private val refreshKeys = OperationKeyHolder()
 
     init {
         load()
@@ -62,7 +74,9 @@ class CareerPathDetailViewModel(
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             try {
-                _uiState.value = UiState.Success(careerPathRepository.refresh(pathId))
+                val refreshed = careerPathRepository.refresh(pathId, refreshKeys.keyFor())
+                refreshKeys.consume()
+                _uiState.value = UiState.Success(refreshed)
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(e.toUserMessage("refresh this Career Path"))
             }

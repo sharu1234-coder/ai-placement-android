@@ -12,7 +12,16 @@ class FakeRoadmapRepository : RoadmapRepository {
 
     var lastGenerateArgs: Pair<Int?, Int>? = null
 
-    override suspend fun generateRoadmap(jdId: Int?, durationDays: Int): RoadmapDto {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per operation. */
+    val keys = mutableListOf<String?>()
+
+    override suspend fun generateRoadmap(
+        jdId: Int?,
+        durationDays: Int,
+        idempotencyKey: String?,
+    ): RoadmapDto {
+        keys += idempotencyKey
         lastGenerateArgs = jdId to durationDays
         val fn = requireNotNull(generateResult) { "generateResult not configured" }
         return fn(jdId, durationDays)
@@ -28,7 +37,8 @@ class FakeRoadmapRepository : RoadmapRepository {
         return fn(taskId, status)
     }
 
-    override suspend fun reassessRoadmap(roadmapId: Int): RoadmapDto {
+    override suspend fun reassessRoadmap(roadmapId: Int, idempotencyKey: String?): RoadmapDto {
+        keys += idempotencyKey
         val fn = requireNotNull(reassessResult) { "reassessResult not configured" }
         return fn(roadmapId)
     }

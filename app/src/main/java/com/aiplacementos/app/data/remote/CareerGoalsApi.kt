@@ -4,6 +4,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -22,7 +23,10 @@ interface CareerGoalsApi {
     suspend fun listGoals(): List<CareerGoalListItemDto>
 
     @POST("career-goals")
-    suspend fun createGoal(@Body body: CareerGoalCreateRequest): CareerGoalListItemDto
+    suspend fun createGoal(
+        @Body body: CareerGoalCreateRequest,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): CareerGoalListItemDto
 
     @GET("career-goals/{careerGoalId}")
     suspend fun getGoal(@Path("careerGoalId") careerGoalId: Int): CareerGoalDetailDto
@@ -37,7 +41,10 @@ interface CareerGoalsApi {
     suspend fun deleteGoal(@Path("careerGoalId") careerGoalId: Int)
 
     @POST("career-goals/{careerGoalId}/analyze")
-    suspend fun analyzeGoal(@Path("careerGoalId") careerGoalId: Int): CareerGoalAnalyzeResponseDto
+    suspend fun analyzeGoal(
+        @Path("careerGoalId") careerGoalId: Int,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): CareerGoalAnalyzeResponseDto
 
     /**
      * PUT, not POST, because linking is idempotent: sending the same pair twice leaves the

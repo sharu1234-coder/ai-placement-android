@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.InterviewQuestionDto
+import com.aiplacementos.app.data.remote.OperationKey
 import com.aiplacementos.app.domain.repository.InterviewRepository
 import com.aiplacementos.app.ui.common.toUserMessage
 import com.aiplacementos.app.voice.AudioRecordingException
@@ -58,6 +59,22 @@ class VoiceInterviewViewModel(
         if (interviewId != null) loadNextTurn() else start()
     }
 
+    /**
+     * The key for *creating* this interview.
+     *
+     * In SavedStateHandle rather than a field because start() runs from init: if the process is
+     * killed after the server committed the interview but before its reply arrived, the
+     * recreated ViewModel finds no interviewId and starts again -- and without the original key
+     * that second attempt is a second interview, abandoning the one the student already has.
+     * With it, the server recognises the replay and hands the first one back.
+     *
+     * Creation only. Answers and evaluation are separate operations and keep their own
+     * behaviour; this key is consumed the moment an interviewId exists.
+     */
+    private val startKey: String
+        get() = savedStateHandle.get<String>(START_KEY)
+            ?: OperationKey.newKey().also { savedStateHandle[START_KEY] = it }
+
     private fun start() {
         viewModelScope.launch {
             _uiState.value = VoiceInterviewUiState.Starting
@@ -66,8 +83,10 @@ class VoiceInterviewViewModel(
                     type = type,
                     mode = "voice",
                     jdId = jdId.takeIf { it != 0 },
+                    idempotencyKey = startKey,
                 )
                 interviewId = interview.id
+                savedStateHandle[START_KEY] = null
                 loadNextTurn()
             } catch (e: Exception) {
                 _uiState.value = VoiceInterviewUiState.Error(
@@ -146,5 +165,9 @@ class VoiceInterviewViewModel(
     override fun onCleared() {
         super.onCleared()
         manager.release()
+    }
+
+    private companion object {
+        const val START_KEY = "interviewStartKey"
     }
 }

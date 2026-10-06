@@ -2,6 +2,7 @@ package com.aiplacementos.app.data.remote
 
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 
@@ -10,6 +11,7 @@ interface AtsCheckApi {
     suspend fun createAtsCheck(
         @Path("resumeId") resumeId: Int,
         @Body request: CreateAtsCheckRequestDto,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
     ): AtsCheckReportDto
 
     @GET("resumes/ats-checks")

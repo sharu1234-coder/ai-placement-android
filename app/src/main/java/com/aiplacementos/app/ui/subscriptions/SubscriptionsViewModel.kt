@@ -4,6 +4,7 @@ import android.app.Activity
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.data.remote.PlanDto
 import com.aiplacementos.app.data.remote.SubscriptionStatusDto
 import com.aiplacementos.app.domain.repository.SubscriptionRepository
@@ -46,6 +47,20 @@ class SubscriptionsViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState<SubscriptionsData>>(UiState.Loading)
     val uiState: StateFlow<UiState<SubscriptionsData>> = _uiState.asStateFlow()
+
+    /**
+     * Checkout keys, held across recreation for the same reason pendingOrderId is: Razorpay's
+     * Checkout is a separate Activity, so this ViewModel can be recreated mid-purchase and a
+     * fresh key on return would be a second live order.
+     *
+     * The whole identity-to-key map is stored, not one key, so an unresolved Monthly attempt and
+     * a new Annual attempt keep their own keys instead of evicting each other. HashMap is
+     * Serializable, which is what lets SavedStateHandle carry it through process death.
+     */
+    private val checkoutKeys = OperationKeyHolder(
+        restore = { savedStateHandle.get<HashMap<String, String>>(CHECKOUT_KEYS).orEmpty() },
+        persist = { savedStateHandle[CHECKOUT_KEYS] = HashMap(it) },
+    )
 
     private val _purchaseState = MutableStateFlow<PurchaseState>(PurchaseState.Idle)
     val purchaseState: StateFlow<PurchaseState> = _purchaseState.asStateFlow()
@@ -95,7 +110,13 @@ class SubscriptionsViewModel(
         _purchaseState.value = PurchaseState.Processing(plan.plan)
         viewModelScope.launch {
             try {
-                val checkout = repository.checkout(plan.plan)
+                // Keyed by the plan, which is what the server fingerprints for a checkout.
+                // A single stored key was wrong in the most expensive place in the app: a
+                // student whose Monthly checkout failed, or returned an uncertain result, and
+                // who then chose Annual, sent Monthly's key with an Annual body -- answered 409,
+                // leaving them unable to buy anything until the key aged out.
+                val checkout = repository.checkout(plan.plan, checkoutKeys.keyFor(plan.plan))
+                checkoutKeys.consume(plan.plan)
                 pendingOrderId = checkout.razorpayOrderId
                 openCheckout(activity, checkout.razorpayKeyId, checkout.razorpayOrderId, checkout.amountPaise, checkout.currency)
             } catch (e: Exception) {
@@ -145,5 +166,6 @@ class SubscriptionsViewModel(
 
     private companion object {
         const val PENDING_ORDER_ID_KEY = "pendingOrderId"
+        const val CHECKOUT_KEYS = "checkoutOperationKeys"
     }
 }

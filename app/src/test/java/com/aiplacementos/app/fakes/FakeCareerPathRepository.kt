@@ -11,6 +11,11 @@ import com.aiplacementos.app.domain.repository.CareerPathRepository
  * since several Career Path flows (regenerate, set-current, apply-jd) need call-count- or
  * argument-dependent behavior across a single test, not just one fixed response. */
 class FakeCareerPathRepository : CareerPathRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var roleCatalogResult: (suspend () -> List<RoleCatalogEntryDto>)? = null
     var roleCategoriesResult: (suspend () -> List<String>)? = null
     var generateResult: (suspend (Int?, String?) -> CareerPathDto)? = null
@@ -72,7 +77,11 @@ class FakeCareerPathRepository : CareerPathRepository {
         return fn(pathId)
     }
 
-    override suspend fun refresh(pathId: Int): CareerPathDto {
+    override suspend fun refresh(
+        pathId: Int,
+        idempotencyKey: String?,
+    ): CareerPathDto {
+        keys += idempotencyKey
         lastRefreshPathId = pathId
         val fn = requireNotNull(refreshResult) { "refreshResult not configured" }
         return fn(pathId)

@@ -7,6 +7,11 @@ import com.aiplacementos.app.data.remote.JobPreparationPlanDto
 import com.aiplacementos.app.domain.repository.JobRepository
 
 class FakeJobRepository : JobRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var listResult: (suspend () -> List<JobDescriptionListItemDto>)? = null
     var parseResult: (suspend (String) -> JobDescriptionParseResponseDto)? = null
     var matchResult: (suspend (Int) -> JobMatchDto)? = null
@@ -29,7 +34,11 @@ class FakeJobRepository : JobRepository {
         return fn()
     }
 
-    override suspend fun parseJobDescription(rawText: String): JobDescriptionParseResponseDto {
+    override suspend fun parseJobDescription(
+        rawText: String,
+        idempotencyKey: String?,
+    ): JobDescriptionParseResponseDto {
+        keys += idempotencyKey
         lastParsedText = rawText
         parseCallCount++
         val fn = requireNotNull(parseResult) { "parseResult not configured" }
@@ -39,19 +48,30 @@ class FakeJobRepository : JobRepository {
     override suspend fun uploadJobDescription(
         fileName: String,
         bytes: ByteArray,
+        idempotencyKey: String?,
     ): JobDescriptionParseResponseDto {
+        keys += idempotencyKey
         lastUploadedFileName = fileName
         lastUploadedBytes = bytes
         val fn = requireNotNull(uploadResult) { "uploadResult not configured" }
         return fn(fileName, bytes)
     }
 
-    override suspend fun matchJob(jdId: Int): JobMatchDto {
+    override suspend fun matchJob(
+        jdId: Int,
+        idempotencyKey: String?,
+    ): JobMatchDto {
         val fn = requireNotNull(matchResult) { "matchResult not configured" }
         return fn(jdId)
     }
 
-    override suspend fun generatePreparationPlan(jdId: Int, companyName: String?, jobTitle: String?): JobPreparationPlanDto {
+    override suspend fun generatePreparationPlan(
+        jdId: Int,
+        companyName: String?,
+        jobTitle: String?,
+        idempotencyKey: String?,
+    ): JobPreparationPlanDto {
+        keys += idempotencyKey
         lastGeneratePlanArgs = Triple(jdId, companyName, jobTitle)
         generatePlanCallCount++
         val fn = requireNotNull(generatePlanResult) { "generatePlanResult not configured" }

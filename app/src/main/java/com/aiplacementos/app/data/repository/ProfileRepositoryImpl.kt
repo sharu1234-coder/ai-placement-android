@@ -46,8 +46,12 @@ class ProfileRepositoryImpl(private val usersApi: UsersApi) : ProfileRepository 
 
     override suspend fun completeOnboarding(): ProfileDto = usersApi.completeOnboarding()
 
-    override suspend fun addSkill(name: String, proficiency: String?): SkillDto =
-        usersApi.addSkill(SkillCreateDto(name = name, proficiency = proficiency))
+    override suspend fun addSkill(
+        name: String,
+        proficiency: String?,
+        idempotencyKey: String?,
+    ): SkillDto =
+        usersApi.addSkill(SkillCreateDto(name = name, proficiency = proficiency), idempotencyKey)
 
     override suspend fun listSkills(): List<SkillDto> = usersApi.listSkills()
 

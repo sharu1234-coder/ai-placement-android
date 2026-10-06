@@ -13,11 +13,22 @@ import com.aiplacementos.app.data.remote.SubmitAnswerRequestDto
 import com.aiplacementos.app.domain.repository.AssessmentRepository
 
 class AssessmentRepositoryImpl(private val assessmentsApi: AssessmentsApi) : AssessmentRepository {
-    override suspend fun createBlueprint(roleId: Int?, jdId: Int?, category: String?): AssessmentBlueprintDto =
-        assessmentsApi.createBlueprint(PrepareMeRequestDto(roleId = roleId, jdId = jdId, category = category))
+    override suspend fun createBlueprint(
+        roleId: Int?,
+        jdId: Int?,
+        category: String?,
+        idempotencyKey: String?,
+    ): AssessmentBlueprintDto =
+        assessmentsApi.createBlueprint(
+            PrepareMeRequestDto(roleId = roleId, jdId = jdId, category = category),
+            idempotencyKey,
+        )
 
-    override suspend fun startAssessment(blueprintId: Int): AssessmentDto =
-        assessmentsApi.startAssessment(StartAssessmentRequestDto(blueprintId = blueprintId))
+    override suspend fun startAssessment(blueprintId: Int, idempotencyKey: String?): AssessmentDto =
+        assessmentsApi.startAssessment(
+            StartAssessmentRequestDto(blueprintId = blueprintId),
+            idempotencyKey,
+        )
 
     override suspend fun nextQuestion(assessmentId: Int): NextQuestionResponseDto =
         assessmentsApi.nextQuestion(assessmentId)

@@ -13,8 +13,8 @@ class SubscriptionRepositoryImpl(private val subscriptionsApi: SubscriptionsApi)
 
     override suspend fun getStatus(): SubscriptionStatusDto = subscriptionsApi.getStatus()
 
-    override suspend fun checkout(plan: String): CheckoutResponseDto =
-        subscriptionsApi.checkout(CheckoutRequestDto(plan))
+    override suspend fun checkout(plan: String, idempotencyKey: String?): CheckoutResponseDto =
+        subscriptionsApi.checkout(CheckoutRequestDto(plan), idempotencyKey)
 
     override suspend fun verify(
         razorpayOrderId: String,

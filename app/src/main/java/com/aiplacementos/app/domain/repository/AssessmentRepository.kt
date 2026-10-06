@@ -8,8 +8,15 @@ import com.aiplacementos.app.data.remote.AssessmentResultDto
 import com.aiplacementos.app.data.remote.NextQuestionResponseDto
 
 interface AssessmentRepository {
-    suspend fun createBlueprint(roleId: Int?, jdId: Int?, category: String? = null): AssessmentBlueprintDto
-    suspend fun startAssessment(blueprintId: Int): AssessmentDto
+    /** [idempotencyKey] names the logical operation, so a transport replay of it is free. */
+    suspend fun createBlueprint(
+        roleId: Int?,
+        jdId: Int?,
+        category: String? = null,
+        idempotencyKey: String? = null,
+    ): AssessmentBlueprintDto
+    /** [idempotencyKey] identifies the logical operation, so a transport replay of it is free. */
+    suspend fun startAssessment(blueprintId: Int, idempotencyKey: String? = null): AssessmentDto
     suspend fun nextQuestion(assessmentId: Int): NextQuestionResponseDto
     suspend fun submitAnswer(
         assessmentId: Int,

@@ -7,7 +7,10 @@ import com.aiplacementos.app.data.remote.ArenaChallengeHistoryDto
 
 interface ArenaRepository {
     suspend fun listChallenges(): List<ArenaChallengeDto>
-    suspend fun startAttempt(challengeKey: String): ArenaAttemptStartDto
+    suspend fun startAttempt(
+        challengeKey: String,
+        idempotencyKey: String? = null,
+    ): ArenaAttemptStartDto
     suspend fun completeAttempt(arenaAttemptId: Int, timeTakenSeconds: Int): ArenaAttemptResultDto
     suspend fun getHistory(challengeKey: String): ArenaChallengeHistoryDto
 }

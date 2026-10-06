@@ -4,6 +4,7 @@ import com.aiplacementos.app.MainDispatcherRule
 import com.aiplacementos.app.data.remote.ProjectBuildDto
 import com.aiplacementos.app.fakes.FakeProjectBuilderRepository
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -17,6 +18,66 @@ private fun sampleBuild(id: Int = 42, title: String = "Realtime Pipeline") = Pro
 class ProjectBuildCreateViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    // --- operation-key identity (Phase 24-D) ---
+
+    private fun failingBuilder() = FakeProjectBuilderRepository().apply {
+        createResult = { _, _ -> throw java.net.UnknownHostException("reply lost") }
+    }
+
+    @Test
+    fun `retrying the same build reuses its key, and an edited build does not`() {
+        val repository = failingBuilder()
+        val viewModel = ProjectBuildCreateViewModel(repository)
+
+        viewModel.create("Rate limiter", "Kotlin, Redis")
+        viewModel.create("Rate limiter", "Kotlin, Redis")
+        viewModel.create("Rate limiter v2", "Kotlin, Redis")
+
+        assertEquals(3, repository.keys.size)
+        assertEquals("the retry is the same operation", repository.keys[0], repository.keys[1])
+        assertNotEquals("the edited title is a new one", repository.keys[0], repository.keys[2])
+    }
+
+    @Test
+    fun `the stack summary is part of the identity, because the server fingerprints it`() {
+        val repository = failingBuilder()
+        val viewModel = ProjectBuildCreateViewModel(repository)
+
+        viewModel.create("Rate limiter", "Kotlin, Redis")
+        viewModel.create("Rate limiter", "Kotlin, Redis, Postgres")
+
+        assertNotEquals(repository.keys[0], repository.keys[1])
+    }
+
+    @Test
+    fun `two unresolved builds keep their own keys, and neither evicts the other`() {
+        val repository = failingBuilder()
+        val viewModel = ProjectBuildCreateViewModel(repository)
+
+        viewModel.create("A", "Kotlin")
+        viewModel.create("B", "Python")
+        viewModel.create("A", "Kotlin")
+        viewModel.create("B", "Python")
+
+        assertEquals(listOf(repository.keys[0], repository.keys[1]),
+                     listOf(repository.keys[2], repository.keys[3]))
+        assertNotEquals(repository.keys[0], repository.keys[1])
+    }
+
+    @Test
+    fun `a build that succeeded consumes only its own identity`() {
+        val repository = FakeProjectBuilderRepository().apply {
+            createResult = { _, _ -> sampleBuild() }
+        }
+        val viewModel = ProjectBuildCreateViewModel(repository)
+
+        viewModel.create("A", "Kotlin")
+        viewModel.create("A", "Kotlin")
+
+        assertNotEquals("the second deliberate create is a new operation",
+                        repository.keys[0], repository.keys[1])
+    }
 
     @Test
     fun `blank title is rejected without calling the repository`() {

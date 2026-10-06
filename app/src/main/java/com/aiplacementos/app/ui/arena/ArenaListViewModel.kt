@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.ArenaAttemptStartDto
 import com.aiplacementos.app.data.remote.ArenaChallengeDto
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.domain.repository.ArenaRepository
 import com.aiplacementos.app.ui.common.isNetworkError
 import com.aiplacementos.app.ui.common.isTimeoutError
@@ -26,6 +27,16 @@ sealed interface ArenaListUiState {
 class ArenaListViewModel(private val arenaRepository: ArenaRepository) : ViewModel() {
     private val _uiState = MutableStateFlow<ArenaListUiState>(ArenaListUiState.Loading)
     val uiState: StateFlow<ArenaListUiState> = _uiState.asStateFlow()
+
+    /**
+     * One key per challenge being started.
+     *
+     * Keyed by challenge rather than held in a single slot: starting DSA and then starting SQL
+     * are two intents, while two taps on DSA are one. There is deliberately no in-flight guard
+     * here -- startChallenge's only check is that the list loaded -- so the stable key is what
+     * holds a double tap to a single attempt.
+     */
+    private val startKeys = OperationKeyHolder()
 
     init {
         load()
@@ -51,7 +62,11 @@ class ArenaListViewModel(private val arenaRepository: ArenaRepository) : ViewMod
         viewModelScope.launch {
             _uiState.value = current.copy(startingKey = challengeKey, startError = null)
             try {
-                val start = arenaRepository.startAttempt(challengeKey)
+                val start = arenaRepository.startAttempt(
+                    challengeKey,
+                    startKeys.keyFor(challengeKey),
+                )
+                startKeys.consume(challengeKey)
                 onStarted(start)
             } catch (e: Exception) {
                 val latest = _uiState.value

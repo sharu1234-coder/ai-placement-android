@@ -18,8 +18,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 class InterviewRepositoryImpl(private val interviewsApi: InterviewsApi) : InterviewRepository {
     override suspend fun listInterviews(): List<InterviewHistoryItemDto> = interviewsApi.listInterviews()
 
-    override suspend fun startInterview(type: String, mode: String, jdId: Int?): InterviewDto =
-        interviewsApi.startInterview(StartInterviewRequestDto(type = type, mode = mode, jdId = jdId))
+    override suspend fun startInterview(
+        type: String,
+        mode: String,
+        jdId: Int?,
+        idempotencyKey: String?,
+    ): InterviewDto =
+        interviewsApi.startInterview(StartInterviewRequestDto(type = type, mode = mode, jdId = jdId), idempotencyKey)
 
     override suspend fun nextQuestion(interviewId: Int): NextInterviewQuestionResponseDto =
         interviewsApi.nextQuestion(interviewId)

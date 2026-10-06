@@ -50,6 +50,35 @@ class JobAlertsViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `an unresolved alert create keeps its key, and a different alert gets its own`() {
+        val repository = repositoryWith().apply {
+            createAlertResult = { throw java.net.UnknownHostException("reply lost") }
+        }
+        val vm = JobAlertsViewModel(repository)
+
+        vm.create("Bangalore SDE")
+        vm.create("Bangalore SDE")
+        vm.create("Remote Python")
+
+        assertEquals(3, repository.keys.size)
+        assertEquals(2, repository.keys.distinct().size)
+        assertEquals(repository.keys[0], repository.keys[1])
+    }
+
+    @Test
+    fun `an alert that was created consumes its key`() {
+        val repository = repositoryWith().apply { createAlertResult = { alertDto() } }
+        val vm = JobAlertsViewModel(repository)
+
+        vm.create("Bangalore SDE")
+        vm.create("Bangalore SDE")
+
+        assertEquals(2, repository.keys.distinct().size)
+    }
+
     @Test
     fun `alerts and quota load together`() {
         val vm = JobAlertsViewModel(repositoryWith())

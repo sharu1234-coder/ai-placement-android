@@ -24,11 +24,16 @@ class FakeSubscriptionRepository : SubscriptionRepository {
     data class VerifyArgs(val orderId: String, val paymentId: String, val signature: String)
     var lastVerifyArgs: VerifyArgs? = null
 
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per operation. */
+    val keys = mutableListOf<String?>()
+
     override suspend fun getPlans(): List<PlanDto> = plansResult.getOrThrow()
 
     override suspend fun getStatus(): SubscriptionStatusDto = statusResult.getOrThrow()
 
-    override suspend fun checkout(plan: String): CheckoutResponseDto {
+    override suspend fun checkout(plan: String, idempotencyKey: String?): CheckoutResponseDto {
+        keys += idempotencyKey
         lastCheckoutPlan = plan
         return (checkoutResult ?: Result.success(
             CheckoutResponseDto(

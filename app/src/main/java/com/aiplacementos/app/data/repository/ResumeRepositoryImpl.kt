@@ -9,10 +9,14 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class ResumeRepositoryImpl(private val resumesApi: ResumesApi) : ResumeRepository {
-    override suspend fun uploadResume(fileName: String, bytes: ByteArray): ResumeUploadResponseDto {
+    override suspend fun uploadResume(
+        fileName: String,
+        bytes: ByteArray,
+        idempotencyKey: String?,
+    ): ResumeUploadResponseDto {
         val requestBody = bytes.toRequestBody("application/pdf".toMediaType())
         val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
-        return resumesApi.uploadResume(part)
+        return resumesApi.uploadResume(part, idempotencyKey)
     }
 
     override suspend fun getLatestResume(): ResumeSummaryDto? = resumesApi.getMyLatestResume().value

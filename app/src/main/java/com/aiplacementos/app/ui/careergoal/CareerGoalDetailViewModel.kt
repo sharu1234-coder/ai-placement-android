@@ -3,6 +3,7 @@ package com.aiplacementos.app.ui.careergoal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.CareerGoalDetailDto
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.data.remote.SavedJobDto
 import com.aiplacementos.app.domain.repository.CareerGoalRepository
 import com.aiplacementos.app.domain.repository.JobHuntRepository
@@ -52,6 +53,16 @@ class CareerGoalDetailViewModel(
     private val _isLinking = MutableStateFlow(false)
     val isLinking: StateFlow<Boolean> = _isLinking.asStateFlow()
 
+    /**
+     * The analysis key. One identity only -- the goal id is fixed for this screen and is the
+     * whole of what the server fingerprints -- so this reads as a plain key/consume pair.
+     *
+     * It matters more here than anywhere else in this feature: analysis is the one call that
+     * spends an AI generation and one of the student's hourly allowance, so a reply lost after
+     * the server had already committed would otherwise cost them a second one.
+     */
+    private val analyzeKeys = OperationKeyHolder()
+
     init {
         load()
     }
@@ -78,7 +89,8 @@ class CareerGoalDetailViewModel(
             _isAnalyzing.value = true
             _analysisError.value = null
             try {
-                repository.analyzeGoal(careerGoalId)
+                repository.analyzeGoal(careerGoalId, analyzeKeys.keyFor())
+                analyzeKeys.consume()
                 _uiState.value = CareerGoalDetailUiState.Success(repository.getGoal(careerGoalId))
             } catch (e: Exception) {
                 _analysisError.value = e.toUserMessage("analyze this job description")

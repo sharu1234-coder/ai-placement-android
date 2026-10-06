@@ -6,6 +6,11 @@ import com.aiplacementos.app.data.remote.CareerGoalListItemDto
 import com.aiplacementos.app.domain.repository.CareerGoalRepository
 
 class FakeCareerGoalRepository : CareerGoalRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var listGoalsResult: (suspend () -> List<CareerGoalListItemDto>)? = null
     var createGoalResult: (suspend () -> CareerGoalListItemDto)? = null
     var getGoalResult: (suspend (Int) -> CareerGoalDetailDto)? = null
@@ -36,7 +41,9 @@ class FakeCareerGoalRepository : CareerGoalRepository {
         company: String,
         location: String?,
         jobDescription: String,
+        idempotencyKey: String?,
     ): CareerGoalListItemDto {
+        keys += idempotencyKey
         createCalls += 1
         createdLocation = location
         val fn = requireNotNull(createGoalResult) { "createGoalResult not configured" }
@@ -59,7 +66,11 @@ class FakeCareerGoalRepository : CareerGoalRepository {
         deleteGoalResult?.invoke(careerGoalId)
     }
 
-    override suspend fun analyzeGoal(careerGoalId: Int): CareerGoalAnalyzeResponseDto {
+    override suspend fun analyzeGoal(
+        careerGoalId: Int,
+        idempotencyKey: String?,
+    ): CareerGoalAnalyzeResponseDto {
+        keys += idempotencyKey
         analyzeCalls += 1
         val fn = requireNotNull(analyzeGoalResult) { "analyzeGoalResult not configured" }
         return fn(careerGoalId)

@@ -3,6 +3,7 @@ package com.aiplacementos.app.data.remote
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -35,7 +36,10 @@ interface CareerPathApi {
     suspend fun setCurrent(@Path("pathId") pathId: Int): CareerPathDto
 
     @POST("career-path/{pathId}/refresh")
-    suspend fun refresh(@Path("pathId") pathId: Int): CareerPathDto
+    suspend fun refresh(
+        @Path("pathId") pathId: Int,
+        @Header("Idempotency-Key") idempotencyKey: String? = null,
+    ): CareerPathDto
 
     @GET("career-path/{pathId}/projects")
     suspend fun getProjects(@Path("pathId") pathId: Int): List<CareerPathProjectDto>

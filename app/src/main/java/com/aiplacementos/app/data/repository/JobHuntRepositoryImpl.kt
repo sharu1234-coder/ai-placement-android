@@ -48,6 +48,7 @@ class JobHuntRepositoryImpl(private val jobHuntApi: JobHuntApi) : JobHuntReposit
         url: String?,
         description: String?,
         status: String,
+        idempotencyKey: String?,
     ): SavedJobDto = jobHuntApi.createListing(
         ManualJobCreateDto(
             title = title,
@@ -57,6 +58,7 @@ class JobHuntRepositoryImpl(private val jobHuntApi: JobHuntApi) : JobHuntReposit
             description = description,
             status = status,
         ),
+        idempotencyKey,
     )
 
     override suspend fun saveJob(
@@ -93,9 +95,11 @@ class JobHuntRepositoryImpl(private val jobHuntApi: JobHuntApi) : JobHuntReposit
         name: String,
         filters: JobSearchRequestDto,
         notifyEnabled: Boolean,
+        idempotencyKey: String?,
     ): SavedSearchDto = jobHuntApi.createSavedSearch(
         SavedSearchCreateDto(name = name, filters = filters, notifyEnabled = notifyEnabled),
-    )
+            idempotencyKey,
+        )
 
     override suspend fun listSavedSearches(): List<SavedSearchDto> = jobHuntApi.listSavedSearches()
 
@@ -121,8 +125,11 @@ class JobHuntRepositoryImpl(private val jobHuntApi: JobHuntApi) : JobHuntReposit
 
     override suspend fun getAlertHistory(): List<JobAlertHistoryDto> = jobHuntApi.getAlertHistory()
 
-    override suspend fun createAlert(body: JobAlertCreateDto): JobAlertDto =
-        jobHuntApi.createAlert(body)
+    override suspend fun createAlert(
+        body: JobAlertCreateDto,
+        idempotencyKey: String?,
+    ): JobAlertDto =
+        jobHuntApi.createAlert(body, idempotencyKey)
 
     override suspend fun updateAlert(alertId: Int, body: JobAlertUpdateDto): JobAlertDto =
         jobHuntApi.updateAlert(alertId, body)

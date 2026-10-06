@@ -3,8 +3,10 @@ package com.aiplacementos.app.ui.resume
 import android.content.ContentResolver
 import android.net.Uri
 import android.provider.OpenableColumns
+import java.security.MessageDigest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.data.remote.ResumeUploadResponseDto
 import com.aiplacementos.app.domain.repository.ResumeRepository
 import com.aiplacementos.app.ui.common.UiState
@@ -17,7 +19,36 @@ import retrofit2.HttpException
 
 private const val MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // matches the backend's own cap
 
+/**
+ * This upload's operation identity: the file name, and a digest of the bytes being sent.
+ *
+ * Exactly the two things the server hashes into its request fingerprint, so the client's notion
+ * of "the same upload" and the server's cannot drift apart. The digest is the identity; the file
+ * itself is never stored anywhere but the request body.
+ *
+ * `internal` rather than private so it can be tested directly. upload() needs a real
+ * ContentResolver and Uri, and this module has no Robolectric and no mocking library, so the
+ * identity rule would otherwise have had no test at all -- and an untested identity rule is the
+ * thing this phase exists to fix.
+ */
+internal fun resumeUploadIdentity(fileName: String, bytes: ByteArray): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+        .joinToString("") { "%02x".format(it) }
+    return "$fileName\u0000$digest"
+}
+
 class ResumeUploadViewModel(private val resumeRepository: ResumeRepository) : ViewModel() {
+    // One key per upload the student picked, kept until it succeeds. In memory, not
+    // SavedStateHandle: the chosen file is held in memory too, so the operation cannot
+    // outlive this view model -- after process death the student picks a file again, and
+    // that is a new upload rather than a resumption of this one.
+    //
+    // Keyed by the file name and a digest of its bytes, which is exactly what the server
+    // fingerprints for this operation. reset() exists so a student can pick a *different* file
+    // after a failed upload, and that is precisely the case a single slot got wrong: the new
+    // file was sent under the old file's key, and the server answered 409 because the
+    // fingerprint no longer matched.
+    private val uploadKeys = OperationKeyHolder()
     private val _uiState = MutableStateFlow<UiState<ResumeUploadResponseDto>>(UiState.Empty)
     val uiState: StateFlow<UiState<ResumeUploadResponseDto>> = _uiState.asStateFlow()
 
@@ -44,7 +75,10 @@ class ResumeUploadViewModel(private val resumeRepository: ResumeRepository) : Vi
 
                 val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     ?: throw IllegalStateException("Could not read the selected file")
-                _uiState.value = UiState.Success(resumeRepository.uploadResume(fileName, bytes))
+                val identity = resumeUploadIdentity(fileName, bytes)
+                val uploaded = resumeRepository.uploadResume(fileName, bytes, uploadKeys.keyFor(identity))
+                uploadKeys.consume(identity)
+                _uiState.value = UiState.Success(uploaded)
             } catch (e: HttpException) {
                 _uiState.value = UiState.Error(
                     when (e.code()) {

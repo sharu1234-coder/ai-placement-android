@@ -52,6 +52,29 @@ val keystoreProperties = Properties().apply {
     }
 }
 val hasReleaseSigningConfig = keystoreProperties.getProperty("storeFile") != null
+if (hasReleaseSigningConfig) {
+    // A keystore.properties that exists but is incomplete used to reach signingConfigs with
+    // nulls, and the failure then surfaced much later as an opaque error from Gradle or
+    // apksigner about a null password -- for a file the developer had just written, where the
+    // real cause is one missing line. Fail here instead, naming the keys that are missing and
+    // never their values, so nothing a secret could be read out of lands in the build log.
+    //
+    // This deliberately does NOT change the no-file case: without keystore.properties,
+    // hasReleaseSigningConfig stays false, the release build stays unsigned, and nothing is
+    // validated -- a fresh checkout and CI on a fork still build exactly as before.
+    val missing = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+        .filter { keystoreProperties.getProperty(it).isNullOrBlank() }
+    require(missing.isEmpty()) {
+        "keystore.properties exists but has no value for: ${missing.joinToString()}. " +
+            "See keystore.properties.example for the keys a release signing config needs."
+    }
+    val storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+    require(storeFile.isFile) {
+        "keystore.properties points storeFile at ${storeFile.path}, which does not exist. " +
+            "Generate the keystore first (keystore.properties.example has the keytool " +
+            "command) or correct the path -- it is resolved against the project root."
+    }
+}
 
 android {
     namespace = "com.aiplacementos.app"
@@ -66,11 +89,12 @@ android {
     defaultConfig {
         applicationId = "com.aiplacementos.app"
         minSdk = 26
-        // Deliberately left at 35 while compileSdk moved to 36. targetSdk is the one that
-        // opts the app into a platform's behaviour changes at runtime, so raising it needs
-        // real on-device testing against those changes -- which has not happened. Raise it
-        // as its own change, with device QA, not as a side effect of a dependency bump.
-        targetSdk = 35
+        // Raised to 36 for Android 16 in this phase. Play requires API 36 for new apps
+        // and for updates from 31 August 2026. The device QA the previous note asked for
+        // is what justified this: the behaviour-change audit found exactly one change that
+        // reaches this app -- predictive back, on by default at 36 -- and edge-to-edge was
+        // already enforced here at 35, so it is unchanged by this bump.
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
 
@@ -139,6 +163,41 @@ android {
             // ObservabilityInterceptor's tests, which exercise real Log.d/Log.w calls.
             isReturnDefaultValues = true
         }
+    }
+}
+
+// ContinuousIntegrationGuardTest asserts on .github/workflows/ci.yml -- that CI still compiles
+// androidTest, still runs both unit-test flavours, and still builds what it used to. Gradle has
+// no way to know a test reads a file outside the module, so without this the task is UP-TO-DATE
+// after a workflow-only edit and the guard never executes. That was not theoretical: the Phase 29
+// mutation that deleted the androidTest step from the workflow was reported as MISSED for exactly
+// this reason, with the guard never running at all.
+//
+// Declaring the file as an input is the whole fix: change the workflow and the unit tests rerun.
+// Marked optional so a checkout without the .github directory still builds rather than failing to
+// configure.
+//
+// ReleaseSigningGuardTest reads the same kind of out-of-module files for the release and signing
+// configuration, so each one is declared for the same reason: without this, editing .gitignore to
+// stop ignoring keystores -- exactly the mutation the guard exists to catch -- would leave the
+// task UP-TO-DATE and the guard would never run.
+tasks.withType<Test>().configureEach {
+    inputs.file(rootProject.file(".github/workflows/ci.yml"))
+        .withPropertyName("ciWorkflow")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .optional(true)
+    listOf(
+        "gitignore" to rootProject.file(".gitignore"),
+        "gradleProperties" to rootProject.file("gradle.properties"),
+        "appBuildScript" to file("build.gradle.kts"),
+        "keystoreTemplate" to rootProject.file("keystore.properties.example"),
+        "devManifest" to file("src/dev/AndroidManifest.xml"),
+        "prodManifest" to file("src/prod/AndroidManifest.xml"),
+    ).forEach { (name, releaseConfigFile) ->
+        inputs.file(releaseConfigFile)
+            .withPropertyName(name)
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+            .optional(true)
     }
 }
 

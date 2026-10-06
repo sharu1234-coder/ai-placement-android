@@ -10,6 +10,7 @@ import com.aiplacementos.app.fakes.httpException
 import com.aiplacementos.app.ui.common.UiState
 import java.io.IOException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -25,6 +26,71 @@ import org.junit.Test
 class JobMatchPrepViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    @Test
+    fun `one analysis sends one key for the parse and one for the plan`() {
+        val job = FakeJobRepository().apply {
+            parseResult = { parsed(11) }
+            generatePlanResult = { _, _, _ -> planStub() }
+        }
+        val vm = viewModel(job = job)
+
+        vm.analyze(JdInputMode.PASTE, longJd, null, { ByteArray(0) }, "Acme", "Analyst") {}
+
+        assertEquals(2, job.keys.size)
+        assertEquals("the parse and the plan are separate operations", 2, job.keys.distinct().size)
+        assertTrue(job.keys.all { it != null })
+    }
+
+    @Test
+    fun `a plan failure replays the parse rather than paying for a second one`() {
+        // The reason both keys are held to the end: the JD was created, only the plan failed.
+        // Minting a fresh parse key on Try Again would be a second JD row and a second AI call
+        // for one intent.
+        val job = FakeJobRepository().apply {
+            parseResult = { parsed(11) }
+            generatePlanResult = { _, _, _ -> throw java.net.UnknownHostException("reply lost") }
+        }
+        val vm = viewModel(job = job)
+
+        vm.analyze(JdInputMode.PASTE, longJd, null, { ByteArray(0) }, "Acme", "Analyst") {}
+        vm.analyze(JdInputMode.PASTE, longJd, null, { ByteArray(0) }, "Acme", "Analyst") {}
+
+        val parseKeys = listOf(job.keys[0], job.keys[2])
+        val planKeys = listOf(job.keys[1], job.keys[3])
+        assertEquals("the parse is replayed", 1, parseKeys.distinct().size)
+        assertEquals("and so is the plan", 1, planKeys.distinct().size)
+    }
+
+    @Test
+    fun `a corrected job description is a new parse operation`() {
+        val job = FakeJobRepository().apply {
+            parseResult = { parsed(11) }
+            generatePlanResult = { _, _, _ -> throw java.net.UnknownHostException("reply lost") }
+        }
+        val vm = viewModel(job = job)
+
+        vm.analyze(JdInputMode.PASTE, longJd, null, { ByteArray(0) }, "Acme", "Analyst") {}
+        vm.analyze(JdInputMode.PASTE, longJd + " Also needs Spark.", null, { ByteArray(0) }, "Acme", "Analyst") {}
+
+        assertNotEquals(job.keys[0], job.keys[2])
+    }
+
+    @Test
+    fun `a completed analysis consumes both keys`() {
+        val job = FakeJobRepository().apply {
+            parseResult = { parsed(11) }
+            generatePlanResult = { _, _, _ -> planStub() }
+        }
+        val vm = viewModel(job = job)
+
+        vm.analyze(JdInputMode.PASTE, longJd, null, { ByteArray(0) }, "Acme", "Analyst") {}
+        vm.analyze(JdInputMode.PASTE, longJd, null, { ByteArray(0) }, "Acme", "Analyst") {}
+
+        assertEquals("four attempts, four distinct operations", 4, job.keys.distinct().size)
+    }
 
     private fun parsed(id: Int = 7) = JobDescriptionParseResponseDto(
         id = id,

@@ -6,6 +6,8 @@ import com.aiplacementos.app.data.remote.ArenaChallengeDto
 import com.aiplacementos.app.fakes.FakeArenaRepository
 import java.net.UnknownHostException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -19,6 +21,56 @@ private fun sampleChallenge(key: String = "sql_sprint") = ArenaChallengeDto(
 class ArenaListViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    // --- Idempotency-Key semantics (Phase 24-C) ---
+
+    private fun arena(failing: Boolean) = FakeArenaRepository().apply {
+        listChallengesResult = { listOf(sampleChallenge("sql_sprint"), sampleChallenge("dsa_dash")) }
+        startAttemptResult = { key ->
+            if (failing) throw UnknownHostException("reply lost") else ArenaAttemptStartDto(1, 10, key, 300)
+        }
+    }
+
+    @Test
+    fun `a second tap while the first start is unresolved reuses its key`() {
+        val repository = arena(failing = true)
+        val viewModel = ArenaListViewModel(repository)
+
+        viewModel.startChallenge("sql_sprint") {}
+        viewModel.startChallenge("sql_sprint") {}
+
+        assertEquals("both taps reached the repository", 2, repository.keys.size)
+        assertEquals("but they are one logical operation", 1, repository.keys.distinct().size)
+        assertNotNull(repository.keys.first())
+    }
+
+    @Test
+    fun `a successful start consumes its key, so starting it again is a new operation`() {
+        val repository = arena(failing = false)
+        val viewModel = ArenaListViewModel(repository)
+
+        viewModel.startChallenge("sql_sprint") {}
+        viewModel.startChallenge("sql_sprint") {}
+
+        assertEquals(2, repository.keys.distinct().size)
+    }
+
+    @Test
+    fun `returning to a challenge after trying another one gets its original key back`() {
+        // The case a single-slot key field gets wrong: starting DSA would evict SQL's key, and
+        // SQL's retry would become a second attempt on a request that may already have
+        // committed. Keyed by challenge, the first key comes back.
+        val repository = arena(failing = true)
+        val viewModel = ArenaListViewModel(repository)
+
+        viewModel.startChallenge("sql_sprint") {}
+        viewModel.startChallenge("dsa_dash") {}
+        viewModel.startChallenge("sql_sprint") {}
+
+        assertEquals(3, repository.keys.size)
+        assertEquals(repository.keys[0], repository.keys[2])
+        assertNotEquals(repository.keys[0], repository.keys[1])
+    }
 
     @Test
     fun `shows Success with the loaded challenges`() {

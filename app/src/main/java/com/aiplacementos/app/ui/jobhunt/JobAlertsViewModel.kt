@@ -7,6 +7,7 @@ import com.aiplacementos.app.data.remote.JobAlertDto
 import com.aiplacementos.app.data.remote.JobAlertHistoryDto
 import com.aiplacementos.app.data.remote.JobAlertQuotaDto
 import com.aiplacementos.app.data.remote.JobAlertUpdateDto
+import com.aiplacementos.app.data.remote.OperationKeyHolder
 import com.aiplacementos.app.domain.repository.JobHuntRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -72,6 +73,13 @@ class JobAlertsViewModel(private val jobHuntRepository: JobHuntRepository) : Vie
         }
     }
 
+    /**
+     * One key per distinct alert being created. The identity is the request body's own value
+     * string, so it tracks every field the server fingerprints without having to be kept in
+     * step with them by hand.
+     */
+    private val createKeys = OperationKeyHolder()
+
     fun retry() = load()
 
     fun create(
@@ -88,18 +96,19 @@ class JobAlertsViewModel(private val jobHuntRepository: JobHuntRepository) : Vie
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             try {
-                jobHuntRepository.createAlert(
-                    JobAlertCreateDto(
-                        name = trimmed,
-                        savedSearchId = savedSearchId,
-                        frequency = frequency,
-                        dayOfWeek = dayOfWeek,
-                        hourLocal = hourLocal,
-                        quietHoursStart = quietHoursStart,
-                        quietHoursEnd = quietHoursEnd,
-                        isEnabled = isEnabled,
-                    ),
+                val body = JobAlertCreateDto(
+                    name = trimmed,
+                    savedSearchId = savedSearchId,
+                    frequency = frequency,
+                    dayOfWeek = dayOfWeek,
+                    hourLocal = hourLocal,
+                    quietHoursStart = quietHoursStart,
+                    quietHoursEnd = quietHoursEnd,
+                    isEnabled = isEnabled,
                 )
+                val identity = body.toString()
+                jobHuntRepository.createAlert(body, idempotencyKey = createKeys.keyFor(identity))
+                createKeys.consume(identity)
                 load()
             } catch (e: Exception) {
                 val failure = e.toJobSearchFailure()

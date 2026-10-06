@@ -35,6 +35,11 @@ data class ManualJobSubmission(
 )
 
 class FakeJobHuntRepository : JobHuntRepository {
+    /** Every Idempotency-Key this fake was handed, in order. A test asserting these are
+     * equal across retries is what proves the caller holds one key per logical operation,
+     * and a test asserting they differ is what proves a deliberate new action gets a new one. */
+    val keys = mutableListOf<String?>()
+
     var profileResult: (suspend () -> JobSearchProfileDto)? = null
     var updateProfileResult: (suspend (JobSearchProfileUpdateDto) -> JobSearchProfileDto)? = null
     var roleSuggestionsResult: (suspend (Int) -> List<String>)? = null
@@ -151,7 +156,9 @@ class FakeJobHuntRepository : JobHuntRepository {
         url: String?,
         description: String?,
         status: String,
+        idempotencyKey: String?,
     ): SavedJobDto {
+        keys += idempotencyKey
         manualJobsAdded += ManualJobSubmission(title, company, location, url, description, status)
         return requireNotNull(addManualJobResult) { "addManualJobResult not configured" }(
             manualJobsAdded.last(),
@@ -198,7 +205,9 @@ class FakeJobHuntRepository : JobHuntRepository {
         name: String,
         filters: JobSearchRequestDto,
         notifyEnabled: Boolean,
+        idempotencyKey: String?,
     ): SavedSearchDto {
+        keys += idempotencyKey
         lastCreatedSavedSearch = name to filters
         return requireNotNull(createSavedSearchResult) { "createSavedSearchResult not configured" }(
             name,
@@ -245,8 +254,13 @@ class FakeJobHuntRepository : JobHuntRepository {
     override suspend fun getAlertHistory(): List<JobAlertHistoryDto> =
         requireNotNull(alertHistoryResult) { "alertHistoryResult not configured" }()
 
-    override suspend fun createAlert(body: JobAlertCreateDto): JobAlertDto =
-        requireNotNull(createAlertResult) { "createAlertResult not configured" }(body)
+    override suspend fun createAlert(
+        body: JobAlertCreateDto,
+        idempotencyKey: String?,
+    ): JobAlertDto {
+        keys += idempotencyKey
+        return requireNotNull(createAlertResult) { "createAlertResult not configured" }(body)
+    }
 
     override suspend fun updateAlert(alertId: Int, body: JobAlertUpdateDto): JobAlertDto =
         requireNotNull(updateAlertResult) { "updateAlertResult not configured" }(alertId, body)
