@@ -16,6 +16,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -53,7 +55,11 @@ fun SimulationSetupScreen(onStart: (jdId: Int) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             item {
-                Text(text = "Full Recruiter Simulation", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    text = "Full Recruiter Simulation",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.semantics { heading() },
+                )
                 Text(
                     text = "One continuous interview with a recruiter, the way a real first " +
                         "round runs: your background, your experience, the projects you've " +

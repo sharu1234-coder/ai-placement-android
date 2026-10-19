@@ -19,19 +19,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.AtsCheckReportDto
 import com.aiplacementos.app.data.remote.SectionAnalysisDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.DetailTopBar
+import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 
 private val TABS = listOf("Parsed View", "Raw Text")
 
@@ -52,7 +53,11 @@ fun AtsCheckParsedViewScreen(checkId: Int, onBack: () -> Unit) {
                 onRetry = viewModel::load,
                 modifier = Modifier.fillMaxSize().padding(padding),
             )
-            is UiState.Empty -> ErrorState(message = "No data available.", modifier = Modifier.fillMaxSize().padding(padding))
+            is UiState.Empty -> EmptyState(
+                title = "Nothing was parsed",
+                message = "No fields could be read from this resume.",
+                modifier = Modifier.fillMaxSize().padding(padding),
+            )
             is UiState.Success<AtsCheckReportDto> -> Column(modifier = Modifier.fillMaxSize().padding(padding)) {
                 TabRow(selectedTabIndex = tabIndex) {
                     TABS.forEachIndexed { index, title ->

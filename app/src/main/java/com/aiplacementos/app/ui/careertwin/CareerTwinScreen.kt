@@ -37,7 +37,6 @@ import com.aiplacementos.app.data.remote.LOCKED_SECTION_ADDITIONAL_ACTIONS
 import com.aiplacementos.app.data.remote.RecommendedActionDto
 import com.aiplacementos.app.data.remote.SkillTwinItemDto
 import com.aiplacementos.app.ui.common.AppCard
-import com.aiplacementos.app.ui.common.humanizeWeaknessTag
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.ExpandableSection
@@ -47,7 +46,9 @@ import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkillBar
+import com.aiplacementos.app.ui.common.StatusPill
 import com.aiplacementos.app.ui.common.confidenceBandShortLabel
+import com.aiplacementos.app.ui.common.humanizeWeaknessTag
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.nextbestaction.NextBestActionUiState
 import com.aiplacementos.app.ui.nextbestaction.NextBestActionViewModel
@@ -408,14 +409,7 @@ private fun ChipSummaryRow(title: String, labels: List<String>, isWarning: Boole
             // onClick left these focusable but inert for keyboard/TalkBack users.
             val labelColor = if (isWarning) warningColor() else successColor()
             labels.forEach { label ->
-                Surface(color = labelColor.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = labelColor,
-                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
-                    )
-                }
+                StatusPill(label = label, color = labelColor)
             }
         }
     }

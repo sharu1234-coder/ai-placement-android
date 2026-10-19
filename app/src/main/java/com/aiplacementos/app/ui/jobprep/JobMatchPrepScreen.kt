@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -22,8 +23,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -40,8 +41,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.JobDescriptionListItemDto
 import com.aiplacementos.app.ui.common.AppCard
+import com.aiplacementos.app.ui.common.AssessmentIllustration
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkeletonCard
 import com.aiplacementos.app.ui.common.UiState
@@ -136,14 +139,18 @@ fun JobMatchPrepScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = "Job Match & Prep", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    text = "Turn any job description into a personalised preparation plan.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            ScreenHeader(
+                title = "Job Match & Prep",
+                subtitle = "Turn any job description into a personalised preparation plan.",
+                illustration = {
+                    AssessmentIllustration(
+                        modifier = Modifier.size(62.dp),
+                        sheet = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                        line = MaterialTheme.colorScheme.secondary,
+                        accent = MaterialTheme.colorScheme.tertiary,
+                    )
+                },
+            )
         }
 
         item {

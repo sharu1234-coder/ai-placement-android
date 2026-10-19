@@ -113,9 +113,9 @@ fun OnboardingConfirmationScreen(
                 }
                 item {
                     PrimaryButton(
-                        text = if (creating) "Creating..." else "Create My Roadmap",
+                        text = "Create My Roadmap",
+                        loading = creating,
                         onClick = { viewModel.createRoadmap(onDone = onRoadmapCreated) },
-                        enabled = !creating,
                         modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
                     )
                 }

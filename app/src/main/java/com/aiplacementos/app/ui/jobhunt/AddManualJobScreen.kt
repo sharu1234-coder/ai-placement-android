@@ -220,7 +220,8 @@ internal fun AddManualJobContent(
         }
 
         PrimaryButton(
-            text = if (state.isSubmitting) "Adding..." else "Add to my applications",
+            text = "Add to my applications",
+            loading = state.isSubmitting,
             onClick = onSubmit,
             enabled = state.canSubmit,
             modifier = Modifier.fillMaxWidth(),

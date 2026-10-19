@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    The launcher mark: the same TALVIORA AI monogram as `ic_brand_monogram.xml`, scaled 3x and
+    offset by 18 so the whole glyph sits inside the adaptive icon's 72x72 safe zone. Outside
+    that zone a launcher is free to mask the artwork away, which is how a mark ends up with its
+    corners shaved off on one device and not another.
+
+    It replaces an A-shaped glyph left over from the "AI Placement OS" name.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -6,5 +14,5 @@
     android:viewportHeight="108">
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,24 L74,64 L64,64 L60,54 L48,54 L44,64 L34,64 Z M54,38 L50,48 L58,48 Z" />
+        android:pathData="M24,27 L84,27 L84,40.8 L60.6,40.8 L60.6,67.2 L47.4,80.4 L47.4,40.8 L24,40.8 Z" />
 </vector>

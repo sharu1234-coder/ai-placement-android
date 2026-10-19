@@ -71,6 +71,11 @@ fun JobDetailScreen(
      * decisive thing actually is. Null where there is nowhere to send them.
      */
     onOpenStrategy: (() -> Unit)? = null,
+    /**
+     * Opens the realtime Career Coach with this advert in scope, which is also the only route
+     * on which the save-job confirmation is offered. Null where there is nowhere to send them.
+     */
+    onDiscussWithCoach: (() -> Unit)? = null,
 ) {
     val network = networkModule()
     val viewModel: JobDetailViewModel = viewModel(
@@ -118,6 +123,7 @@ fun JobDetailScreen(
                 onOpenRoadmap = onOpenRoadmap,
                 onOpenSkillAnalysis = onOpenSkillAnalysis,
                 onOpenStrategy = onOpenStrategy,
+                onDiscussWithCoach = onDiscussWithCoach,
                 onApply = {
                     // Opens the provider's own listing in a browser. The app never hosts an
                     // application form, and never claims to have submitted anything on the
@@ -156,6 +162,7 @@ private fun JobDetailContent(
     onOpenRoadmap: (() -> Unit)? = null,
     onOpenSkillAnalysis: (() -> Unit)? = null,
     onOpenStrategy: (() -> Unit)? = null,
+    onDiscussWithCoach: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -240,6 +247,17 @@ private fun JobDetailContent(
             SecondaryButton(
                 text = "What does this job mean for my strategy?",
                 onClick = onOpenStrategy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        if (onDiscussWithCoach != null) {
+            // Spoken, and about this advert specifically. It is also what carries the listing
+            // into the Voice Agent, which is the only place the save-job confirmation appears:
+            // the action needs an authoritative listing id, and this screen has exactly one.
+            SecondaryButton(
+                text = "Talk this job over with the Career Coach",
+                onClick = onDiscussWithCoach,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

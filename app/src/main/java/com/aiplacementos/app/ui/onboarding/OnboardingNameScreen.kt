@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -59,11 +61,21 @@ fun OnboardingNameScreen(onNext: () -> Unit) {
         )
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
         is UiState.Success<ProfileDto> -> Column(
-            modifier = Modifier.fillMaxSize().padding(Spacing.md),
+            // Without this the soft keyboard -- or simply a raised system font scale --
+            // covers the Next button with no way to reach it, which strands a student
+            // mid-signup.
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            StepProgressIndicator(step = 1, total = TOTAL_STEPS)
-            Text(text = "What's your name?", style = MaterialTheme.typography.headlineSmall)
+            OnboardingHeader(
+                step = 1,
+                total = TOTAL_STEPS,
+                title = "What's your name?",
+                subtitle = "We use it to address you in the app. You can change it later in your profile.",
+            )
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -72,9 +84,10 @@ fun OnboardingNameScreen(onNext: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             )
             PrimaryButton(
-                text = if (saving) "Saving..." else "Next",
+                text = "Next",
+                loading = saving,
                 onClick = { viewModel.save(name, onSaved = onNext) },
-                enabled = !saving && name.isNotBlank(),
+                enabled = name.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             )
         }

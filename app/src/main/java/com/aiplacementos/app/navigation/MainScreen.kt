@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.BusinessCenter
@@ -34,12 +35,17 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.WorkOutline
+import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -50,18 +56,20 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +80,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
+import com.aiplacementos.app.ui.common.BrandMark
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.home.HomeScreen
 import com.aiplacementos.app.ui.placementpath.PlacementPathScreen
@@ -81,6 +90,7 @@ import com.aiplacementos.app.ui.progress.ProgressDashboardScreen
 import com.aiplacementos.app.ui.roadmap.RoadmapScreen
 import com.aiplacementos.app.ui.tests.TestCenterScreen
 import com.aiplacementos.app.ui.theme.Spacing
+import com.aiplacementos.app.voice.realtime.VoiceAgentMode
 import kotlinx.coroutines.launch
 
 private data class BottomTab(val screen: Screen, val label: String)
@@ -166,7 +176,13 @@ fun MainScreen(navController: NavHostController) {
                 DrawerItem("Job Match & Prep", Icons.Filled.WorkOutline, badge = "New") {
                     navController.navigate(Screen.JobMatchPrep.route)
                 },
+                DrawerItem("Voice Career Coach", Icons.Filled.RecordVoiceOver) {
+                    navController.navigate(voiceAgentRoute(VoiceAgentMode.COACH.wire))
+                },
                 DrawerItem("Mock Interviews", Icons.Filled.Mic) { navController.navigate(Screen.MockInterviewCategory.route) },
+                DrawerItem("Conversation History", Icons.Filled.History) {
+                    navController.navigate(Screen.ConversationHistory.route)
+                },
                 DrawerItem("Placement Alarms", Icons.Filled.Alarm) { navController.navigate(Screen.AlarmList.route) },
                 DrawerItem("Saved Roadmaps", Icons.Filled.History) { navController.navigate(Screen.SavedRoadmaps.route) },
             ),
@@ -292,7 +308,14 @@ fun MainScreen(navController: NavHostController) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("AI Placement OS") },
+                    // The wordmark, not a plain title: this is the one bar every tab shares,
+                    // so it is the only place the product identifies itself.
+                    title = { BrandMark() },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        // The bar and the page are the same value, which is intended -- the
+                        // separation comes from the divider below, not from a second shade.
+                        containerColor = MaterialTheme.colorScheme.background,
+                    ),
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Filled.Menu, contentDescription = "Open menu")
@@ -306,14 +329,34 @@ fun MainScreen(navController: NavHostController) {
                 )
             },
             bottomBar = {
-                NavigationBar {
-                    bottomTabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = selectedRoute == tab.screen.route,
-                            onClick = { selectedRoute = tab.screen.route },
-                            icon = { Icon(tab.icon(), contentDescription = tab.label) },
-                            label = { Text(tab.label) },
-                        )
+                Column {
+                    // The one seam between content and the bar. Without it, a card scrolled
+                    // to the bottom edge merges into the navigation on a near-white page.
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    )
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
+                        bottomTabs.forEach { tab ->
+                            val selected = selectedRoute == tab.screen.route
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = { selectedRoute = tab.screen.route },
+                                // The selected tab is filled, the rest outlined: the active
+                                // destination is then legible without relying on the
+                                // indicator tint alone.
+                                icon = { Icon(tab.icon(selected), contentDescription = null) },
+                                label = { Text(tab.label) },
+                                alwaysShowLabel = true,
+                                colors = NavigationBarItemDefaults.colors(
+                                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    selectedIconColor = MaterialTheme.colorScheme.secondary,
+                                    selectedTextColor = MaterialTheme.colorScheme.secondary,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                            )
+                        }
                     }
                 }
             },
@@ -349,7 +392,9 @@ fun MainScreen(navController: NavHostController) {
                     Screen.Tests.route -> TestCenterScreen(
                         onStartTest = { blueprintId -> navController.navigate(testFlowRoute(blueprintId, jdId = 0)) },
                     )
-                    Screen.Progress.route -> ProgressDashboardScreen()
+                    Screen.Progress.route -> ProgressDashboardScreen(
+                        onOpenTests = { selectedRoute = Screen.Tests.route },
+                    )
                 }
             }
         }
@@ -450,11 +495,24 @@ private fun InitialsAvatar(name: String?) {
     }
 }
 
-private fun BottomTab.icon() = when (screen) {
-    Screen.Home -> Icons.Filled.Home
-    Screen.Roadmap -> Icons.Filled.Timeline
-    Screen.Practice -> Icons.Filled.Insights
-    Screen.Tests -> Icons.AutoMirrored.Filled.Assignment
-    Screen.Progress -> Icons.Filled.CheckCircle
-    else -> Icons.Filled.Home
+/**
+ * Filled when the tab is the active destination, outlined when it is not.
+ *
+ * A second, non-colour cue for which tab you are on. The indicator pill behind the icon is
+ * the Material default and is a tint; on its own it is the only thing distinguishing the
+ * active destination, which is exactly the "status by colour alone" case the rest of the app
+ * avoids. Two icon weights cost nothing and survive both a tint the student cannot
+ * distinguish and a greyscale screenshot.
+ */
+private fun BottomTab.icon(selected: Boolean) = when (screen) {
+    Screen.Home -> if (selected) Icons.Filled.Home else Icons.Outlined.Home
+    Screen.Roadmap -> if (selected) Icons.Filled.Timeline else Icons.Outlined.Timeline
+    Screen.Practice -> if (selected) Icons.Filled.Insights else Icons.Outlined.Insights
+    Screen.Tests -> if (selected) {
+        Icons.AutoMirrored.Filled.Assignment
+    } else {
+        Icons.AutoMirrored.Outlined.Assignment
+    }
+    Screen.Progress -> if (selected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle
+    else -> if (selected) Icons.Filled.Home else Icons.Outlined.Home
 }

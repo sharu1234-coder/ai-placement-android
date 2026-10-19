@@ -92,6 +92,21 @@ class SystemBarInsetContractTest {
         return out
     }
 
+    /**
+     * The builders that put their content inside the safe area.
+     *
+     * There are two, not one. `backComposable` was added on 2026-10-18 to draw a back control on
+     * the 52 destinations that had none, and it applies `safeDrawingPadding()` itself rather than
+     * delegating to `safeAreaComposable` -- because delegating would have nested two wrappers and
+     * padded every one of those screens twice, which is the exact double-spacing failure these
+     * guards were written for.
+     *
+     * Both therefore have to satisfy the same contract, and the guards below read both. The one
+     * thing that must never happen is a destination going through both at once; that is asserted
+     * separately in `the two inset wrappers are never nested`.
+     */
+    private val insetWrappers = setOf("safeAreaComposable", "backComposable")
+
     private data class Destination(val builder: String, val route: String, val screen: String) {
         /**
          * Whether the screen this destination renders brings its own Scaffold, and therefore its
@@ -105,10 +120,16 @@ class SystemBarInsetContractTest {
 
     private fun destinations(): List<Destination> {
         val src = navGraph()
-        val navAt = src.indexOf("NavHost(navController")
+        // "NavHost(" rather than "NavHost(navController": the call became multi-line when the
+        // app-wide screen transitions were added, and an anchor that includes the first argument
+        // breaks on a reformat -- taking every guard built on it down with it.
+        val navAt = src.indexOf("NavHost(")
         assertTrue("could not find the NavHost in NavGraph.kt", navAt > 0)
         val nav = src.substring(navAt)
-        val starts = Regex("""\n {8}(safeAreaComposable|composable)\(""").findAll(nav).toList()
+        // Longest name first: `composable` is a suffix of neither, but `safeAreaComposable` and
+        // `backComposable` both end in it, and an alternation that tried `composable` first would
+        // still not match them here because the match is anchored to the indentation.
+        val starts = Regex("""\n {8}(safeAreaComposable|backComposable|composable)\(""").findAll(nav).toList()
         assertTrue("found ${starts.size} destinations, expected the whole graph", starts.size > 90)
         val bodies = composableBodies()
 
@@ -116,7 +137,11 @@ class SystemBarInsetContractTest {
             val from = m.range.last + 1
             val to = if (i + 1 < starts.size) starts[i + 1].range.first else nav.length
             val block = nav.substring(from, to)
-            val route = block.substringBefore(")").substringBefore(",").trim()
+            // Read as `Screen.X.route` rather than "the first argument": `backComposable` takes
+            // the NavController first, and positional parsing reported every one of those
+            // destinations as "navController".
+            val route = Regex("""Screen\.\w+\.route""").find(block)?.value
+                ?: block.substringBefore(")").substringBefore(",").trim()
             val named = Regex("""\b([A-Z]\w*)\s*\(""").findAll(block).map { it.groupValues[1] }.toList()
             // Screens are named *Screen by convention; the fallback exists so a destination that
             // breaks the convention is still resolved rather than silently skipped.
@@ -138,13 +163,40 @@ class SystemBarInsetContractTest {
                 "depends on it to stay inside the safe area.",
             at > 0,
         )
-        return codeOnly(src.substring(at, minOf(at + 900, src.length)))
+        return codeOnly(bodyAt(src, at))
+    }
+
+    /** The body of the back-control wrapper, the second of the two inset contracts. */
+    private fun backBarContract(): String {
+        val src = navGraph()
+        val at = src.indexOf("private fun NavGraphBuilder.backComposable")
+        assertTrue(
+            "The back-control contract is gone from NavGraph.kt. 52 destinations depend on it " +
+                "both for their back control and for staying inside the safe area.",
+            at > 0,
+        )
+        return codeOnly(bodyAt(src, at))
+    }
+
+    /**
+     * One declaration's text, from [at] to the next top-level declaration.
+     *
+     * This replaced a fixed 900-character window, which was measuring whichever declaration
+     * happened to follow as well as the one asked for. That was harmless while
+     * `safeAreaComposable` was the last thing in the file and became wrong the moment a second
+     * wrapper was added after it -- the kind of guard that reports on the wrong code and still
+     * passes.
+     */
+    private fun bodyAt(src: String, at: Int): String {
+        val after = src.substring(at + 1)
+        val next = Regex("""\nprivate fun |\nfun |\ninternal fun """).find(after)
+        return src.substring(at, next?.let { at + 1 + it.range.first } ?: src.length)
     }
 
     @Test
     fun `every destination without a scaffold goes through the shared inset contract`() {
         val offenders = destinations()
-            .filter { !it.ownsScaffold && it.builder != "safeAreaComposable" }
+            .filter { !it.ownsScaffold && it.builder !in insetWrappers }
             .map { "${it.route} -> ${it.screen}" }
         assertEquals(
             "These destinations render a screen that has no Scaffold of its own, yet are " +
@@ -158,7 +210,7 @@ class SystemBarInsetContractTest {
     @Test
     fun `every destination with a scaffold is left to handle its own insets`() {
         val offenders = destinations()
-            .filter { it.ownsScaffold && it.builder == "safeAreaComposable" }
+            .filter { it.ownsScaffold && it.builder in insetWrappers }
             .map { "${it.route} -> ${it.screen}" }
         assertEquals(
             "These destinations own a Scaffold, which already applies the content insets, and " +
@@ -278,7 +330,15 @@ class SystemBarInsetContractTest {
     @Test
     fun `the bottom navigation still consumes the system navigation bar inset`() {
         val src = codeOnly(mainScreen())
-        assertTrue("MainScreen no longer has a NavigationBar", src.contains("NavigationBar {"))
+        // Matches both `NavigationBar {` and `NavigationBar(...) {`. The anchor was the
+        // literal brace form, which broke the moment the bar was given a containerColor --
+        // a change that has nothing to do with insets. Same correction as the `NavHost(`
+        // anchor: what this test protects is the windowInsets assertion below, and an anchor
+        // that fails on an unrelated formatting change reports a regression that is not one.
+        assertTrue(
+            "MainScreen no longer has a NavigationBar",
+            Regex("""NavigationBar\s*[({]""").containsMatchIn(src),
+        )
         assertTrue(
             "MainScreen's NavigationBar has been given an explicit windowInsets. Its default is " +
                 "the system bars on the bottom and horizontal edges, which is what keeps the tab " +
@@ -323,24 +383,78 @@ class SystemBarInsetContractTest {
     @Test
     fun `the inset contract is declared exactly once`() {
         val src = navGraph()
+        for (wrapper in insetWrappers) {
+            assertEquals(
+                "The $wrapper contract must be declared exactly once; a second copy is how two " +
+                    "of them end up nested and the padding is applied twice.",
+                1,
+                Regex("""private fun NavGraphBuilder\.$wrapper""").findAll(src).count(),
+            )
+        }
         assertEquals(
-            "The shared contract must be declared once; a second copy is how two of them end up " +
-                "nested and the padding is applied twice.",
-            1,
-            Regex("""private fun NavGraphBuilder\.safeAreaComposable""").findAll(src).count(),
+            "Each inset wrapper applies safeDrawingPadding() exactly once and nothing else in " +
+                "NavGraph.kt applies it at all, so the count must equal the number of wrappers " +
+                "(${insetWrappers.size}). A third occurrence means either a new wrapper nobody " +
+                "told these guards about, or a second padding inside an existing one.",
+            insetWrappers.size,
+            // codeOnly, so a wrapper's own KDoc explaining that it applies safeDrawingPadding()
+            // is not counted as a second application of it.
+            Regex("""safeDrawingPadding\(\)""").findAll(codeOnly(src)).count(),
         )
+    }
+
+    @Test
+    fun `the two inset wrappers are never nested`() {
+        /*
+         * The failure this prevents is the one the whole suite exists for, arrived at from a new
+         * direction: `backComposable` could have been written as a thin call to
+         * `safeAreaComposable` with a bar on top. That reads as reuse and is a defect -- both
+         * apply `safeDrawingPadding()`, so every one of the 52 screens would be inset by the
+         * status bar's height twice, leaving a visible strip of empty window above the back
+         * arrow on every pushed screen in the app.
+         *
+         * Each wrapper must therefore sit directly on `composable(...)`.
+         */
+        val body = backBarContract()
+        assertTrue(
+            "backComposable delegates to safeAreaComposable. Both apply safeDrawingPadding(), " +
+                "so every destination going through it would be padded twice.",
+            !body.contains("safeAreaComposable"),
+        )
+        assertTrue(
+            "backComposable must register its destination directly with composable(route = ...), " +
+                "so there is exactly one wrapper between the graph and the screen.",
+            body.contains("composable(route = route"),
+        )
+    }
+
+    @Test
+    fun `the back control contract takes its padding from the system too`() {
+        // The same guards as the shared contract, against the second wrapper. A wrapper that
+        // measured a device and typed the number in would be just as wrong here.
+        val body = backBarContract()
+        assertTrue(
+            "backComposable no longer applies safeDrawingPadding, so the 52 destinations that " +
+                "go through it would draw under the status bar again.",
+            body.contains("safeDrawingPadding()"),
+        )
+        val literals = Regex("""\b\d+\.dp\b""").findAll(body).map { it.value }.toList()
         assertEquals(
-            "The contract body must wrap its content once. A nested second wrapper would pad " +
-                "every bar-less screen twice.",
-            1,
-            Regex("""safeDrawingPadding\(\)""").findAll(src).count(),
+            "backComposable contains a fixed dp value $literals; the inset has to come from the " +
+                "system.",
+            emptyList<String>(),
+            literals,
+        )
+        assertTrue(
+            "backComposable narrows safeDrawing with .only(...), which drops at least one edge.",
+            !body.contains(".only("),
         )
     }
 
     @Test
     fun `the whole graph is accounted for`() {
         val all = destinations()
-        val wrapped = all.count { it.builder == "safeAreaComposable" }
+        val wrapped = all.count { it.builder in insetWrappers }
         val plain = all.count { it.builder == "composable" }
         assertEquals("every destination is either wrapped or deliberately plain", all.size, wrapped + plain)
         assertEquals(

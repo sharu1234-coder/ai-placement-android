@@ -28,6 +28,7 @@ import com.aiplacementos.app.data.remote.SkillPassportItemDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.networkModule
@@ -90,16 +91,11 @@ private fun SkillPassportList(skills: List<SkillPassportItemDto>, onOpenSkill: (
         item {
             // The page's top-level heading -- lets a screen-reader user jump straight back to
             // the top of this scrollable skill list via TalkBack's heading navigation.
-            Text(
-                text = "Skill Passport",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.semantics { heading() },
-            )
-            Text(
-                text = "Proof that you can actually perform each skill -- not just a claim.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // ScreenHeader carries the heading() semantics this screen relied on for
+            // TalkBack heading navigation, so that affordance is preserved.
+            ScreenHeader(
+                title = "Skill Passport",
+                subtitle = "Proof that you can actually perform each skill -- not just a claim.",
             )
         }
         items(skills, key = { it.skill }) { skill ->

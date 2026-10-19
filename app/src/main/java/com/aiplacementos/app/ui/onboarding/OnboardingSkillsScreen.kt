@@ -47,8 +47,12 @@ fun OnboardingSkillsScreen(onNext: () -> Unit) {
             modifier = Modifier.fillMaxSize().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            StepProgressIndicator(step = 4, total = 7)
-            Text(text = "Select your skills", style = MaterialTheme.typography.headlineSmall)
+            OnboardingHeader(
+                step = 4,
+                total = 7,
+                title = "Select your skills",
+                subtitle = "Pick what you already know. Your roadmap is built around the gaps, not the things you can already do.",
+            )
             SkillPicker(
                 skills = current.data,
                 busy = busy,

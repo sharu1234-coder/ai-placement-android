@@ -1,24 +1,41 @@
 package com.aiplacementos.app.ui.roadmap
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -27,12 +44,15 @@ import com.aiplacementos.app.data.remote.RoadmapDto
 import com.aiplacementos.app.data.remote.RoadmapTaskDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
+import com.aiplacementos.app.ui.common.HeroCard
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.RouteIllustration
 import com.aiplacementos.app.ui.common.SecondaryButton
+import com.aiplacementos.app.ui.common.SectionHeader
 import com.aiplacementos.app.ui.common.SkeletonList
-import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
+import com.aiplacementos.app.ui.theme.accentCyanColor
 import kotlin.math.roundToInt
 
 /**
@@ -74,19 +94,38 @@ fun RoadmapScreen(jdId: Int = 0, autoGenerateIfMissing: Boolean = false, onOpenT
 @Composable
 private fun NoRoadmapPrompt(onGenerate: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+        modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(text = "No roadmap yet", style = MaterialTheme.typography.headlineSmall)
+        RouteIllustration(
+            modifier = Modifier.size(width = 200.dp, height = 140.dp),
+            track = accentCyanColor().copy(alpha = 0.14f),
+            line = accentCyanColor(),
+            accent = MaterialTheme.colorScheme.tertiary,
+            ground = MaterialTheme.colorScheme.background,
+        )
+        Spacer(Modifier.height(Spacing.lg))
         Text(
-            text = "Once you've completed a test or interview, generate a personalized " +
-                "day-by-day plan to close your weak spots.",
+            text = "No practice plan yet",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            text = "Once you have completed a test or an interview, we turn the weak spots " +
+                "it found into a day-by-day practice schedule.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.md),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = Spacing.sm),
         )
-        PrimaryButton(text = "Generate my roadmap", onClick = onGenerate)
+        PrimaryButton(
+            text = "Generate my plan",
+            onClick = onGenerate,
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.lg),
+        )
     }
 }
 
@@ -106,36 +145,61 @@ private fun RoadmapContent(
     }
     val tasksByDay = roadmap.tasks.groupBy { it.dayNumber }.toSortedMap()
 
-    Column(modifier = Modifier.fillMaxSize().padding(Spacing.md)) {
-        Text(text = "Your ${roadmap.durationDays}-day roadmap", style = MaterialTheme.typography.headlineSmall)
-
-        AppCard(
-            modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ) {
-            Text(
-                text = "$doneCount of ${roadmap.tasks.size} tasks done",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-            SkillBar(
-                label = "Progress",
-                percent = progressPercent,
-                modifier = Modifier.padding(top = Spacing.sm),
-            )
-        }
-
+    Column(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth().padding(top = Spacing.md),
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
+            item {
+                Text(
+                    text = "Your ${roadmap.durationDays}-day plan",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.semantics { heading() },
+                )
+            }
+            item {
+                HeroCard(modifier = Modifier.fillMaxWidth(), contentPadding = Spacing.md) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "$doneCount of ${roadmap.tasks.size} tasks done",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = "$progressPercent%",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = Spacing.sm)
+                            .height(8.dp)
+                            .clip(MaterialTheme.shapes.extraSmall)
+                            .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f))
+                            .semantics { contentDescription = "Progress: $progressPercent per cent" },
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progressPercent.coerceIn(0, 100) / 100f)
+                                .fillMaxHeight()
+                                .clip(MaterialTheme.shapes.extraSmall)
+                                .background(MaterialTheme.colorScheme.onPrimary),
+                        )
+                    }
+                }
+            }
+
             tasksByDay.forEach { (day, tasks) ->
                 item {
-                    Text(
-                        text = "Day $day",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
+                    val doneToday = tasks.count { it.status == "done" }
+                    SectionHeader(
+                        title = "Day $day",
+                        supporting = "$doneToday of ${tasks.size} done",
+                        modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.xs),
                     )
                 }
                 items(tasks, key = { it.id }) { task ->
@@ -144,21 +208,28 @@ private fun RoadmapContent(
             }
         }
 
-        SecondaryButton(
-            text = if (isBusy) "Reassessing..." else "Reassess roadmap",
-            onClick = onReassess,
-            enabled = !isBusy,
-            modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
-        )
+        // A footer, not an overlay: the last task of the last day stays reachable.
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column {
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                SecondaryButton(
+                    text = "Reassess plan",
+                    loading = isBusy,
+                    onClick = onReassess,
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun TaskCard(task: RoadmapTaskDto, onOpen: () -> Unit, onToggleDone: () -> Unit) {
+    val done = task.status == "done"
     AppCard(modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Checkbox(
-                checked = task.status == "done",
+                checked = done,
                 onCheckedChange = { onToggleDone() },
                 modifier = Modifier.semantics { contentDescription = "Mark \"${task.title}\" as done" },
             )
@@ -171,7 +242,13 @@ private fun TaskCard(task: RoadmapTaskDto, onOpen: () -> Unit, onToggleDone: () 
                 Text(
                     text = task.title,
                     style = MaterialTheme.typography.titleSmall,
-                    textDecoration = if (task.status == "done") TextDecoration.LineThrough else null,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (done) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    textDecoration = if (done) TextDecoration.LineThrough else null,
                 )
                 Text(
                     text = "${task.taskType.replaceFirstChar { it.uppercase() }} · ${task.skillTag}",
@@ -179,6 +256,12 @@ private fun TaskCard(task: RoadmapTaskDto, onOpen: () -> Unit, onToggleDone: () 
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }

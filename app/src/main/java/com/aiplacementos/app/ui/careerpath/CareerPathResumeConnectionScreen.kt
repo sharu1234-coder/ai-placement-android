@@ -48,7 +48,11 @@ fun CareerPathResumeConnectionScreen(
         DetailTopBar(title = "Resume Connection", onBack = onBack)
         when (val current = state) {
             is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-            is UiState.Empty -> ErrorState(message = "Nothing here yet.", modifier = Modifier.fillMaxSize())
+            is UiState.Empty -> EmptyState(
+                title = "Nothing to connect yet",
+                message = "Upload a resume and this screen shows how what is on it lines up with the role.",
+                modifier = Modifier.fillMaxSize(),
+            )
             is UiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize(), onRetry = viewModel::load)
             is UiState.Success -> {
                 val data = current.data

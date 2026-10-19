@@ -33,8 +33,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.ProjectBuildListItemDto
 import com.aiplacementos.app.ui.common.AppCard
+import com.aiplacementos.app.ui.common.BackBar
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -46,7 +48,7 @@ private fun statusLabel(status: String): String = when (status) {
 }
 
 @Composable
-fun ProjectBuilderListScreen(onOpenBuild: (buildId: Int) -> Unit, onCreateNew: () -> Unit) {
+fun ProjectBuilderListScreen(onBack: () -> Unit, onOpenBuild: (buildId: Int) -> Unit, onCreateNew: () -> Unit) {
     val network = networkModule()
     val viewModel: ProjectBuildListViewModel = viewModel(
         factory = viewModelFactory { initializer { ProjectBuildListViewModel(network.projectBuilderRepository) } },
@@ -59,6 +61,7 @@ fun ProjectBuilderListScreen(onOpenBuild: (buildId: Int) -> Unit, onCreateNew: (
     }
 
     Scaffold(
+        topBar = { BackBar(onBack = onBack) },
         floatingActionButton = {
             FloatingActionButton(onClick = onCreateNew) {
                 Icon(Icons.Filled.Add, contentDescription = "New Project")
@@ -99,11 +102,9 @@ private fun ProjectBuildList(builds: List<ProjectBuildListItemDto>, onOpenBuild:
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            Text(text = "Project Builder", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                text = "Guided, staged builds that turn into real proof of your skills.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ScreenHeader(
+                title = "Project Builder",
+                subtitle = "Guided, staged builds that turn into real proof of your skills.",
             )
         }
         items(builds, key = { it.id }) { build ->

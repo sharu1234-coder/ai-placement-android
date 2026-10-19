@@ -32,6 +32,7 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -84,11 +85,9 @@ private fun ArenaChallengeList(state: ArenaListUiState.Success, onStart: (String
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            Text(text = "Placement Arena", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                text = "Timed challenges you race against your own past performance -- never anyone else's.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ScreenHeader(
+                title = "Placement Arena",
+                subtitle = "Timed challenges you race against your own past performance -- never anyone else's.",
             )
         }
         if (state.startError != null) {
@@ -139,9 +138,9 @@ private fun ChallengeCard(challenge: ArenaChallengeDto, starting: Boolean, onSta
             }
         }
         PrimaryButton(
-            text = if (starting) "Starting..." else "Start Challenge",
+            text = "Start Challenge",
+            loading = starting,
             onClick = onStart,
-            enabled = !starting,
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
         )
     }

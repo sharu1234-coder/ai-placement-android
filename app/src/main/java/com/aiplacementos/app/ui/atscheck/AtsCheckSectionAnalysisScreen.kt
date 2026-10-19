@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -20,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -30,6 +30,7 @@ import com.aiplacementos.app.ui.common.DetailTopBar
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
+import com.aiplacementos.app.ui.common.StatusPill
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -75,7 +76,7 @@ private fun SectionRow(section: SectionAnalysisDto, onClick: () -> Unit) {
         ) {
             Text(text = sectionLabel(section.section), style = MaterialTheme.typography.bodyLarge)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                StatusPill(status = section.status)
+                SectionStatusPill(status = section.status)
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
@@ -86,20 +87,21 @@ private fun SectionRow(section: SectionAnalysisDto, onClick: () -> Unit) {
     }
 }
 
+/**
+ * This screen's own wording for a section's state, drawn by the shared pill.
+ *
+ * It was a private composable literally called `StatusPill`, shadowing the shared one of the
+ * same name -- so the app had two pills with one name and two different paddings. The
+ * status-to-words mapping is genuinely local to section analysis and stays here; only the
+ * drawing moved.
+ */
 @Composable
-private fun StatusPill(status: String) {
+private fun SectionStatusPill(status: String) {
     val (label, color) = when (status) {
         "complete" -> "Complete" to successColor()
         "good" -> "Good" to MaterialTheme.colorScheme.primary
         "needs_improvement" -> "Needs Improvement" to warningColor()
         else -> "Missing" to MaterialTheme.colorScheme.error
     }
-    Surface(color = color.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp),
-        )
-    }
+    StatusPill(label = label, color = color)
 }

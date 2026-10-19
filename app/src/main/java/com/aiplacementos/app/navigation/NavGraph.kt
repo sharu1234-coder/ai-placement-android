@@ -1,6 +1,12 @@
 package com.aiplacementos.app.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
@@ -11,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
@@ -52,6 +59,7 @@ import com.aiplacementos.app.ui.careergoal.CareerGoalDetailScreen
 import com.aiplacementos.app.ui.careergoal.CareerGoalListScreen
 import com.aiplacementos.app.ui.careerstrategy.CareerStrategyScreen
 import com.aiplacementos.app.ui.careertwin.CareerTwinScreen
+import com.aiplacementos.app.ui.common.BackBar
 import com.aiplacementos.app.ui.common.toUserMessage
 import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderCreateScreen
 import com.aiplacementos.app.ui.projectbuilder.ProjectBuilderDetailScreen
@@ -85,10 +93,15 @@ import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.interview.InterviewEvaluationScreen
+import com.aiplacementos.app.ui.history.ConversationDetailScreen
+import com.aiplacementos.app.ui.history.ConversationHistoryScreen
 import com.aiplacementos.app.ui.interview.MockInterviewCategoryScreen
 import com.aiplacementos.app.ui.interview.SimulationSetupScreen
 import com.aiplacementos.app.ui.interview.TextInterviewScreen
 import com.aiplacementos.app.ui.interview.VoiceInterviewScreen
+import com.aiplacementos.app.ui.theme.Motion
+import com.aiplacementos.app.ui.voiceagent.VoiceAgentScreen
+import com.aiplacementos.app.voice.realtime.VoiceAgentMode
 import com.aiplacementos.app.ui.onboarding.OnboardingConfirmationScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingEducationScreen
 import com.aiplacementos.app.ui.onboarding.OnboardingExperienceLevelScreen
@@ -183,14 +196,53 @@ fun NavGraph(navController: NavHostController) {
         return
     }
 
-    NavHost(navController = navController, startDestination = resolvedStart) {
+    /*
+     * Screen transitions, set once for all 103 destinations.
+     *
+     * Navigation Compose's default is a cross-fade, which gives no sense of direction: pushing
+     * a detail screen and backing out of it look identical, so the app reads as a deck of
+     * unrelated cards rather than a place with a structure. A short horizontal slide paired
+     * with a fade says which way the student just moved, and the pop transitions mirror it so
+     * going back visibly undoes the push.
+     *
+     * The distance is deliberately a fraction of the width rather than the full width: a
+     * full-width slide at this duration reads as a swipe the student did not make. Motion.enter
+     * decelerates into place, which is what makes the arriving screen look like it settled.
+     *
+     * The system's "Remove animations" setting is honoured by the platform for these -- when
+     * ANIMATOR_DURATION_SCALE is 0, Android scales the animators themselves to zero, so this
+     * does not need (and must not have) its own `rememberReduceMotion()` check. Composables
+     * that animate with their own clock, like the recording pulse, still check it themselves.
+     */
+    val slide = tween<IntOffset>(durationMillis = Motion.standard, easing = Motion.enter)
+    val dim = tween<Float>(durationMillis = Motion.standard, easing = Motion.enter)
+    NavHost(
+        navController = navController,
+        startDestination = resolvedStart,
+        enterTransition = {
+            slideInHorizontally(animationSpec = slide, initialOffsetX = { it / 6 }) +
+                fadeIn(animationSpec = dim)
+        },
+        exitTransition = {
+            slideOutHorizontally(animationSpec = slide, targetOffsetX = { -it / 12 }) +
+                fadeOut(animationSpec = dim)
+        },
+        popEnterTransition = {
+            slideInHorizontally(animationSpec = slide, initialOffsetX = { -it / 12 }) +
+                fadeIn(animationSpec = dim)
+        },
+        popExitTransition = {
+            slideOutHorizontally(animationSpec = slide, targetOffsetX = { it / 6 }) +
+                fadeOut(animationSpec = dim)
+        },
+    ) {
         safeAreaComposable(Screen.Welcome.route) {
             WelcomeScreen(
                 onGetStarted = { navController.navigate(Screen.Signup.route) },
                 onNavigateToLogin = { navController.navigate(Screen.Login.route) },
             )
         }
-        safeAreaComposable(Screen.Login.route) {
+        backComposable(navController, Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
                     val dest = resolvePostAuthDestinationOrMain(network.profileRepository)
@@ -200,7 +252,7 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateToForgotPassword = { navController.navigate(Screen.ForgotPassword.route) },
             )
         }
-        safeAreaComposable(Screen.Signup.route) {
+        backComposable(navController, Screen.Signup.route) {
             SignupScreen(
                 onSignupSuccess = {
                     val dest = resolvePostAuthDestinationOrMain(network.profileRepository)
@@ -221,25 +273,25 @@ fun NavGraph(navController: NavHostController) {
         safeAreaComposable(Screen.OnboardingName.route) {
             OnboardingNameScreen(onNext = { navController.navigate(Screen.OnboardingEducation.route) })
         }
-        safeAreaComposable(Screen.OnboardingEducation.route) {
+        backComposable(navController, Screen.OnboardingEducation.route) {
             OnboardingEducationScreen(onNext = { navController.navigate(Screen.OnboardingResume.route) })
         }
-        safeAreaComposable(Screen.OnboardingResume.route) {
+        backComposable(navController, Screen.OnboardingResume.route) {
             ResumeUploadScreen(onUploaded = { navController.navigate(Screen.OnboardingSkills.route) })
         }
-        safeAreaComposable(Screen.OnboardingSkills.route) {
+        backComposable(navController, Screen.OnboardingSkills.route) {
             OnboardingSkillsScreen(onNext = { navController.navigate(Screen.OnboardingRole.route) })
         }
-        safeAreaComposable(Screen.OnboardingRole.route) {
+        backComposable(navController, Screen.OnboardingRole.route) {
             OnboardingRoleScreen(onNext = { navController.navigate(Screen.OnboardingGoals.route) })
         }
-        safeAreaComposable(Screen.OnboardingGoals.route) {
+        backComposable(navController, Screen.OnboardingGoals.route) {
             OnboardingGoalsScreen(onNext = { navController.navigate(Screen.OnboardingExperienceLevel.route) })
         }
-        safeAreaComposable(Screen.OnboardingExperienceLevel.route) {
+        backComposable(navController, Screen.OnboardingExperienceLevel.route) {
             OnboardingExperienceLevelScreen(onNext = { navController.navigate(Screen.OnboardingConfirmation.route) })
         }
-        safeAreaComposable(Screen.OnboardingConfirmation.route) {
+        backComposable(navController, Screen.OnboardingConfirmation.route) {
             OnboardingConfirmationScreen(
                 onEditName = { navController.navigate(Screen.OnboardingName.route) },
                 onEditEducation = { navController.navigate(Screen.OnboardingEducation.route) },
@@ -260,7 +312,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        safeAreaComposable(Screen.OnboardingProfessionalPresence.route) {
+        backComposable(navController, Screen.OnboardingProfessionalPresence.route) {
             OnboardingProfessionalPresenceScreen(
                 // One exit for both "Connect GitHub" and "Maybe later", so declining cannot
                 // leave a student anywhere different from accepting. popUpTo(0) { inclusive }
@@ -276,16 +328,16 @@ fun NavGraph(navController: NavHostController) {
             MainScreen(navController = navController)
         }
 
-        safeAreaComposable(Screen.RoleSelection.route) {
+        backComposable(navController, Screen.RoleSelection.route) {
             RoleSelectionScreen(onRoleSelected = { navController.popBackStack() })
         }
-        safeAreaComposable(Screen.RoleSelectionSecondary.route) {
+        backComposable(navController, Screen.RoleSelectionSecondary.route) {
             RoleSelectionScreen(isSecondary = true, onRoleSelected = { navController.popBackStack() })
         }
-        safeAreaComposable(Screen.Resume.route) {
+        backComposable(navController, Screen.Resume.route) {
             ResumeScreen(onUploadOrReplace = { navController.navigate(Screen.ProfileResumeUpload.route) })
         }
-        safeAreaComposable(Screen.ProfileResumeUpload.route) {
+        backComposable(navController, Screen.ProfileResumeUpload.route) {
             // popBackStack returns to whatever pushed the upload form -- from the Resume screen
             // that is the Resume screen itself, which reloads and shows the new file.
             ResumeUploadScreen(onUploaded = { navController.popBackStack() })
@@ -294,8 +346,7 @@ fun NavGraph(navController: NavHostController) {
         // Shared assessment/interview engine -- jdId (created by Job Match & Prep) flows
         // all the way to the interview screens, so JD-specific tests/questions stay
         // possible end to end (see the class doc comment on Screen.kt's Prepare Me routes).
-        safeAreaComposable(
-            Screen.TestFlow.route,
+        backComposable(navController, Screen.TestFlow.route,
             arguments = listOf(
                 navArgument("blueprintId") { type = NavType.IntType },
                 navArgument("jdId") { type = NavType.IntType },
@@ -308,8 +359,7 @@ fun NavGraph(navController: NavHostController) {
                 onStartTest = { assessmentId -> navController.navigate(testTakingRoute(assessmentId, jdId)) },
             )
         }
-        safeAreaComposable(
-            Screen.TestTaking.route,
+        backComposable(navController, Screen.TestTaking.route,
             arguments = listOf(
                 navArgument("assessmentId") { type = NavType.IntType },
                 navArgument("jdId") { type = NavType.IntType },
@@ -326,8 +376,7 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(
-            Screen.TestResult.route,
+        backComposable(navController, Screen.TestResult.route,
             arguments = listOf(
                 navArgument("assessmentId") { type = NavType.IntType },
                 navArgument("jdId") { type = NavType.IntType },
@@ -336,11 +385,10 @@ fun NavGraph(navController: NavHostController) {
             val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
             com.aiplacementos.app.ui.tests.TestResultScreen(
                 assessmentId = backStackEntry.arguments?.getInt("assessmentId") ?: 0,
-                onContinue = { navController.navigate(textInterviewRoute(jdId)) },
+                onContinue = { navController.navigate(voiceInterviewRoute(jdId)) },
             )
         }
-        safeAreaComposable(
-            Screen.TextInterview.route,
+        backComposable(navController, Screen.TextInterview.route, title = "Written Interview",
             arguments = listOf(
                 navArgument("jdId") { type = NavType.IntType },
                 navArgument("type") { type = NavType.StringType },
@@ -358,8 +406,7 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(
-            Screen.VoiceInterview.route,
+        backComposable(navController, Screen.VoiceInterview.route,
             arguments = listOf(
                 navArgument("jdId") { type = NavType.IntType },
                 navArgument("type") { type = NavType.StringType },
@@ -370,6 +417,18 @@ fun NavGraph(navController: NavHostController) {
             VoiceInterviewScreen(
                 jdId = jdId,
                 type = interviewType,
+                // The interview journey into the realtime agent. Both ids come from the state
+                // the server confirmed, and the agent's own handshake re-verifies ownership of
+                // the pair before its socket is accepted -- neither check stands alone.
+                onLiveConversation = { interviewId, questionId ->
+                    navController.navigate(
+                        voiceAgentRoute(
+                            mode = VoiceAgentMode.INTERVIEW.wire,
+                            interviewId = interviewId,
+                            questionId = questionId,
+                        )
+                    )
+                },
                 onFinish = { interviewId ->
                     navController.navigate(interviewEvaluationRoute(interviewId, jdId)) {
                         popUpTo(Screen.VoiceInterview.route) { inclusive = true }
@@ -377,8 +436,35 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(
-            Screen.InterviewEvaluation.route,
+        backComposable(navController, Screen.VoiceAgent.route,
+            arguments = listOf(
+                navArgument("mode") { type = NavType.StringType },
+                navArgument("interviewId") { type = NavType.IntType },
+                navArgument("questionId") { type = NavType.IntType },
+                navArgument("listingId") { type = NavType.IntType },
+            ),
+        ) { backStackEntry ->
+            // The mode is resolved against the closed enum here, so an unknown path segment
+            // falls back to the read-only coach rather than reaching the interview engine. The
+            // server validates it a second time and closes the socket on anything it does not
+            // recognise -- neither check is load-bearing alone.
+            val requested = backStackEntry.arguments?.getString("mode")
+            val mode = VoiceAgentMode.entries.firstOrNull { it.wire == requested } ?: VoiceAgentMode.COACH
+            // 0 is the sentinel for "absent", which is what coach mode passes.
+            val interviewId = backStackEntry.arguments?.getInt("interviewId")?.takeIf { it > 0 }
+            val questionId = backStackEntry.arguments?.getInt("questionId")?.takeIf { it > 0 }
+            // The advert the conversation is about. Absent on the drawer route, which is why
+            // that route offers no save-job action: the control needs a real listing, and the
+            // server would refuse an empty argument map anyway.
+            val listingId = backStackEntry.arguments?.getInt("listingId")?.takeIf { it > 0 }
+            VoiceAgentScreen(
+                mode = mode,
+                interviewId = interviewId,
+                interviewQuestionId = questionId,
+                listingId = listingId,
+            )
+        }
+        backComposable(navController, Screen.InterviewEvaluation.route,
             arguments = listOf(
                 navArgument("interviewId") { type = NavType.IntType },
                 navArgument("jdId") { type = NavType.IntType },
@@ -394,8 +480,7 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(
-            Screen.RoadmapUpdated.route,
+        backComposable(navController, Screen.RoadmapUpdated.route,
             arguments = listOf(navArgument("jdId") { type = NavType.IntType }),
         ) { backStackEntry ->
             val jdId = backStackEntry.arguments?.getInt("jdId") ?: 0
@@ -422,6 +507,7 @@ fun NavGraph(navController: NavHostController) {
 
         composable(Screen.AlarmList.route) {
             AlarmListScreen(
+                onBack = { navController.popBackStack() },
                 onCreateAlarm = { navController.navigate(Screen.AlarmCreate.route) },
                 onEditAlarm = { alarmId -> navController.navigate(alarmEditRoute(alarmId)) },
                 onOpenActiveChallenge = { clientAlarmId, alarmConfigId ->
@@ -429,14 +515,13 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(Screen.AlarmCreate.route) {
+        backComposable(navController, Screen.AlarmCreate.route) {
             AlarmCreateScreen(
                 onSaved = { navController.popBackStack() },
                 onGoToResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
             )
         }
-        safeAreaComposable(
-            Screen.AlarmEdit.route,
+        backComposable(navController, Screen.AlarmEdit.route,
             arguments = listOf(navArgument("alarmId") { type = NavType.LongType }),
         ) { backStackEntry ->
             AlarmCreateScreen(
@@ -445,15 +530,14 @@ fun NavGraph(navController: NavHostController) {
                 alarmId = backStackEntry.arguments?.getLong("alarmId") ?: 0L,
             )
         }
-        safeAreaComposable(
-            Screen.AlarmChallenge.route,
+        backComposable(navController, Screen.AlarmChallenge.route,
             arguments = listOf(
                 navArgument("clientAlarmId") { type = NavType.StringType },
                 navArgument("alarmConfigId") { type = NavType.LongType },
             ),
         ) { backStackEntry ->
             val context = LocalContext.current
-            val clientAlarmId = backStackEntry.arguments?.getString("clientAlarmId") ?: return@safeAreaComposable
+            val clientAlarmId = backStackEntry.arguments?.getString("clientAlarmId") ?: return@backComposable
             val alarmConfigId = backStackEntry.arguments?.getLong("alarmConfigId") ?: 0L
             PlacementAlarmChallengeScreen(
                 clientAlarmId = clientAlarmId,
@@ -474,8 +558,7 @@ fun NavGraph(navController: NavHostController) {
         // is also where its onOpenTopic navigates into this pushed destination. Screen.PlacementPath
         // (a separate, never-navigated-to route registration) was removed as dead code -- nothing
         // in the app ever called navigate(Screen.PlacementPath.route).
-        safeAreaComposable(
-            Screen.PlacementPathTopicDetail.route,
+        backComposable(navController, Screen.PlacementPathTopicDetail.route,
             arguments = listOf(navArgument("topicId") { type = NavType.IntType }),
         ) { backStackEntry ->
             val topicId = backStackEntry.arguments?.getInt("topicId") ?: 0
@@ -485,7 +568,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        safeAreaComposable(Screen.Settings.route) {
+        backComposable(navController, Screen.Settings.route) {
             SettingsScreen(
                 onOpenEditProfile = { navController.navigate(Screen.Profile.route) },
                 onOpenChangePassword = { navController.navigate(Screen.ForgotPassword.route) },
@@ -504,7 +587,7 @@ fun NavGraph(navController: NavHostController) {
         // Also reachable as a real pushed destination from Settings' "Edit Profile" shortcut --
         // MainScreen's bottom tab reaches the same composable via local selectedRoute state
         // with no back-stack entry; this registration is what makes a *pushed* route to it work.
-        safeAreaComposable(Screen.Profile.route) {
+        backComposable(navController, Screen.Profile.route) {
             ProfileScreen(
                 onSelectRole = { navController.navigate(Screen.RoleSelection.route) },
                 onSelectSecondaryRole = { navController.navigate(Screen.RoleSelectionSecondary.route) },
@@ -521,31 +604,56 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(Screen.Privacy.route) { PrivacyScreen() }
-        safeAreaComposable(Screen.Terms.route) { TermsScreen() }
+        backComposable(navController, Screen.Privacy.route, title = "Privacy Policy") { PrivacyScreen() }
+        backComposable(navController, Screen.Terms.route, title = "Terms of Service") { TermsScreen() }
 
-        safeAreaComposable(Screen.MockInterviewCategory.route) {
+        safeAreaComposable(Screen.ConversationHistory.route) {
+            ConversationHistoryScreen(
+                onBack = { navController.popBackStack() },
+                onOpenConversation = { id ->
+                    navController.navigate(conversationDetailRoute(id))
+                },
+            )
+        }
+        safeAreaComposable(
+            Screen.ConversationDetail.route,
+            arguments = listOf(
+                navArgument("conversationId") { type = NavType.IntType },
+            ),
+        ) { backStackEntry ->
+            // 0 is unreachable through conversationDetailRoute, which only ever receives
+            // a server id; the detail screen reports a 404 honestly if one arrived.
+            val id = backStackEntry.arguments?.getInt("conversationId") ?: 0
+            ConversationDetailScreen(
+                conversationId = id,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        backComposable(navController, Screen.MockInterviewCategory.route) {
             MockInterviewCategoryScreen(
-                onSelectCategory = { type -> navController.navigate(textInterviewRoute(0, type)) },
+                // Voice is the default path through the interview engine. The written route
+                // stays wired for a student who picks "Type answers" -- same engine, same
+                // grading, so nothing is lost by preferring voice here.
+                onSelectCategory = { type -> navController.navigate(voiceInterviewRoute(0, type)) },
+                onSelectWrittenCategory = { type -> navController.navigate(textInterviewRoute(0, type)) },
                 onStartFullSimulation = { navController.navigate(Screen.SimulationSetup.route) },
                 onOpenPastInterview = { interviewId -> navController.navigate(interviewHistoryDetailRoute(interviewId)) },
             )
         }
-        safeAreaComposable(Screen.SimulationSetup.route) {
+        backComposable(navController, Screen.SimulationSetup.route) {
             SimulationSetupScreen(
                 onStart = { jdId ->
                     // Reuses the existing interview route; only the type differs. popUpTo keeps
                     // setup out of the back stack so backing out of the interview returns to the
                     // category list rather than re-offering a setup step for a session that has
                     // already started server-side.
-                    navController.navigate(textInterviewRoute(jdId, "full_simulation")) {
+                    navController.navigate(voiceInterviewRoute(jdId, "full_simulation")) {
                         popUpTo(Screen.SimulationSetup.route) { inclusive = true }
                     }
                 },
             )
         }
-        safeAreaComposable(
-            Screen.InterviewHistoryDetail.route,
+        backComposable(navController, Screen.InterviewHistoryDetail.route,
             arguments = listOf(navArgument("interviewId") { type = NavType.IntType }),
         ) { backStackEntry ->
             InterviewEvaluationScreen(
@@ -554,7 +662,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        safeAreaComposable(Screen.JobMatchPrep.route) {
+        backComposable(navController, Screen.JobMatchPrep.route) {
             JobMatchPrepScreen(
                 onAnalyzed = { jdId ->
                     // The analysis replaces the input screen in the back stack: pressing back
@@ -594,7 +702,7 @@ fun NavGraph(navController: NavHostController) {
         // Resume ATS Check -- drawer entry point, deliberately separate from the JD
         // Analyzer above (no JD is ever involved). "Upload New Resume" reuses the
         // existing ResumeUploadScreen (no duplicated upload code), landing on PreCheck.
-        safeAreaComposable(Screen.AtsCheckLanding.route) {
+        backComposable(navController, Screen.AtsCheckLanding.route) {
             AtsCheckLandingScreen(
                 // Both buttons land on PreCheck -- it already handles "show my current
                 // resume" and "no resume yet, prompt to upload" (UiState.Empty) in one
@@ -604,7 +712,7 @@ fun NavGraph(navController: NavHostController) {
                 onOpenJobMatchPrep = { navController.navigate(Screen.JobMatchPrep.route) },
             )
         }
-        safeAreaComposable(Screen.AtsCheckPreCheck.route) {
+        backComposable(navController, Screen.AtsCheckPreCheck.route, title = "Resume check") {
             AtsCheckPreCheckScreen(
                 onAnalyze = { resumeId, targetRole ->
                     navController.navigate(atsCheckAnalyzingRoute(resumeId, targetRole))
@@ -615,8 +723,7 @@ fun NavGraph(navController: NavHostController) {
                 onUploadNewResume = { navController.navigate(Screen.ProfileResumeUpload.route) },
             )
         }
-        safeAreaComposable(
-            Screen.AtsCheckAnalyzing.route,
+        backComposable(navController, Screen.AtsCheckAnalyzing.route, title = "Resume check",
             arguments = listOf(
                 navArgument("resumeId") { type = NavType.IntType },
                 navArgument("targetRole") { type = NavType.StringType },
@@ -714,7 +821,7 @@ fun NavGraph(navController: NavHostController) {
         // Career Path -- drawer entry point, deliberately independent of the
         // Roadmap/Placement Path bottom tab: separate screens, separate ViewModels,
         // separate repository, no shared state (see ui/careerpath/ package docs).
-        safeAreaComposable(Screen.CareerPathHome.route) {
+        backComposable(navController, Screen.CareerPathHome.route) {
             CareerPathHomeScreen(
                 onSelectRole = { navController.navigate(Screen.CareerPathRoleSelection.route) },
                 onOpenDetail = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
@@ -810,7 +917,7 @@ fun NavGraph(navController: NavHostController) {
                 pathId = backStackEntry.arguments?.getInt("pathId") ?: 0,
                 onBack = { navController.popBackStack() },
                 // Deep-links into the existing Mock Interview flow -- zero new interview UI.
-                onPractice = { jdId, category -> navController.navigate(textInterviewRoute(jdId, category)) },
+                onPractice = { jdId, category -> navController.navigate(voiceInterviewRoute(jdId, category)) },
             )
         }
         safeAreaComposable(
@@ -828,7 +935,7 @@ fun NavGraph(navController: NavHostController) {
                 onOpenPath = { pathId -> navController.navigate(careerPathDetailRoute(pathId)) },
             )
         }
-        safeAreaComposable(Screen.CareerTwin.route) {
+        backComposable(navController, Screen.CareerTwin.route) {
             CareerTwinScreen(
                 onSelectRole = { navController.navigate(Screen.CareerPathRoleSelection.route) },
                 onUpgrade = { navController.navigate(Screen.Subscriptions.route) },
@@ -843,7 +950,7 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(Screen.CareerStrategy.route) {
+        backComposable(navController, Screen.CareerStrategy.route) {
             CareerStrategyScreen(
                 onSelectRole = { navController.navigate(Screen.CareerPathRoleSelection.route) },
                 onUpgrade = { navController.navigate(Screen.Subscriptions.route) },
@@ -852,8 +959,7 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(
-            Screen.CareerStrategyForJob.route,
+        backComposable(navController, Screen.CareerStrategyForJob.route,
             arguments = listOf(navArgument("listingId") { type = NavType.IntType }),
         ) { backStackEntry ->
             // Only the id crosses the boundary. The verdict about this job is the server's and
@@ -884,11 +990,12 @@ fun NavGraph(navController: NavHostController) {
                 connectOnOpen = true,
             )
         }
-        safeAreaComposable(Screen.SkillPassport.route) {
+        backComposable(navController, Screen.SkillPassport.route) {
             SkillPassportScreen(onOpenSkill = { skill -> navController.navigate(skillPassportDetailRoute(skill)) })
         }
         composable(Screen.CareerGoals.route) {
             CareerGoalListScreen(
+                onBack = { navController.popBackStack() },
                 onOpenGoal = { goalId -> navController.navigate(careerGoalDetailRoute(goalId)) },
             )
         }
@@ -1083,11 +1190,20 @@ fun NavGraph(navController: NavHostController) {
                 onOpenStrategy = {
                     navController.navigate(careerStrategyJobRoute(listingId))
                 },
+                // VA-7's save-job confirmation becomes reachable here and only here: this
+                // screen is showing one authoritative, server-returned listing, so its id is
+                // the one the action is allowed to carry.
+                onDiscussWithCoach = {
+                    navController.navigate(
+                        voiceAgentRoute(mode = VoiceAgentMode.COACH.wire, listingId = listingId)
+                    )
+                },
             )
         }
 
         composable(Screen.ProjectBuilderList.route) {
             ProjectBuilderListScreen(
+                onBack = { navController.popBackStack() },
                 onOpenBuild = { buildId -> navController.navigate(projectBuilderDetailRoute(buildId)) },
                 onCreateNew = { navController.navigate(Screen.ProjectBuilderCreate.route) },
             )
@@ -1123,6 +1239,7 @@ fun NavGraph(navController: NavHostController) {
 
         composable(Screen.RecruiterAttackList.route) {
             RecruiterAttackListScreen(
+                onBack = { navController.popBackStack() },
                 onOpenSession = { sessionId, claimLabel ->
                     navController.navigate(recruiterAttackSessionRoute(sessionId, claimLabel))
                 },
@@ -1139,8 +1256,7 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(
-            Screen.RecruiterAttackSession.route,
+        backComposable(navController, Screen.RecruiterAttackSession.route, title = "Recruiter Attack",
             arguments = listOf(
                 navArgument("sessionId") { type = NavType.IntType },
                 navArgument("claimLabel") { type = NavType.StringType },
@@ -1158,8 +1274,7 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(
-            Screen.RecruiterAttackResults.route,
+        backComposable(navController, Screen.RecruiterAttackResults.route,
             arguments = listOf(navArgument("sessionId") { type = NavType.IntType }),
         ) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getInt("sessionId") ?: 0
@@ -1173,11 +1288,11 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        safeAreaComposable(Screen.CareerDecisionLab.route) {
+        backComposable(navController, Screen.CareerDecisionLab.route) {
             CareerDecisionLabScreen(onUpgrade = { navController.navigate(Screen.Subscriptions.route) })
         }
 
-        safeAreaComposable(Screen.ArenaList.route) {
+        backComposable(navController, Screen.ArenaList.route) {
             ArenaListScreen(
                 onStarted = { start ->
                     navController.navigate(
@@ -1186,8 +1301,7 @@ fun NavGraph(navController: NavHostController) {
                 },
             )
         }
-        safeAreaComposable(
-            Screen.ArenaSession.route,
+        backComposable(navController, Screen.ArenaSession.route,
             arguments = listOf(
                 navArgument("arenaAttemptId") { type = NavType.IntType },
                 navArgument("assessmentId") { type = NavType.IntType },
@@ -1209,11 +1323,11 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        safeAreaComposable(Screen.SavedRoadmaps.route) { SavedRoadmapsScreen() }
-        safeAreaComposable(Screen.NotificationCenter.route) { NotificationCenterScreen() }
-        safeAreaComposable(Screen.Subscriptions.route) { SubscriptionsScreen() }
-        safeAreaComposable(Screen.HelpSupport.route) { HelpSupportScreen() }
-        safeAreaComposable(Screen.AboutUs.route) {
+        backComposable(navController, Screen.SavedRoadmaps.route) { SavedRoadmapsScreen() }
+        backComposable(navController, Screen.NotificationCenter.route) { NotificationCenterScreen() }
+        backComposable(navController, Screen.Subscriptions.route) { SubscriptionsScreen() }
+        backComposable(navController, Screen.HelpSupport.route) { HelpSupportScreen() }
+        backComposable(navController, Screen.AboutUs.route) {
             AboutUsScreen(
                 onOpenPrivacy = { navController.navigate(Screen.Privacy.route) },
                 onOpenTerms = { navController.navigate(Screen.Terms.route) },
@@ -1295,4 +1409,31 @@ private fun NavGraphBuilder.safeAreaComposable(
     content: @Composable (NavBackStackEntry) -> Unit,
 ) = composable(route = route, arguments = arguments) { backStackEntry ->
     Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) { content(backStackEntry) }
+}
+/**
+ * A destination that a student was pushed into, with the way back drawn on it.
+ *
+ * The same safe-area treatment as [safeAreaComposable], plus a [BackBar] above the content. A
+ * navigation audit on 2026-10-18 found 52 of 97 screens with no visible back control at all, and
+ * this is how the graph supplies one without editing every screen to accept an `onBack` lambda.
+ *
+ * [title] is left null for a screen that already draws its own heading, which is most of them --
+ * passing one there would print the same words twice. See [BackBar] for that rule.
+ *
+ * Destinations that own a `Scaffold` are deliberately NOT routed through here: this applies
+ * `safeDrawingPadding()`, and a Scaffold applies the content insets itself, so the two together
+ * would push the screen down by the status bar twice. Those four screens take an `onBack`
+ * parameter and place the bar in their own `topBar` slot instead.
+ */
+private fun NavGraphBuilder.backComposable(
+    navController: NavHostController,
+    route: String,
+    title: String? = null,
+    arguments: List<NamedNavArgument> = emptyList(),
+    content: @Composable (NavBackStackEntry) -> Unit,
+) = composable(route = route, arguments = arguments) { backStackEntry ->
+    Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+        BackBar(onBack = { navController.popBackStack() }, title = title)
+        Box(modifier = Modifier.fillMaxSize()) { content(backStackEntry) }
+    }
 }

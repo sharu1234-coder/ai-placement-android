@@ -5,9 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -50,6 +50,7 @@ import com.aiplacementos.app.data.remote.CategoryBreakdownDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.DetailTopBar
 import com.aiplacementos.app.ui.common.ErrorState
+import com.aiplacementos.app.ui.common.IconChip
 import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.SkeletonCircle
 import com.aiplacementos.app.ui.common.SkeletonList
@@ -90,9 +91,9 @@ fun AtsCheckResultScreen(
                     IconButton(onClick = {
                         val currentState = state
                         val shareText = if (currentState is UiState.Success<AtsCheckReportDto>) {
-                            "My resume scored ${currentState.data.overallScore}/100 on AI Placement OS's Resume ATS Check."
+                            "My resume scored ${currentState.data.overallScore}/100 on TALVIORA AI's Resume ATS Check."
                         } else {
-                            "Check out AI Placement OS's Resume ATS Check."
+                            "Check out TALVIORA AI's Resume ATS Check."
                         }
                         context.startActivity(
                             Intent.createChooser(
@@ -348,14 +349,7 @@ private fun TopPriorityIssuesCard(issues: List<AtsIssueDto>, totalHigh: Int, onV
 private fun ReportMenuRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
     AppCard(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.padding(Spacing.sm).size(20.dp),
-                )
-            }
+            IconChip(icon = icon, tint = MaterialTheme.colorScheme.secondary, size = 38.dp)
             Column(modifier = Modifier.padding(start = Spacing.sm).weight(1f)) {
                 Text(text = title, style = MaterialTheme.typography.bodyLarge)
                 Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

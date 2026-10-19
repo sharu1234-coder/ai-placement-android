@@ -38,6 +38,7 @@ import com.aiplacementos.app.data.remote.SubscriptionStatusDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
@@ -102,7 +103,10 @@ private fun SubscriptionsContent(
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        item { Text(text = "Subscription", style = MaterialTheme.typography.headlineSmall) }
+        item { ScreenHeader(
+     title = "Subscription",
+     subtitle = "Your plan and what it includes.",
+ ) }
         item { StatusCard(data.status) }
 
         item {
@@ -232,7 +236,8 @@ private fun PlanCard(
             }
         } else {
             PrimaryButton(
-                text = if (isProcessing) "Processing..." else "Subscribe Now",
+                text = "Subscribe Now",
+                loading = isProcessing,
                 onClick = onSelect,
                 enabled = enabled,
                 modifier = Modifier

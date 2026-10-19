@@ -31,7 +31,9 @@ import com.aiplacementos.app.database.entity.AlarmConfigEntity
 import com.aiplacementos.app.database.entity.AlarmType
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.AppFab
+import com.aiplacementos.app.ui.common.BackBar
 import com.aiplacementos.app.ui.common.EmptyState
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 import java.util.Calendar
@@ -75,6 +77,7 @@ private fun formatTime(hour: Int, minute: Int): String {
 
 @Composable
 fun AlarmListScreen(
+    onBack: () -> Unit,
     onCreateAlarm: () -> Unit,
     onEditAlarm: (alarmId: Long) -> Unit,
     onOpenActiveChallenge: (clientAlarmId: String, alarmConfigId: Long) -> Unit,
@@ -89,11 +92,15 @@ fun AlarmListScreen(
     val activeChallenges by viewModel.activeChallenges.collectAsStateWithLifecycle()
 
     Scaffold(
+        topBar = { BackBar(onBack = onBack) },
         floatingActionButton = { AppFab(onClick = onCreateAlarm, contentDescription = "Add placement alarm") },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             Column(modifier = Modifier.fillMaxSize().padding(Spacing.md)) {
-                Text(text = "Placement Alarms", style = MaterialTheme.typography.headlineSmall)
+                ScreenHeader(
+                    title = "Placement Alarms",
+                    subtitle = "Reminders that open a quick practice challenge.",
+                )
 
                 if (alarms.isEmpty()) {
                     EmptyState(

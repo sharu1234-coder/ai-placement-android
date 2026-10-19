@@ -44,6 +44,7 @@ import com.aiplacementos.app.ui.common.DetailTopBar
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.ExpandableSection
 import com.aiplacementos.app.ui.common.SkeletonList
+import com.aiplacementos.app.ui.common.StatusPill
 import com.aiplacementos.app.ui.common.confidenceBandLabel
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -181,14 +182,7 @@ private fun SkillPassportDetailContent(item: SkillPassportItemDto, modifier: Mod
 @Composable
 private fun StatusBadge(label: String, isGap: Boolean) {
     val color = if (isGap) warningColor() else successColor()
-    Surface(color = color.copy(alpha = 0.15f), contentColor = color, shape = MaterialTheme.shapes.small) {
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
-        )
-    }
+    StatusPill(label = label.uppercase(), color = color)
 }
 
 @Composable

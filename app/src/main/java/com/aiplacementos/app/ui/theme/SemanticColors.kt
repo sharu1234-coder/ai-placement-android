@@ -14,3 +14,19 @@ fun successColor(): Color = SuccessLight
 
 @Composable
 fun warningColor(): Color = WarningLight
+
+/**
+ * Cyan, for voice and AI surfaces.
+ *
+ * The companion to the electric-blue `secondary` role, offered here rather than forced into a
+ * Material role it would fight with. Already the text-safe depth -- see Color.kt for the
+ * measured reason the bright version cannot carry text on this background.
+ */
+@Composable
+fun accentCyanColor(): Color = AccentCyanLight
+
+@Composable
+fun onAccentCyanColor(): Color = OnAccentCyanLight
+
+@Composable
+fun accentCyanContainerColor(): Color = AccentCyanContainerLight

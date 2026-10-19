@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,7 +46,12 @@ fun ProjectBuilderCreateScreen(onBack: () -> Unit, onCreated: (buildId: Int) -> 
     Column(modifier = Modifier.fillMaxSize()) {
         DetailTopBar(title = "New Project", onBack = onBack)
         Column(
-            modifier = Modifier.fillMaxSize().padding(Spacing.md),
+            // Scrollable: this column is taller than a handset once the system font scale is
+            // raised, and without a scroll its bottom action cannot be reached.
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(Spacing.md),
         ) {
             Text(
                 text = "Build one real project, one guided stage at a time -- from understanding the " +

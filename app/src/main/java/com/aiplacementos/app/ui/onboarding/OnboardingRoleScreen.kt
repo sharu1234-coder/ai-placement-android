@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,11 +37,21 @@ fun OnboardingRoleScreen(onNext: () -> Unit) {
             onRoleSelected = { phase = RolePhase.PRIMARY_DONE },
         )
         RolePhase.PRIMARY_DONE -> Column(
-            modifier = Modifier.fillMaxSize().padding(Spacing.md),
+            // Without this the soft keyboard -- or simply a raised system font scale --
+            // covers the Next button with no way to reach it, which strands a student
+            // mid-signup.
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            StepProgressIndicator(step = 5, total = 7)
-            Text(text = "Target role saved", style = MaterialTheme.typography.headlineSmall)
+            OnboardingHeader(
+                step = 5,
+                total = 7,
+                title = "Target role saved",
+                subtitle = "Your roadmap, tests and interviews are all measured against this role.",
+            )
             Text(
                 text = "You can optionally add a second target role, or continue.",
                 style = MaterialTheme.typography.bodyMedium,

@@ -24,6 +24,16 @@ import retrofit2.HttpException
 sealed interface PlacementPathUiState {
     data object Loading : PlacementPathUiState
     data object NoPath : PlacementPathUiState
+
+    /**
+     * A roadmap is being generated right now.
+     *
+     * Separate from [Loading] because the two waits are nothing alike: a load is a fetch of
+     * something that already exists, while a generation is an AI call that can take tens of
+     * seconds. Rendering both as the same skeleton told a student that content was arriving
+     * imminently when it was not, which is the complaint that reads as -- the app is stuck.
+     */
+    data object Generating : PlacementPathUiState
     data class Error(val message: String, val isNetworkError: Boolean = false) : PlacementPathUiState
     data class Success(val path: PlacementPathDto, val isBusy: Boolean = false) : PlacementPathUiState
 }
@@ -66,7 +76,7 @@ class PlacementPathViewModel(private val placementPathRepository: PlacementPathR
      * them as the same operation (see placement_path_service.generate_placement_path). */
     fun generate() {
         viewModelScope.launch {
-            _uiState.value = PlacementPathUiState.Loading
+            _uiState.value = PlacementPathUiState.Generating
             try {
                 val key = pendingGenerateKey ?: OperationKey.newKey().also { pendingGenerateKey = it }
                 val generated = placementPathRepository.generate(key)

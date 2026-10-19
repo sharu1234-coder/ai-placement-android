@@ -1,16 +1,17 @@
 package com.aiplacementos.app.ui.onboarding
 
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -69,11 +71,21 @@ fun OnboardingExperienceLevelScreen(onNext: () -> Unit) {
         )
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
         is UiState.Success<ProfileDto> -> Column(
-            modifier = Modifier.fillMaxSize().padding(Spacing.md),
+            // Without this the soft keyboard -- or simply a raised system font scale --
+            // covers the Next button with no way to reach it, which strands a student
+            // mid-signup.
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            StepProgressIndicator(step = 7, total = 7)
-            Text(text = "What is your preparation level?", style = MaterialTheme.typography.headlineSmall)
+            OnboardingHeader(
+                step = 7,
+                total = 7,
+                title = "What is your preparation level?",
+                subtitle = "So your practice starts at the right level rather than too easy or too hard.",
+            )
             LEVELS.forEach { (value, description) ->
                 val isSelected = selectedLevel == value
                 AppCard(
@@ -101,9 +113,10 @@ fun OnboardingExperienceLevelScreen(onNext: () -> Unit) {
                 }
             }
             PrimaryButton(
-                text = if (saving) "Saving..." else "Next",
+                text = "Next",
+                loading = saving,
                 onClick = { selectedLevel?.let { viewModel.save(it, onSaved = onNext) } },
-                enabled = !saving && selectedLevel != null,
+                enabled = selectedLevel != null,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,7 +61,14 @@ private fun TopicDetailContent(
     onPractice: () -> Unit,
     onMarkComplete: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(Spacing.md)) {
+    Column(
+            // Scrollable: this column outgrows a handset at a raised font scale, and
+            // without a scroll its bottom content cannot be reached.
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.md),
+    ) {
         Text(text = topic.title, style = MaterialTheme.typography.headlineSmall)
         Text(
             text = "${topic.priority.uppercase()} PRIORITY",

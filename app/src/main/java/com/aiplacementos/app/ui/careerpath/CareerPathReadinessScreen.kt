@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.DetailTopBar
+import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.ScoreRing
@@ -43,7 +44,11 @@ fun CareerPathReadinessScreen(pathId: Int, onBack: () -> Unit) {
         DetailTopBar(title = "Job Readiness", onBack = onBack)
         when (val current = state) {
             is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-            is UiState.Empty -> ErrorState(message = "Nothing here yet.", modifier = Modifier.fillMaxSize())
+            is UiState.Empty -> EmptyState(
+                title = "Not measured yet",
+                message = "Your readiness for this role is calculated once you have completed a test or an interview.",
+                modifier = Modifier.fillMaxSize(),
+            )
             is UiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize(), onRetry = viewModel::load)
             is UiState.Success -> ReadinessContent(path = current.data)
         }

@@ -5,25 +5,36 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.aiplacementos.app.BuildConfig
 import com.aiplacementos.app.ui.common.AppCard
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.theme.Spacing
 
 @Composable
 fun AboutUsScreen(onOpenPrivacy: () -> Unit, onOpenTerms: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+        // Scrollable: this column is taller than a handset once the system font scale is
+        // raised, and without a scroll its bottom action cannot be reached.
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Text(text = "About Us", style = MaterialTheme.typography.headlineSmall)
+        ScreenHeader(
+            title = "About Us",
+            subtitle = "What TALVIORA AI is, and who builds it.",
+        )
 
         AppCard(modifier = Modifier.fillMaxWidth()) {
-            Text(text = "AI Placement OS", style = MaterialTheme.typography.titleMedium)
+            Text(text = "TALVIORA AI", style = MaterialTheme.typography.titleMedium)
             Text(
                 text = "Version ${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.bodySmall,
@@ -31,7 +42,7 @@ fun AboutUsScreen(onOpenPrivacy: () -> Unit, onOpenTerms: () -> Unit) {
                 modifier = Modifier.padding(top = Spacing.xs, bottom = Spacing.sm),
             )
             Text(
-                text = "AI Placement OS helps students prepare for campus placements with a " +
+                text = "TALVIORA AI helps students prepare for campus placements with a " +
                     "personalized roadmap, adaptive practice, and mock interviews built from " +
                     "their own resume and target role -- built by SGLD Quant Labs.",
                 style = MaterialTheme.typography.bodyMedium,

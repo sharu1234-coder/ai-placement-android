@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
@@ -30,8 +32,8 @@ import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.ScoreRing
 import com.aiplacementos.app.ui.common.networkModule
-import com.aiplacementos.app.ui.theme.Spacing
 import com.aiplacementos.app.ui.tests.TestTakingScreen
+import com.aiplacementos.app.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 private fun formatTime(seconds: Int): String = "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
@@ -96,7 +98,15 @@ private fun TimerBadge(remainingSeconds: Int, modifier: Modifier = Modifier) {
 
 @Composable
 private fun ArenaResultSummary(result: ArenaAttemptResultDto, onDone: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().padding(Spacing.md), verticalArrangement = Arrangement.Center) {
+    Column(
+            // Scrollable: this column outgrows a handset at a raised font scale, and
+            // without a scroll its bottom content cannot be reached.
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.md),
+        verticalArrangement = Arrangement.Center,
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,

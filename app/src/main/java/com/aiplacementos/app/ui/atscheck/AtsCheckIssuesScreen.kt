@@ -33,6 +33,7 @@ import com.aiplacementos.app.ui.common.DetailTopBar
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
+import com.aiplacementos.app.ui.common.StatusPill
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -95,14 +96,10 @@ private fun IssueCard(issue: AtsIssueDto) {
     var expanded by remember { mutableStateOf(false) }
     AppCard(modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }) {
         Row {
-            Surface(color = severityColor(issue.severity).copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
-                Text(
-                    text = "${issue.severity.replaceFirstChar { it.uppercase() }} Priority",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = severityColor(issue.severity),
-                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
-                )
-            }
+            StatusPill(
+                label = "${issue.severity.replaceFirstChar { it.uppercase() }} Priority",
+                color = severityColor(issue.severity),
+            )
         }
         Text(
             text = issue.title,

@@ -31,8 +31,10 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.RecruiterAttackSessionListItemDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.AppFab
+import com.aiplacementos.app.ui.common.BackBar
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -46,7 +48,7 @@ private fun statusLabel(session: RecruiterAttackSessionListItemDto): String = wh
 }
 
 @Composable
-fun RecruiterAttackListScreen(onOpenSession: (sessionId: Int, sourceLabel: String) -> Unit, onCreateNew: () -> Unit) {
+fun RecruiterAttackListScreen(onBack: () -> Unit, onOpenSession: (sessionId: Int, sourceLabel: String) -> Unit, onCreateNew: () -> Unit) {
     val network = networkModule()
     val viewModel: RecruiterAttackListViewModel = viewModel(
         factory = viewModelFactory { initializer { RecruiterAttackListViewModel(network.recruiterAttackRepository) } },
@@ -59,6 +61,7 @@ fun RecruiterAttackListScreen(onOpenSession: (sessionId: Int, sourceLabel: Strin
     }
 
     Scaffold(
+        topBar = { BackBar(onBack = onBack) },
         floatingActionButton = { AppFab(onClick = onCreateNew, contentDescription = "New Recruiter Attack") },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -100,11 +103,9 @@ private fun RecruiterAttackSessionList(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            Text(text = "Recruiter Attack", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                text = "A skeptical recruiter probes one real claim you've made -- see if it holds up.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ScreenHeader(
+                title = "Recruiter Attack",
+                subtitle = "A skeptical recruiter probes one real claim you've made -- see if it holds up.",
             )
         }
         items(sessions, key = { it.id }) { session ->

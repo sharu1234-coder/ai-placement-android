@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -26,10 +27,10 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
-import androidx.compose.ui.unit.dp
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -64,7 +65,10 @@ private fun SavedRoadmapsContent(paths: List<PlacementPathDto>) {
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         item {
-            Text(text = "Saved Roadmaps", style = MaterialTheme.typography.headlineSmall)
+            ScreenHeader(
+                title = "Saved Roadmaps",
+                subtitle = "Roadmaps you have generated before.",
+            )
         }
         items(paths, key = { it.id }) { path -> SavedRoadmapCard(path) }
     }

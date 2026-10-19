@@ -4,10 +4,19 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -20,6 +29,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -31,6 +44,7 @@ import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
+import com.aiplacementos.app.ui.theme.successColor
 
 private const val REQUIRED_QUESTIONS = 6
 
@@ -96,10 +110,20 @@ fun PlacementAlarmChallengeScreen(
 @Composable
 private fun ChallengeCompletionScreen(onDone: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+        // Scrollable: this content outgrows a handset at a raised font scale, and without
+        // a scroll its bottom actions cannot be reached.
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md, Alignment.CenterVertically),
     ) {
-        Text(text = "🎉 Challenge Complete!", style = MaterialTheme.typography.headlineMedium)
+        OutcomeHeading(
+            icon = Icons.Filled.EmojiEvents,
+            text = "Challenge Complete!",
+            color = successColor(),
+            style = MaterialTheme.typography.headlineMedium,
+        )
         Text(text = "$REQUIRED_QUESTIONS / $REQUIRED_QUESTIONS Questions Solved", style = MaterialTheme.typography.titleMedium)
         Text(
             text = "Great job! Keep preparing for placements.",
@@ -179,13 +203,23 @@ private fun FeedbackCard(result: ChallengeAnswerResultDto, onContinue: () -> Uni
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         if (result.isCorrect) {
-            Text(text = "✅ Correct", style = MaterialTheme.typography.headlineSmall)
+            OutcomeHeading(
+                icon = Icons.Filled.CheckCircle,
+                text = "Correct",
+                color = successColor(),
+                style = MaterialTheme.typography.headlineSmall,
+            )
             Text(
                 text = "${result.completedCount}/$REQUIRED_QUESTIONS solved",
                 style = MaterialTheme.typography.bodyMedium,
             )
         } else {
-            Text(text = "❌ Incorrect", style = MaterialTheme.typography.headlineSmall)
+            OutcomeHeading(
+                icon = Icons.Filled.Cancel,
+                text = "Incorrect",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.headlineSmall,
+            )
             result.correctAnswer?.let {
                 Text(text = "Correct answer: $it", style = MaterialTheme.typography.bodyMedium)
             }
@@ -198,5 +232,31 @@ private fun FeedbackCard(result: ChallengeAnswerResultDto, onContinue: () -> Uni
             onClick = onContinue,
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+/**
+ * An outcome, as an icon and a word.
+ *
+ * The word is what carries the result; the icon and its colour reinforce it. That ordering is
+ * the app's standing rule and it matters most here, where the previous version put the whole
+ * outcome into a single emoji that a screen reader announces by its Unicode name.
+ */
+@Composable
+private fun OutcomeHeading(
+    icon: ImageVector,
+    text: String,
+    color: Color,
+    style: TextStyle,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(Modifier.size(Spacing.sm))
+        Text(text = text, style = style, color = color)
     }
 }

@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -73,7 +75,14 @@ private fun TaskDetail(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize().padding(Spacing.md)) {
+    Column(
+        // Scrollable: this content outgrows a handset at a raised font scale, and without
+        // a scroll its bottom actions cannot be reached.
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.md),
+    ) {
         Text(text = "Day ${task.dayNumber}", style = MaterialTheme.typography.titleSmall)
         Text(
             text = task.title,

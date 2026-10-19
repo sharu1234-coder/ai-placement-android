@@ -29,6 +29,7 @@ import com.aiplacementos.app.data.remote.CareerPathDto
 import com.aiplacementos.app.data.remote.InterviewPrepCategorySummaryDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.DetailTopBar
+import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.UiState
@@ -49,7 +50,11 @@ fun CareerPathInterviewPrepScreen(pathId: Int, onBack: () -> Unit, onPractice: (
         DetailTopBar(title = "Interview Preparation", onBack = onBack)
         when (val current = state) {
             is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-            is UiState.Empty -> ErrorState(message = "Nothing here yet.", modifier = Modifier.fillMaxSize())
+            is UiState.Empty -> EmptyState(
+                title = "No preparation yet",
+                message = "Interview preparation appears here once it has been generated for this role.",
+                modifier = Modifier.fillMaxSize(),
+            )
             is UiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize(), onRetry = viewModel::load)
             is UiState.Success -> InterviewPrepContent(
                 path = current.data,

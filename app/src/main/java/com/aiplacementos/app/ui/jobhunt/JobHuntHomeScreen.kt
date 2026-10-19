@@ -12,6 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.NewReleases
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.WorkOutline
@@ -30,8 +33,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -50,8 +53,10 @@ import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkeletonList
+import com.aiplacementos.app.ui.common.StatChip
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
+import com.aiplacementos.app.ui.theme.accentCyanColor
 
 /** The roles offered as one-tap shortcuts. Drawn from the role families the matching engine
  * actually recognises -- offering a role the engine cannot map would produce a search whose
@@ -319,9 +324,27 @@ private fun FindJobsContent(
                     modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
-                    StatTile("New jobs", home.newJobs, Modifier.weight(1f))
-                    StatTile("Best matches", home.bestMatches, Modifier.weight(1f))
-                    StatTile("Applied", home.applied, Modifier.weight(1f))
+                    StatChip(
+                        label = "New jobs",
+                        value = home.newJobs.toString(),
+                        icon = Icons.Filled.NewReleases,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatChip(
+                        label = "Best matches",
+                        value = home.bestMatches.toString(),
+                        icon = Icons.Filled.TrackChanges,
+                        tint = accentCyanColor(),
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatChip(
+                        label = "Applied",
+                        value = home.applied.toString(),
+                        icon = Icons.Filled.Send,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
@@ -411,28 +434,6 @@ private fun FindJobsContent(
  * "12" and "Applied" as two separate nodes leaves the pairing to be inferred from visual
  * layout, which is exactly the information a screen reader does not have.
  */
-@Composable
-private fun StatTile(label: String, value: Int, modifier: Modifier = Modifier) {
-    AppCard(modifier = modifier) {
-        Column(
-            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-                contentDescription = "$value $label"
-            },
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = value.toString(),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
 
 
 /**

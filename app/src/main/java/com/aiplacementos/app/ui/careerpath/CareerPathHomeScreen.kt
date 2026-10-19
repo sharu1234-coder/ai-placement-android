@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -35,9 +36,11 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkillBar
+import com.aiplacementos.app.ui.common.TargetIllustration
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
 
@@ -99,19 +102,18 @@ private fun CareerPathEmptyContent(savedCount: Int, onSelectRole: () -> Unit, on
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            // The page's top-level heading -- lets a screen-reader user jump straight back to
-            // the top of this screen via TalkBack's heading navigation.
-            Text(
-                text = "Your Career Journey Starts Here",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.semantics { heading() },
-            )
-            Spacer(modifier = Modifier.height(Spacing.xs))
-            Text(
-                text = "Choose a role and get a personalized plan to achieve your dream career.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // ScreenHeader keeps the heading() semantics this screen already relied on for
+            // TalkBack's heading navigation, and adds the figure every other hub now carries.
+            ScreenHeader(
+                title = "Your Career Journey",
+                subtitle = "Choose a role and get a personalised plan to reach it.",
+                illustration = {
+                    TargetIllustration(
+                        modifier = Modifier.size(64.dp),
+                        ring = MaterialTheme.colorScheme.primary,
+                        accent = MaterialTheme.colorScheme.tertiary,
+                    )
+                },
             )
         }
         item {

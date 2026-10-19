@@ -24,6 +24,7 @@ import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
@@ -59,7 +60,10 @@ private fun ResultSummary(result: AssessmentResultDto, onContinue: () -> Unit) {
             .fillMaxSize()
             .padding(Spacing.md),
     ) {
-        Text(text = "Test results", style = MaterialTheme.typography.headlineSmall)
+        ScreenHeader(
+            title = "Test results",
+            subtitle = "How you did, and which skills the questions covered.",
+        )
 
         AppCard(
             modifier = Modifier

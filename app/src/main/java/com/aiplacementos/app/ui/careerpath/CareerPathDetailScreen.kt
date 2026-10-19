@@ -43,6 +43,7 @@ import com.aiplacementos.app.data.remote.CareerPathPhaseDto
 import com.aiplacementos.app.data.remote.SkillItemDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.DetailTopBar
+import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.ExpandableSection
 import com.aiplacementos.app.ui.common.LoadingState
@@ -71,7 +72,11 @@ fun CareerPathDetailScreen(
         DetailTopBar(title = "Your Career Path", onBack = onBack)
         when (val current = state) {
             is UiState.Loading -> LoadingState(modifier = Modifier.fillMaxSize())
-            is UiState.Empty -> ErrorState(message = "Nothing here yet.", modifier = Modifier.fillMaxSize())
+            is UiState.Empty -> EmptyState(
+                title = "Nothing here yet",
+                message = "This career path has no stages recorded against it.",
+                modifier = Modifier.fillMaxSize(),
+            )
             is UiState.Error -> ErrorState(message = current.message, modifier = Modifier.fillMaxSize(), onRetry = viewModel::load)
             is UiState.Success -> DetailContent(
                 path = current.data,

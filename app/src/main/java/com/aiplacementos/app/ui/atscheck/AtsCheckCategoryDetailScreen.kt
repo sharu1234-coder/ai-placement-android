@@ -27,6 +27,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.CategoryBreakdownDto
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.DetailTopBar
+import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.ScoreRing
@@ -54,7 +55,11 @@ fun AtsCheckCategoryDetailScreen(checkId: Int, category: String, onBack: () -> U
                 onRetry = viewModel::load,
                 modifier = Modifier.fillMaxSize().padding(padding),
             )
-            is UiState.Empty -> ErrorState(message = "No data available.", modifier = Modifier.fillMaxSize().padding(padding))
+            is UiState.Empty -> EmptyState(
+                title = "Nothing in this category",
+                message = "This report recorded no findings here.",
+                modifier = Modifier.fillMaxSize().padding(padding),
+            )
             is UiState.Success<CategoryBreakdownDto> -> CategoryDetailContent(current.data, Modifier.padding(padding))
         }
     }

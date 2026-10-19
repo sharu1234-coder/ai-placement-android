@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Insights
@@ -71,7 +73,12 @@ fun AtsCheckAnalyzingScreen(
 @Composable
 private fun AnalyzingContent(stageIndex: Int) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(Spacing.lg),
+        // Scrollable: this column is taller than a handset once the system font scale is
+        // raised, and without a scroll its bottom action cannot be reached.
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.lg),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

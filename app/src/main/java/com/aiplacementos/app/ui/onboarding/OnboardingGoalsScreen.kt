@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -75,11 +77,21 @@ fun OnboardingGoalsScreen(onNext: () -> Unit) {
         )
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
         is UiState.Success<ProfileDto> -> Column(
-            modifier = Modifier.fillMaxSize().padding(Spacing.md),
+            // Without this the soft keyboard -- or simply a raised system font scale --
+            // covers the Next button with no way to reach it, which strands a student
+            // mid-signup.
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            StepProgressIndicator(step = 6, total = 7)
-            Text(text = "What do you want to improve?", style = MaterialTheme.typography.headlineSmall)
+            OnboardingHeader(
+                step = 6,
+                total = 7,
+                title = "What do you want to improve?",
+                subtitle = "Pick the areas to focus on first. You can change these later in your profile.",
+            )
             // chipGap (not xs) between these -- see Spacing.chipGap's own doc comment.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap)) {
                 GOALS.forEach { goal ->
@@ -91,9 +103,9 @@ fun OnboardingGoalsScreen(onNext: () -> Unit) {
                 }
             }
             PrimaryButton(
-                text = if (saving) "Saving..." else "Next",
+                text = "Next",
+                loading = saving,
                 onClick = { viewModel.save(selected.toList(), onSaved = onNext) },
-                enabled = !saving,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

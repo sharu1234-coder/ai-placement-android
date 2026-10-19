@@ -9,13 +9,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aiplacementos.app.data.remote.RecommendedActionDto
 import com.aiplacementos.app.ui.theme.Spacing
 
@@ -29,27 +30,53 @@ import com.aiplacementos.app.ui.theme.Spacing
  */
 @Composable
 fun NextBestActionCard(action: RecommendedActionDto, modifier: Modifier = Modifier, onStart: (() -> Unit)? = null) {
-    AppCard(modifier = modifier.fillMaxWidth()) {
+    // An AccentCard rather than a plain one: this is the single recommendation the product
+    // treats as authoritative, and on a page of equal-weight cards it previously read as one
+    // more section. The rail and tint lift it without spending the screen's one hero.
+    AccentCard(
+        modifier = modifier.fillMaxWidth(),
+        accent = MaterialTheme.colorScheme.secondary,
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = Icons.Filled.Lightbulb, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            IconChip(icon = Icons.Filled.Lightbulb, tint = MaterialTheme.colorScheme.secondary, size = 36.dp)
             Spacer(modifier = Modifier.width(Spacing.sm))
-            Text(text = "Your Next Move", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                text = "Your Next Move",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
         }
         Spacer(modifier = Modifier.height(Spacing.sm))
-        Text(text = action.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+        Text(
+            text = action.title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
         action.estimatedMinutes?.let { minutes ->
             Text(
                 text = "Estimated: $minutes min",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f),
             )
         }
         if (action.reasons.isNotEmpty()) {
             Spacer(modifier = Modifier.height(Spacing.sm))
-            Text(text = "WHY?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = "WHY?",
+                style = MaterialTheme.typography.labelSmall,
+                letterSpacing = 1.sp,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f),
+            )
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 action.reasons.forEach { reason ->
-                    Text(text = "✓ $reason", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = "✓ $reason",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
                 }
             }
         }

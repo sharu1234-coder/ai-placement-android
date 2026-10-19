@@ -215,7 +215,8 @@ internal fun NoteEditorDialog(
         },
         confirmButton = {
             PrimaryButton(
-                text = if (draft.isSaving) "Saving..." else "Save note",
+                text = "Save note",
+                loading = draft.isSaving,
                 onClick = onSave,
                 enabled = !draft.isSaving,
             )

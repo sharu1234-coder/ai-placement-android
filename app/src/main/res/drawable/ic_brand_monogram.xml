@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The TALVIORA AI monogram: a T whose stem is cut away at the foot.
+
+    It replaces an A-shaped mark that predated the rename and no longer matched the product
+    name. Drawn as a single closed outline rather than a crossbar plus a stem, because two
+    overlapping subpaths share an edge at y=7.6 and render a hairline seam between them on
+    some GPUs at small sizes.
+
+    One path and a single fill colour, so a caller can tint it with `Icon(tint = ...)` and get
+    the brand mark in whatever colour its surface needs. `ic_launcher_foreground.xml` carries
+    the same outline scaled into the adaptive-icon safe zone.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!--
+        No android:tint here. `?attr/colorControlNormal` resolves only under an AppCompat or
+        Material XML theme, and this app's base theme defines neither, so referencing it fails
+        resource linking outright. Every caller is Compose and passes its own tint.
+    -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M2,3 L22,3 L22,7.6 L14.2,7.6 L14.2,16.4 L9.8,20.8 L9.8,7.6 L2,7.6 Z" />
+</vector>

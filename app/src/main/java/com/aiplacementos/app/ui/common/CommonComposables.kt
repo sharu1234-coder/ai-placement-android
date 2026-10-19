@@ -18,16 +18,45 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.aiplacementos.app.ui.theme.Spacing
 
 @Composable
-fun LoadingState(modifier: Modifier = Modifier) {
+fun LoadingState(
+    modifier: Modifier = Modifier,
+    /**
+     * What the app is waiting for, in the student's words.
+     *
+     * Optional, so every existing call site is unchanged. Worth supplying wherever the wait
+     * can be long: an unlabelled spinner is indistinguishable from a hung screen, and the
+     * complaint it produces is that the app is slow rather than that it is silent. The
+     * clearest evidence of this in the app was the voice interview, where "loading" was
+     * reported as the problem while the thing actually happening was a question being read
+     * aloud.
+     *
+     * Phrase it as the work in progress ("Setting up your interview"), never as a promise
+     * about how long it will take -- nothing here knows that.
+     */
+    label: String? = null,
+) {
     Column(
-        modifier = modifier.fillMaxSize().semantics { contentDescription = "Loading" },
+        modifier = modifier.fillMaxSize().padding(Spacing.lg)
+            // The whole block is one announcement for a screen reader, which otherwise
+            // reports an unlabelled progress bar and nothing about what it is for.
+            .semantics { contentDescription = label ?: "Loading" },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        CircularProgressIndicator()
+        CircularProgressIndicator(strokeWidth = 3.dp)
+        if (label != null) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = Spacing.md),
+            )
+        }
     }
 }
 

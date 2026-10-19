@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.aiplacementos.app.ui.common.AppCard
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.theme.Spacing
 
@@ -43,10 +46,18 @@ fun HelpSupportScreen() {
     val context = LocalContext.current
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+        // Scrollable: this column is taller than a handset once the system font scale is
+        // raised, and without a scroll its bottom action cannot be reached.
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Text(text = "Help & Support", style = MaterialTheme.typography.headlineSmall)
+        ScreenHeader(
+            title = "Help & Support",
+            subtitle = "Answers to common questions, and how to reach us.",
+        )
 
         AppCard(modifier = Modifier.fillMaxWidth()) {
             Text(text = "Contact us", style = MaterialTheme.typography.titleMedium)

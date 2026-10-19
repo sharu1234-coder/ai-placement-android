@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -32,7 +31,9 @@ import com.aiplacementos.app.BuildConfig
 import com.aiplacementos.app.push.NotificationPreferences
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ConfirmationDialog
+import com.aiplacementos.app.ui.common.PasswordField
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
@@ -75,7 +76,10 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        item { Text(text = "Settings", style = MaterialTheme.typography.headlineSmall) }
+        item { ScreenHeader(
+     title = "Settings",
+     subtitle = "Account, privacy and app preferences.",
+ ) }
 
         item {
             SettingsSection(title = "Account") {
@@ -191,15 +195,13 @@ fun SettingsScreen(
             confirmEnabled = !isLoading && password.isNotBlank(),
             dismissEnabled = !isLoading,
         ) {
-            OutlinedTextField(
+            // A reveal toggle matters most here: this confirms permanent account deletion,
+            // and a typo the student cannot see reads as the password being wrong.
+            PasswordField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Password") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                label = "Password",
                 enabled = !isLoading,
-                modifier = Modifier.fillMaxWidth(),
             )
             if (deleteAccountState is UiState.Error) {
                 Text(

@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +29,7 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ConfirmationDialog
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkeletonCard
 import com.aiplacementos.app.ui.common.SkeletonText
@@ -93,10 +96,13 @@ private fun ResumeLoadingSkeleton() {
 @Composable
 private fun NoResumeState(onUpload: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Text(text = "Resume", style = MaterialTheme.typography.headlineSmall)
+        ScreenHeader(title = "Resume", subtitle = "Upload once -- your roadmap, ATS check and job matching all read from it.")
         AppCard(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(text = "No resume yet", style = MaterialTheme.typography.titleMedium)
@@ -138,7 +144,7 @@ private fun ResumeDetail(
         modifier = Modifier.fillMaxSize().padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        item { Text(text = "Resume", style = MaterialTheme.typography.headlineSmall) }
+        item { ScreenHeader(title = "Resume", subtitle = "Upload once -- your roadmap, ATS check and job matching all read from it.") }
 
         item { ResumeFactsCard(resume) }
 
@@ -151,9 +157,9 @@ private fun ResumeDetail(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 SecondaryButton(
-                    text = if (removing) "Removing..." else "Remove Resume",
+                    text = "Remove Resume",
+                    loading = removing,
                     onClick = { confirmingRemove = true },
-                    enabled = !removing,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

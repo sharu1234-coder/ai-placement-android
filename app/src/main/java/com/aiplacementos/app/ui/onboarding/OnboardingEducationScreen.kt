@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -75,11 +77,21 @@ fun OnboardingEducationScreen(onNext: () -> Unit) {
         )
         is UiState.Empty -> LoadingState(modifier = Modifier.fillMaxSize())
         is UiState.Success<ProfileDto> -> Column(
-            modifier = Modifier.fillMaxSize().padding(Spacing.md),
+            // Without this the soft keyboard -- or simply a raised system font scale --
+            // covers the Next button with no way to reach it, which strands a student
+            // mid-signup.
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            StepProgressIndicator(step = 2, total = 7)
-            Text(text = "Tell us about your education", style = MaterialTheme.typography.headlineSmall)
+            OnboardingHeader(
+                step = 2,
+                total = 7,
+                title = "Tell us about your education",
+                subtitle = "Your college, degree and graduation year. All of it stays editable in your profile.",
+            )
             OutlinedTextField(
                 value = college,
                 onValueChange = { college = it },
@@ -130,11 +142,12 @@ fun OnboardingEducationScreen(onNext: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             )
             PrimaryButton(
-                text = if (saving) "Saving..." else "Next",
+                text = "Next",
+                loading = saving,
                 onClick = {
                     viewModel.save(college, degree, branch, graduationYear.toIntOrNull(), onSaved = onNext)
                 },
-                enabled = !saving && college.isNotBlank() && degree.isNotBlank(),
+                enabled = college.isNotBlank() && degree.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             )
         }

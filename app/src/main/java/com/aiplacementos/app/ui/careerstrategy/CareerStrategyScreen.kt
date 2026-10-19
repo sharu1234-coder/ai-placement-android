@@ -24,8 +24,8 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.PauseCircleOutline
-import androidx.compose.material.icons.filled.TrendingFlat
 import androidx.compose.material.icons.filled.ReportProblem
+import androidx.compose.material.icons.filled.TrendingFlat
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material3.Icon
@@ -61,6 +61,7 @@ import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.ExpandableSection
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.networkModule
@@ -291,15 +292,9 @@ private fun StrategyHeader(strategy: CareerStrategyDto, showJobStrategy: Boolean
                 modifier = Modifier.padding(bottom = Spacing.xs),
             )
         }
-        Text(
-            text = "Your career strategy",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = "One next move. Based on everything you've done.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        ScreenHeader(
+            title = "Your career strategy",
+            subtitle = "One next move. Based on everything you've done.",
         )
         if (strategy.snapshotIsNew) {
             Text(

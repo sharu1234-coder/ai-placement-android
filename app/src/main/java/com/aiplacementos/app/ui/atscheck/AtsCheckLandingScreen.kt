@@ -21,7 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aiplacementos.app.ui.common.AppCard
+import com.aiplacementos.app.ui.common.AssessmentIllustration
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.theme.Spacing
 
@@ -52,12 +54,17 @@ fun AtsCheckLandingScreen(
             )
         }
         item {
-            Text(text = "Check Your Resume ATS Readiness", style = MaterialTheme.typography.headlineSmall)
-            Text(
-                text = "See how ready your resume is for Applicant Tracking Systems.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = Spacing.xs),
+            ScreenHeader(
+                title = "Resume ATS check",
+                subtitle = "See how ready your resume is for Applicant Tracking Systems.",
+                illustration = {
+                    AssessmentIllustration(
+                        modifier = Modifier.size(64.dp),
+                        sheet = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                        line = MaterialTheme.colorScheme.secondary,
+                        accent = MaterialTheme.colorScheme.tertiary,
+                    )
+                },
             )
         }
         item {

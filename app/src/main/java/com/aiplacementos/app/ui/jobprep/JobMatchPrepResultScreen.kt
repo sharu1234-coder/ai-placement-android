@@ -224,8 +224,8 @@ private fun ResultContent(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 PrimaryButton(
-                    text = if (state.isStartingPractice) "Starting..." else "Start Practice",
-                    enabled = !state.isStartingPractice,
+                    text = "Start Practice",
+                    loading = state.isStartingPractice,
                     onClick = onStartPractice,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -235,8 +235,8 @@ private fun ResultContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 SecondaryButton(
-                    text = if (state.isUpdatingCareerPath) "Updating..." else "Add to my Career Path",
-                    enabled = !state.isUpdatingCareerPath,
+                    text = "Add to my Career Path",
+                    loading = state.isUpdatingCareerPath,
                     onClick = onUpdateCareerPath,
                     modifier = Modifier.fillMaxWidth(),
                 )

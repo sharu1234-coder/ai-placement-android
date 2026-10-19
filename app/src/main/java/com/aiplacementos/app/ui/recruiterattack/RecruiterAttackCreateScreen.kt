@@ -135,9 +135,9 @@ private fun ProjectSourcePicker(
                     Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 PrimaryButton(
-                    text = if (submitting) "Starting..." else "Attack This Project",
+                    text = "Attack This Project",
+                    loading = submitting,
                     onClick = { onAttack(build.id) },
-                    enabled = !submitting,
                     modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
                 )
             }
@@ -166,9 +166,10 @@ private fun ResumeClaimPicker(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
         )
         PrimaryButton(
-            text = if (submitting) "Starting..." else "Attack This Claim",
+            text = "Attack This Claim",
+            loading = submitting,
             onClick = onAttack,
-            enabled = !submitting && claimText.isNotBlank(),
+            enabled = claimText.isNotBlank(),
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
         )
     }

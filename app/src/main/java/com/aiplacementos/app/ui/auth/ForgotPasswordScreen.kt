@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -20,11 +22,11 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aiplacementos.app.ui.common.PasswordField
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
@@ -46,6 +48,7 @@ fun ForgotPasswordScreen(onResetSuccess: () -> Unit, onBackToLogin: () -> Unit) 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
@@ -74,9 +77,10 @@ fun ForgotPasswordScreen(onResetSuccess: () -> Unit, onBackToLogin: () -> Unit) 
                     )
                 }
                 PrimaryButton(
-                    text = if (state is UiState.Loading) "Sending..." else "Send reset code",
+                    text = "Send reset code",
+                    loading = state is UiState.Loading,
                     onClick = { viewModel.requestCode(email) },
-                    enabled = state !is UiState.Loading && email.isNotBlank(),
+                    enabled = email.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -96,15 +100,12 @@ fun ForgotPasswordScreen(onResetSuccess: () -> Unit, onBackToLogin: () -> Unit) 
                     isError = state is UiState.Error,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                PasswordField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
-                    label = { Text("New password (min 8 characters)") },
-                    singleLine = true,
+                    label = "New password",
                     isError = state is UiState.Error,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
+                    supporting = "At least 8 characters.",
                 )
                 if (state is UiState.Error) {
                     Text(
@@ -115,9 +116,10 @@ fun ForgotPasswordScreen(onResetSuccess: () -> Unit, onBackToLogin: () -> Unit) 
                     )
                 }
                 PrimaryButton(
-                    text = if (state is UiState.Loading) "Resetting..." else "Reset password",
+                    text = "Reset password",
+                    loading = state is UiState.Loading,
                     onClick = { viewModel.resetPassword(code, newPassword, onDone = onResetSuccess) },
-                    enabled = state !is UiState.Loading && code.isNotBlank() && newPassword.length >= 8,
+                    enabled = code.isNotBlank() && newPassword.length >= 8,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

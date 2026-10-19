@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +31,7 @@ import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
@@ -60,13 +63,16 @@ fun ResumeUploadScreen(onUploaded: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // The parsed-result block that appears after a successful upload is taller than
+            // a short handset, and without a scroll its Continue button cannot be reached.
+            .verticalScroll(rememberScrollState())
             .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Text(text = "Upload your resume", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = "PDF only, max 10MB. We only use what's actually in your resume -- nothing is invented.",
-            style = MaterialTheme.typography.bodyMedium,
+        ScreenHeader(
+            title = "Upload your resume",
+            subtitle = "PDF only, max 10MB. We only use what is actually in your resume -- " +
+                "nothing is invented.",
         )
 
         SecondaryButton(

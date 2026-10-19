@@ -55,6 +55,20 @@ sealed class Screen(val route: String) {
     data object TestResult : Screen("prepare-me/test-result/{assessmentId}/{jdId}")
     data object TextInterview : Screen("prepare-me/text-interview/{jdId}/{type}")
     data object VoiceInterview : Screen("prepare-me/voice-interview/{jdId}/{type}")
+
+    /**
+     * The realtime Voice Agent. `mode` is `coach` or `interview`; the two interview ids are
+     * required by interview mode and ignored by coach mode, so they are path segments with a
+     * sentinel of 0 rather than two more optional routes.
+     */
+    data object VoiceAgent : Screen("voice-agent/{mode}/{interviewId}/{questionId}/{listingId}")
+
+    /** The unified transcript history: coaching sessions and mock interviews together. */
+    data object ConversationHistory : Screen("conversation-history")
+
+    /** One saved conversation, read back from the server. */
+    data object ConversationDetail :
+        Screen("conversation-history/{conversationId}")
     data object InterviewEvaluation : Screen("prepare-me/interview-evaluation/{interviewId}/{jdId}")
     data object RoadmapUpdated : Screen("prepare-me/roadmap-updated/{jdId}")
 
@@ -294,3 +308,26 @@ fun jobHuntResultsRoute(filtersJson: String? = null, savedSearchId: Int? = null)
 }
 
 fun skillPassportDetailRoute(skill: String): String = "skill-passport/${android.net.Uri.encode(skill)}"
+
+/** Build a Voice Agent route. Coach mode passes 0 for both ids, which the screen reads as absent. */
+/**
+ * `listingId` is the job advert the conversation is about, and it is what makes the save-job
+ * confirmation reachable: the control is rendered only when a real listing is in scope, so a
+ * route built without one offers no action at all. 0 is the sentinel for "absent" in all three
+ * positions, which is what the two other entry points pass for the ids they do not have.
+ */
+fun voiceAgentRoute(
+    mode: String,
+    interviewId: Int = 0,
+    questionId: Int = 0,
+    listingId: Int = 0,
+): String = "voice-agent/$mode/$interviewId/$questionId/$listingId"
+
+/**
+ * The route for one saved conversation.
+ *
+ * Built here rather than interpolated at call sites, so the id position cannot drift from
+ * the pattern the graph declares -- the same reason [voiceAgentRoute] exists.
+ */
+fun conversationDetailRoute(conversationId: Int): String =
+    "conversation-history/" + conversationId

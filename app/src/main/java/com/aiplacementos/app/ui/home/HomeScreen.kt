@@ -1,10 +1,12 @@
 package com.aiplacementos.app.ui.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,13 +14,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.WorkOutline
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,12 +35,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,15 +56,22 @@ import com.aiplacementos.app.ui.careergoal.preparationStateLabel
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
+import com.aiplacementos.app.ui.common.HeroCard
+import com.aiplacementos.app.ui.common.IconChip
+import com.aiplacementos.app.ui.common.MetricBar
 import com.aiplacementos.app.ui.common.NextBestActionCard
+import com.aiplacementos.app.ui.common.SectionHeader
 import com.aiplacementos.app.ui.common.SkeletonList
+import com.aiplacementos.app.ui.common.TargetIllustration
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.mission.TodaysMissionCard
 import com.aiplacementos.app.ui.mission.TodaysMissionUiState
 import com.aiplacementos.app.ui.mission.TodaysMissionViewModel
 import com.aiplacementos.app.ui.notifications.NotificationSyncSection
+import com.aiplacementos.app.ui.theme.Elevation
 import com.aiplacementos.app.ui.theme.Spacing
+import com.aiplacementos.app.ui.theme.accentCyanColor
 import com.aiplacementos.app.ui.theme.successColor
 import com.aiplacementos.app.ui.theme.warningColor
 import kotlin.math.roundToInt
@@ -172,23 +192,7 @@ private fun HomeContent(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = Spacing.md),
     ) {
-        item {
-            Column {
-                Text(
-                    text = data.greeting,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.semantics { heading() },
-                )
-                data.targetRoleName?.let {
-                    Text(
-                        text = "Targeting $it",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
+        item { GreetingHeader(greeting = data.greeting, targetRoleName = data.targetRoleName) }
 
         // 1. THIS IS MY TARGET
         item {
@@ -244,6 +248,56 @@ private fun HomeContent(
 }
 
 /**
+ * The greeting, and the role it is in service of.
+ *
+ * Understated on purpose. The spec for this screen asks for an accent rather than an oversized
+ * heading, and the reason is structural: the greeting is the least actionable thing on the
+ * page, so giving it the largest type would put the weakest content at the top of the
+ * hierarchy. The target role carries the only colour, as a pill, because that *is* the thing
+ * everything below is measured against.
+ *
+ * The pill renders only when a role is actually set. There is no placeholder role and no
+ * "choose one" prompt here -- that prompt is the hero card immediately below, and showing it
+ * twice would be the same ask in two places.
+ */
+@Composable
+private fun GreetingHeader(greeting: String, targetRoleName: String?) {
+    Column {
+        Text(
+            text = greeting,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.semantics { heading() },
+        )
+        if (targetRoleName != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.padding(top = Spacing.xs),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.WorkOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.size(Spacing.xs))
+                    Text(
+                        text = "Targeting $targetRoleName",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * The target, and where its application stands.
  *
  * Three genuinely different states, and the difference matters to a student looking at it:
@@ -263,33 +317,55 @@ private fun ActiveGoalCard(
         state == SectionState.UNAVAILABLE ->
             SectionUnavailableCard("Your career goal couldn't be loaded.")
 
-        goal == null -> AppCard(modifier = Modifier.fillMaxWidth()) {
-            EmptyState(
-                title = "Set your career goal",
-                message = "Add the job you're aiming for and this screen will follow it -- " +
-                    "what you can evidence, how prepared you are, and what to do next.",
-                icon = Icons.Filled.WorkOutline,
-                actionLabel = "Create your career goal",
-                onAction = onOpenGoals,
-            )
+        // The screen's one hero. Two states share it, because "no goal yet" is not a lesser
+        // state of this card -- it is the single most important thing an unconfigured account
+        // can do, and rendering it as a grey empty box is what made a new student's Home look
+        // like a broken dashboard.
+        goal == null -> HeroCard(modifier = Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Set your career goal",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.semantics { heading() },
+                    )
+                    Text(
+                        text = "Add the job you're aiming for and this screen will follow it " +
+                            "-- what you can evidence, how prepared you are, and what to do next.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        // Slightly held back from the headline so the two lines read as a
+                        // heading and its explanation rather than one block of white text.
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(top = Spacing.xs),
+                    )
+                }
+                TargetIllustration(
+                    modifier = Modifier.size(84.dp),
+                    ring = MaterialTheme.colorScheme.onPrimary,
+                    accent = MaterialTheme.colorScheme.tertiaryContainer,
+                )
+            }
+            Spacer(Modifier.height(Spacing.md))
+            OnHeroButton(text = "Create your career goal", onClick = onOpenGoals)
         }
 
-        else -> AppCard(
+        else -> HeroCard(
             modifier = Modifier.fillMaxWidth().clickable { onOpenGoal(goal.id) },
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Filled.WorkOutline,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                    modifier = Modifier.size(18.dp),
                 )
-                Spacer(Modifier.size(Spacing.sm))
+                Spacer(Modifier.size(Spacing.xs))
                 Text(
-                    text = "Your target",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    text = "YOUR TARGET",
+                    style = MaterialTheme.typography.labelSmall,
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                     modifier = Modifier.semantics { heading() },
                 )
             }
@@ -298,14 +374,15 @@ private fun ActiveGoalCard(
                 text = goal.title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
             Text(
                 text = listOfNotNull(goal.company, goal.location).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
             )
 
+            Spacer(Modifier.height(Spacing.md))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.20f))
             Spacer(Modifier.height(Spacing.sm))
             // Status as words, never colour alone -- a student using TalkBack, or one who
             // cannot distinguish the container tint, gets the same information.
@@ -316,19 +393,18 @@ private fun ActiveGoalCard(
                 text = applicationText,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
             if (goal.applicationStatus == null) {
                 Text(
                     text = NO_APPLICATION_EXPLANATION,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                 )
             }
             Text(
                 text = "Preparation: ${preparationStateLabel(goal.preparationState)}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
             )
 
             if (otherActiveGoalCount > 0) {
@@ -340,11 +416,39 @@ private fun ActiveGoalCard(
                         "$otherActiveGoalCount other active goals — tap to switch"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                     modifier = Modifier.clickable(onClick = onOpenGoals),
                 )
             }
         }
+    }
+}
+
+/**
+ * A primary action sitting on the hero gradient.
+ *
+ * [PrimaryButton] cannot be used here: it fills with `primary`, which is one of the two
+ * colours the gradient is made of, so the button would disappear into its own background. A
+ * white fill with navy text is the inversion of the app's primary button and keeps the same
+ * 52dp target and the same shape.
+ */
+@Composable
+private fun OnHeroButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.defaultMinSize(minHeight = 52.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.onPrimary,
+            contentColor = MaterialTheme.colorScheme.primary,
+        ),
+    ) {
+        Text(text = text, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.size(Spacing.xs))
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
@@ -363,15 +467,14 @@ private fun SignalsCard(
     onOpenProgress: () -> Unit,
 ) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "Where you stand",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.semantics { heading() },
+        SectionHeader(
+            title = "Where you stand",
+            supporting = "Three separate measurements, never averaged together.",
         )
-        Spacer(Modifier.height(Spacing.sm))
+        Spacer(Modifier.height(Spacing.md))
 
         SignalRow(
+            icon = Icons.Filled.Inventory2,
             label = "Evidence Coverage",
             percent = data.evidenceCoveragePercent,
             state = data.evidenceState,
@@ -388,6 +491,7 @@ private fun SignalsCard(
         )
 
         SignalRow(
+            icon = Icons.Filled.School,
             label = "Preparation",
             percent = data.preparationPercent,
             state = data.preparationState,
@@ -400,6 +504,7 @@ private fun SignalsCard(
         )
 
         SignalRow(
+            icon = Icons.Filled.Insights,
             label = "Test & Interview Performance",
             // The dashboard defines this on a 0-1 scale; it becomes a percentage only here, at
             // the point of display, exactly as ProgressDashboardScreen already renders it.
@@ -411,13 +516,48 @@ private fun SignalsCard(
         )
 
         data.biggestGap?.let { gap ->
-            Spacer(Modifier.height(Spacing.sm))
-            Text(
-                text = "Weakest area right now: $gap",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.clickable(onClick = onOpenCareerTwin),
-            )
+            Spacer(Modifier.height(Spacing.md))
+            // Called out rather than appended as a footnote: this is the one line on the card
+            // that names something to act on, and as plain small grey text it read as a
+            // caption for the row above it.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.small)
+                    .background(warningColor().copy(alpha = 0.10f))
+                    .clickable(onClick = onOpenCareerTwin)
+                    .padding(Spacing.sm)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "Weakest area right now: $gap"
+                    },
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.TrendingDown,
+                    contentDescription = null,
+                    tint = warningColor(),
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.size(Spacing.sm))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Weakest area right now",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = gap,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
     }
 }
@@ -431,6 +571,7 @@ private fun SignalsCard(
  */
 @Composable
 private fun SignalRow(
+    icon: ImageVector,
     label: String,
     percent: Int?,
     state: SectionState,
@@ -445,45 +586,38 @@ private fun SignalRow(
         SectionState.EMPTY -> emptyText
         SectionState.UNAVAILABLE -> unavailableText
     }
-    Column(
+    // Only a real measurement gets a bar. MetricBar renders no track at all for null, which
+    // keeps "not measured" and "measured at zero" visually distinct -- an empty bar and a
+    // zero-length one look identical, and that difference is this card's whole point.
+    val plotted = percent.takeIf { state == SectionState.AVAILABLE }
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = Spacing.xs)
+            .padding(vertical = Spacing.sm)
             // One description for the whole row: a screen reader should say what the metric is
             // and what it reads, not announce a bare number with no idea what it measures.
             .semantics(mergeDescendants = true) { contentDescription = "$label: $valueText" },
+        verticalAlignment = Alignment.Top,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = valueText,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (state == SectionState.AVAILABLE && percent != null) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
-        if (state == SectionState.AVAILABLE && percent != null) {
-            LinearProgressIndicator(
-                progress = { percent / 100f },
-                modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs),
-            )
-        }
-        trailing?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (trailingIsPositive) successColor() else warningColor(),
-            )
-        }
+        IconChip(
+            icon = icon,
+            tint = if (state == SectionState.AVAILABLE && percent != null) {
+                MaterialTheme.colorScheme.secondary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            size = 32.dp,
+        )
+        Spacer(Modifier.size(Spacing.sm))
+        MetricBar(
+            label = label,
+            valueText = valueText,
+            percent = plotted,
+            modifier = Modifier.weight(1f),
+            trailing = trailing,
+            trailingColor = if (trailingIsPositive) successColor() else warningColor(),
+        )
     }
 }
 
@@ -525,50 +659,74 @@ private fun QuickAccessGrid(
     onOpenTests: () -> Unit,
 ) {
     Column {
-        Text(
-            text = "Quick Access",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.semantics { heading() },
-        )
+        SectionHeader(title = "Quick Access")
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            QuickAccessTile(Icons.Filled.Route, "Career Path", onOpenCareerPathHome, Modifier.weight(1f))
+            // Four tints over one shape: each destination gets an identity without four
+            // different card treatments. The tints are the scheme's own roles, so they stay
+            // inside the measured contrast protections rather than becoming decorative hexes.
+            QuickAccessTile(
+                Icons.Filled.Route,
+                "Career Path",
+                MaterialTheme.colorScheme.primary,
+                onOpenCareerPathHome,
+                Modifier.weight(1f),
+            )
             QuickAccessTile(
                 Icons.AutoMirrored.Outlined.Assignment,
-                "Job Match & Prep",
+                "Job Match",
+                MaterialTheme.colorScheme.secondary,
                 onOpenJobMatchPrep,
                 Modifier.weight(1f),
             )
-            QuickAccessTile(Icons.Filled.School, "Practice", onOpenPractice, Modifier.weight(1f))
-            QuickAccessTile(Icons.Filled.CheckCircle, "Tests", onOpenTests, Modifier.weight(1f))
+            QuickAccessTile(
+                Icons.Filled.School,
+                "Practice",
+                accentCyanColor(),
+                onOpenPractice,
+                Modifier.weight(1f),
+            )
+            QuickAccessTile(
+                Icons.Filled.CheckCircle,
+                "Tests",
+                MaterialTheme.colorScheme.tertiary,
+                onOpenTests,
+                Modifier.weight(1f),
+            )
         }
     }
 }
 
 @Composable
-private fun QuickAccessTile(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
+private fun QuickAccessTile(
+    icon: ImageVector,
+    label: String,
+    tint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AppCard(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) { contentDescription = label },
+        elevation = Elevation.level0,
     ) {
-        Surface(
-            modifier = Modifier.size(56.dp),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.primaryContainer,
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(Spacing.sm),
+            IconChip(icon = icon, tint = tint, size = 40.dp)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                // Two lines, so "Career Path" and a long label at a large font scale wrap
+                // instead of being clipped into an unreadable fragment.
+                maxLines = 2,
+                modifier = Modifier.padding(top = Spacing.xs),
             )
         }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(top = Spacing.xs),
-        )
     }
 }

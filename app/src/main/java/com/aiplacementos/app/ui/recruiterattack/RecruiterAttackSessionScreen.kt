@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -68,7 +70,12 @@ private fun TurnCard(claimLabel: String, turn: RecruiterAttackTurnDto, submittin
     var answerText by rememberSaveable(turn.id) { mutableStateOf("") }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+        // Scrollable: this column is taller than a handset once the system font scale is
+        // raised, and without a scroll its bottom action cannot be reached.
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         Text(
@@ -98,9 +105,10 @@ private fun TurnCard(claimLabel: String, turn: RecruiterAttackTurnDto, submittin
         )
 
         PrimaryButton(
-            text = if (submitting) "Submitting..." else "Submit answer",
+            text = "Submit answer",
+            loading = submitting,
             onClick = { onSubmit(answerText) },
-            enabled = !submitting && answerText.isNotBlank(),
+            enabled = answerText.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         )
     }

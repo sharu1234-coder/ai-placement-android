@@ -35,6 +35,7 @@ import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.PaywallGate
 import com.aiplacementos.app.ui.common.PrimaryButton
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SkeletonList
 import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.networkModule
@@ -117,7 +118,10 @@ private fun CareerDecisionContent(state: CareerDecisionUiState.Ready, viewModel:
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
-            Text(text = "Career Decision Lab", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            ScreenHeader(
+                title = "Career Decision Lab",
+                subtitle = "Compare target roles against the hours you can actually study.",
+            )
             Text(
                 text = CAREER_DECISION_LAB_INTRO,
                 style = MaterialTheme.typography.bodyMedium,
@@ -138,9 +142,10 @@ private fun CareerDecisionContent(state: CareerDecisionUiState.Ready, viewModel:
         }
         item {
             PrimaryButton(
-                text = if (state.simulating) "Comparing..." else "Compare",
+                text = "Compare",
+                loading = state.simulating,
                 onClick = viewModel::compare,
-                enabled = state.canCompare && !state.simulating,
+                enabled = state.canCompare,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

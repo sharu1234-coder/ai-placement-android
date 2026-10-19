@@ -22,6 +22,7 @@ import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.ScoreRing
+import com.aiplacementos.app.ui.common.ScreenHeader
 import com.aiplacementos.app.ui.common.SecondaryButton
 import com.aiplacementos.app.ui.common.SkillBar
 import com.aiplacementos.app.ui.common.UiState
@@ -85,7 +86,10 @@ private fun EvaluationSummary(
             .fillMaxSize()
             .padding(Spacing.md),
     ) {
-        Text(text = "Interview evaluation", style = MaterialTheme.typography.headlineSmall)
+        ScreenHeader(
+            title = "Interview evaluation",
+            subtitle = "Graded on what you actually said, not on how long you spoke.",
+        )
 
         // An interview whose review did not complete has no score at all -- not a low one.
         // Rendering a ring and ten labelled bars would present a measurement that does not

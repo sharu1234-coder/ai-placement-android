@@ -41,6 +41,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.CareerGoalListItemDto
 import com.aiplacementos.app.ui.common.AppCard
+import com.aiplacementos.app.ui.common.BackBar
 import com.aiplacementos.app.ui.common.ConfirmationDialog
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
@@ -53,7 +54,7 @@ import com.aiplacementos.app.ui.theme.Spacing
 private const val MAX_JOB_DESCRIPTION_LENGTH = 20_000
 
 @Composable
-fun CareerGoalListScreen(onOpenGoal: (goalId: Int) -> Unit) {
+fun CareerGoalListScreen(onBack: () -> Unit, onOpenGoal: (goalId: Int) -> Unit) {
     val network = networkModule()
     val viewModel: CareerGoalListViewModel = viewModel(
         factory = viewModelFactory { initializer { CareerGoalListViewModel(network.careerGoalRepository) } },
@@ -69,6 +70,7 @@ fun CareerGoalListScreen(onOpenGoal: (goalId: Int) -> Unit) {
     }
 
     Scaffold(
+        topBar = { BackBar(onBack = onBack, title = "Career Goals") },
         floatingActionButton = {
             FloatingActionButton(onClick = { showForm = true }) {
                 Icon(Icons.Filled.Add, contentDescription = "Add a target job")

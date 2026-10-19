@@ -33,6 +33,7 @@ import com.aiplacementos.app.ui.common.DetailTopBar
 import com.aiplacementos.app.ui.common.EmptyState
 import com.aiplacementos.app.ui.common.ErrorState
 import com.aiplacementos.app.ui.common.LoadingState
+import com.aiplacementos.app.ui.common.StatusPill
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
 import com.aiplacementos.app.ui.theme.Spacing
@@ -119,14 +120,15 @@ private fun RecommendationRow(recommendation: AtsRecommendationDto, onFixThis: (
             )
             Column(modifier = Modifier.padding(start = Spacing.sm).weight(1f)) {
                 Text(text = recommendation.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                Surface(color = severityColor(recommendation.priority).copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
-                    Text(
-                        text = if (recommendation.priority == "high") "High Priority" else "${recommendation.priority.replaceFirstChar { it.uppercase() }} Impact",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = severityColor(recommendation.priority),
-                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
-                    )
-                }
+                StatusPill(
+                    label = if (recommendation.priority == "high") {
+                        "High Priority"
+                    } else {
+                        "${recommendation.priority.replaceFirstChar { it.uppercase() }} Impact"
+                    },
+                    color = severityColor(recommendation.priority),
+                    modifier = Modifier.padding(top = 2.dp),
+                )
                 Text(
                     text = recommendation.rationale,
                     style = MaterialTheme.typography.bodyMedium,

@@ -5,9 +5,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -18,14 +19,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aiplacementos.app.ui.common.BrandMark
+import com.aiplacementos.app.ui.common.EmailField
+import com.aiplacementos.app.ui.common.PasswordField
 import com.aiplacementos.app.ui.common.PrimaryButton
 import com.aiplacementos.app.ui.common.UiState
 import com.aiplacementos.app.ui.common.networkModule
@@ -50,32 +54,34 @@ fun LoginScreen(
         if (state is UiState.Success<*>) onLoginSuccess()
     }
 
+    val busy = state is UiState.Loading
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // Without this the soft keyboard covers the password field and the log-in button
+            // on a short handset, and there is no way to scroll them back into view.
+            .verticalScroll(rememberScrollState())
             .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Text(text = "Welcome back", style = MaterialTheme.typography.headlineSmall)
+        BrandMark(modifier = Modifier.padding(bottom = Spacing.sm))
+        Text(
+            text = "Welcome back",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.semantics { heading() },
+        )
 
-        OutlinedTextField(
+        EmailField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("Email") },
-            singleLine = true,
             isError = state is UiState.Error,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier.fillMaxWidth(),
+            enabled = !busy,
         )
-        OutlinedTextField(
+        PasswordField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Password") },
-            singleLine = true,
             isError = state is UiState.Error,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth(),
+            enabled = !busy,
         )
 
         if (state is UiState.Error) {
@@ -91,9 +97,10 @@ fun LoginScreen(
         }
 
         PrimaryButton(
-            text = if (state is UiState.Loading) "Logging in..." else "Log in",
+            text = "Log in",
+            loading = busy,
             onClick = { viewModel.login(email, password) },
-            enabled = state !is UiState.Loading && email.isNotBlank() && password.isNotBlank(),
+            enabled = email.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         )
 

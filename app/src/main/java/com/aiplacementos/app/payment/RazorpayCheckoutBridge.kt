@@ -50,7 +50,7 @@ object RazorpayCheckoutBridge {
             put("order_id", razorpayOrderId)
             put("amount", amountPaise)
             put("currency", currency)
-            put("name", "AI Placement OS")
+            put("name", "TALVIORA AI")
             put("description", "Premium Subscription")
         }
         checkout.open(activity, options)
