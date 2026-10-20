@@ -139,6 +139,21 @@ sealed interface RealtimeClientEvent {
     data class Resume(val token: String) : RealtimeClientEvent
 
     /**
+     * The student deliberately finished the conversation.
+     *
+     * This is the *only* thing that lets the server record a conversation as `completed`.
+     * Without it, a clean ending was indistinguishable on the wire from a dropped socket, and
+     * the backend resolved that ambiguity the wrong way: every abnormal ending -- idle
+     * timeout, lost signal, oversized frame, protocol violation -- was persisted as
+     * `completed`, so a student who lost signal mid-interview got a record saying they
+     * finished it.
+     *
+     * Sent only from an explicit end, never from backgrounding the app or from ViewModel
+     * teardown. Leaving the screen is an interruption, not a completion.
+     */
+    data object EndSession : RealtimeClientEvent
+
+    /**
      * Ask the service to abandon work for [operationId].
      *
      * Note this is a request, not a guarantee: a cancel that races a completing mutation leaves
@@ -152,7 +167,17 @@ sealed interface RealtimeClientEvent {
 
 /** Everything the service can tell us. */
 sealed interface RealtimeServerEvent {
-    data class SessionAccepted(val sessionId: String, val resumeToken: String?) : RealtimeServerEvent
+    /**
+     * @param resumed whether the server continued the session this client asked to resume.
+     *   Reported by the server rather than inferred by the client: a grant that was presented
+     *   is not evidence that it was honoured, and treating it as evidence is what allowed a
+     *   reconnect to look successful while starting a new conversation.
+     */
+    data class SessionAccepted(
+        val sessionId: String,
+        val resumeToken: String?,
+        val resumed: Boolean = false,
+    ) : RealtimeServerEvent
 
     data class PartialTranscript(val turnId: String, val text: String) : RealtimeServerEvent
     data class FinalTranscript(val turnId: String, val text: String) : RealtimeServerEvent

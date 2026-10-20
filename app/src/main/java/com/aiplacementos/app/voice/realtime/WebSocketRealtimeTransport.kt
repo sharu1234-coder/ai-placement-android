@@ -56,6 +56,8 @@ object RealtimeWireCodec {
         }.toString()
 
         RealtimeClientEvent.Heartbeat -> obj("heartbeat")
+
+        RealtimeClientEvent.EndSession -> obj("end_session")
     }
 
     /**
@@ -73,6 +75,10 @@ object RealtimeWireCodec {
             "session_accepted" -> RealtimeServerEvent.SessionAccepted(
                 sessionId = root.str("session_id") ?: return violation("session_accepted without session_id"),
                 resumeToken = root.str("resume_token"),
+                // Absent on an older server, which could not resume anyway, so false is the
+                // honest default. Never inferred from having sent a grant: that inference is
+                // exactly what let a reconnect report continuity it did not have.
+                resumed = root["resumed"]?.jsonPrimitive?.booleanOrNull ?: false,
             )
 
             "partial_transcript" -> RealtimeServerEvent.PartialTranscript(
@@ -233,7 +239,15 @@ class WebSocketRealtimeTransport(
         val opened = CompletableDeferred<RealtimeError?>()
         val request = Request.Builder()
             .url(buildUrl(config))
-            .apply { accessToken()?.let { header("Authorization", "Bearer $it") } }
+            .apply {
+                accessToken()?.let { header("Authorization", "Bearer $it") }
+                // The resume grant travels as a header, for the same reason the access token
+                // does: a query string reaches server logs, proxy logs and crash reports. It
+                // also has to be readable before the socket is accepted -- the server resolves
+                // it before it mints a session, opens a transcript or builds a responder, which
+                // a protocol message sent after `accept` arrives far too late to influence.
+                config.resumeToken?.takeIf { it.isNotBlank() }?.let { header(RESUME_HEADER, it) }
+            }
             .build()
 
         webSocket = this.client.newWebSocket(request, SocketListener(listener, opened))
@@ -350,5 +364,8 @@ class WebSocketRealtimeTransport(
     private companion object {
         const val PING_SECONDS = 20L
         const val NORMAL_CLOSURE = 1000
+
+        /** Mirrors `app/voice/realtime_protocol.py`'s `RESUME_HEADER`. */
+        const val RESUME_HEADER = "X-Voice-Resume"
     }
 }

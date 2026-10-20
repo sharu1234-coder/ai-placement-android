@@ -107,7 +107,11 @@ sealed interface ConversationError {
  * stream where every observer would pin a buffer.
  */
 sealed interface RealtimeEvent {
-    data class Connected(val sessionId: String) : RealtimeEvent
+    /**
+     * @param resumed whether this connection continued an earlier session. False on a first
+     *   connect, and false after a reconnect whose grant the server did not honour.
+     */
+    data class Connected(val sessionId: String, val resumed: Boolean = false) : RealtimeEvent
     data object Reconnected : RealtimeEvent
     data class PartialTranscript(val turnId: String, val text: String) : RealtimeEvent
     data class FinalTranscript(val turnId: String, val text: String) : RealtimeEvent

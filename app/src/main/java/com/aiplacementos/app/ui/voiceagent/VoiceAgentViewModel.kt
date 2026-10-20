@@ -120,10 +120,21 @@ class VoiceAgentViewModel(
      * The counter exists to reject events from a session this ViewModel has *replaced*, which is
      * a different thing. [start] bumps it, and that is what orphans the old one.
      */
-    fun stop() {
+    fun stop() = stop(deliberate = false)
+
+    /**
+     * The student pressed "End session".
+     *
+     * Separate from [stop] because only this one is a completion. [onLeftForeground] and
+     * [onCleared] also stop the session, and recording either of those as a finished
+     * conversation would put something in the student's history that did not happen.
+     */
+    fun endSession() = stop(deliberate = true)
+
+    private fun stop(deliberate: Boolean) {
         val live = session ?: return
         session = null
-        viewModelScope.launch { live.stop() }
+        viewModelScope.launch { live.stop(deliberate = deliberate) }
         _uiState.value = _uiState.value.copy(conversation = ConversationState.Closed)
     }
 

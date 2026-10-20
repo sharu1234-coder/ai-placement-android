@@ -554,7 +554,7 @@ class RealtimeVoiceSessionTest {
     }
 
     @Test
-    fun `a retryable failure reconnects and offers the resume token`() = runTest {
+    fun `a retryable failure reconnects and presents the grant at connect time`() = runTest {
         val h = Harness(testScheduler)
         val session = h.session(policy = ReconnectPolicy(maxAttempts = 2, initialDelayMillis = 10))
         session.start()
@@ -565,9 +565,13 @@ class RealtimeVoiceSessionTest {
         advanceUntilIdle()
 
         assertEquals(2, h.transport.connects)
+        // The grant goes into the connect request, where the server can resolve it before it
+        // mints a session, opens a transcript or builds a responder.
         assertEquals("resume-abc", h.transport.lastConfig?.resumeToken)
         assertTrue(
-            h.transport.sent.any { it is RealtimeClientEvent.Resume && it.token == "resume-abc" },
+            "a resume sent as a message arrives after the server has already opened a new " +
+                "session, so it can only relabel one",
+            h.transport.sent.none { it is RealtimeClientEvent.Resume },
         )
         assertEquals(ConversationState.Listening, session.state.value)
         h.close()

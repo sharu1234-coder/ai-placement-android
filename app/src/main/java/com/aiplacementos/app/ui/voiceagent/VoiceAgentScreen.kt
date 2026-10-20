@@ -243,7 +243,9 @@ fun VoiceAgentScreen(
             isLive = state.isLive,
             canInterrupt = state.canInterrupt,
             onStart = viewModel::start,
-            onStop = viewModel::stop,
+            // endSession, not stop: this button is the student saying they are finished,
+            // which is the only thing that records the conversation as completed.
+            onStop = viewModel::endSession,
             onInterrupt = { viewModel.interrupt(InterruptionReason.USER_STOPPED) },
         )
     }

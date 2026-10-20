@@ -2,9 +2,14 @@ name: Android CI
 
 on:
   push:
-    branches: [master]
+    # `master` plus the active development branch. Until 2026-10-19 this listed `master`
+    # only, while all real work happened on the long-running feature branch below -- so
+    # GitHub ran this workflow zero times for any of it, and `gh run list` showed nothing
+    # but Dependabot. A branch nobody tests is a branch whose green local run means nothing.
+    branches: [master, career-strategy-intelligence]
+  # No branch filter: a pull request into ANY branch gets checked, not only ones
+  # targeting `master`. Review on a feature branch was previously unguarded too.
   pull_request:
-    branches: [master]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

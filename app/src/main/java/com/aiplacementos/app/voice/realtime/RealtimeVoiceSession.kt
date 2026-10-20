@@ -144,6 +144,15 @@ class RealtimeVoiceSession(
     private var resumeToken: String? = null
 
     /**
+     * Whether the most recent connect continued an earlier session, as the **server** reported
+     * it. Exposed so the UI can say so honestly rather than assuming that presenting a grant
+     * meant it was honoured.
+     */
+    @Volatile
+    var resumedLastConnect: Boolean = false
+        private set
+
+    /**
      * The generation currently being played, or null when nothing is.
      *
      * Also the filter that discards audio from a generation the user already interrupted:
@@ -212,7 +221,18 @@ class RealtimeVoiceSession(
      * [OperationStatus.UNKNOWN] before the connection goes, because once it is gone there is no
      * way left to learn what happened.
      */
-    suspend fun stop() = mutex.withLock {
+    suspend fun stop(deliberate: Boolean = false) = mutex.withLock {
+        // Sent before anything is torn down, while the socket is still open. `deliberate` is
+        // false by default because most stops are not completions: backgrounding the app and
+        // ViewModel teardown both land here, and neither means the student finished.
+        //
+        // Best-effort by design. If the send fails the server simply never sees an end and
+        // records `interrupted`, which is the honest answer for a socket that died on the way
+        // out -- so a failure here cannot manufacture a false completion.
+        if (deliberate) {
+            runCatching { transport.send(RealtimeClientEvent.EndSession) }
+        }
+
         sessionGeneration.incrementAndGet() // orphan every callback still in flight
         connectionGeneration.incrementAndGet()
 
@@ -469,7 +489,12 @@ class RealtimeVoiceSession(
             is RealtimeServerEvent.SessionAccepted -> {
                 sessionId = event.sessionId
                 resumeToken = event.resumeToken
-                _events.tryEmit(RealtimeEvent.Connected(event.sessionId))
+                // Reported, not inferred. `resumed` false after a reconnect means the server
+                // started a new conversation -- an expired or already-used grant, or the old
+                // session still being live -- and the caller is entitled to know, because the
+                // transcript the student was building is not the one they are now adding to.
+                resumedLastConnect = event.resumed
+                _events.tryEmit(RealtimeEvent.Connected(event.sessionId, event.resumed))
             }
 
             is RealtimeServerEvent.PartialTranscript -> {
@@ -644,10 +669,14 @@ class RealtimeVoiceSession(
             if (_state.value !is ConversationState.Reconnecting) return
 
             val myConnection = connectionGeneration.incrementAndGet()
+            // The grant is carried by `sessionConfig()` into the connect request's header, so
+            // the server resolves it before it mints a session. The old `Resume` *message* is
+            // deliberately not sent any more: it arrived after the server had already opened a
+            // new session, a new responder and a new transcript, so it could only relabel
+            // them. Whether continuity was actually granted arrives in `session_accepted`.
             val error = transport.connect(sessionConfig(), listenerFor(myConnection))
             if (error == null) {
                 transition(ConversationStateMachine.Trigger.RECONNECTED, ConversationState.Listening)
-                resumeToken?.let { transport.send(RealtimeClientEvent.Resume(it)) }
                 _events.tryEmit(RealtimeEvent.Reconnected)
                 return
             }

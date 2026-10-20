@@ -157,14 +157,40 @@ class WebSocketRealtimeTransportTest {
     }
 
     @Test
-    fun `a resume token is not put in the URL`() = runTest {
+    fun `a resume grant travels in a header, never in the URL`() = runTest {
         acceptConnection()
         val transport = transport()
         transport.connect(config.copy(resumeToken = "resume-secret"), listener)
 
-        val path = server.takeRequest(5, TimeUnit.SECONDS)!!.path.orEmpty()
-        // It is sent as a message after the socket opens instead -- same reason as the token.
+        val request = server.takeRequest(5, TimeUnit.SECONDS)!!
+        val path = request.path.orEmpty()
+        // Same reason as the access token: a URL reaches server logs, proxy logs and crash
+        // reports. A header also arrives before the socket is accepted, which is what lets the
+        // server resolve the grant before it mints a session or opens a transcript.
         assertTrue("resume token leaked into the URL: $path", !path.contains("resume-secret"))
+        assertEquals("resume-secret", request.getHeader("X-Voice-Resume"))
+        transport.disconnect()
+    }
+
+    @Test
+    fun `no resume header is sent on a first connection`() = runTest {
+        acceptConnection()
+        val transport = transport()
+        transport.connect(config, listener)
+
+        val request = server.takeRequest(5, TimeUnit.SECONDS)!!
+        assertEquals(null, request.getHeader("X-Voice-Resume"))
+        transport.disconnect()
+    }
+
+    @Test
+    fun `a blank resume token is not sent as a header`() = runTest {
+        acceptConnection()
+        val transport = transport()
+        transport.connect(config.copy(resumeToken = "   "), listener)
+
+        val request = server.takeRequest(5, TimeUnit.SECONDS)!!
+        assertEquals(null, request.getHeader("X-Voice-Resume"))
         transport.disconnect()
     }
 
@@ -209,6 +235,43 @@ class WebSocketRealtimeTransportTest {
         assertTrue("got $event", event is RealtimeServerEvent.SessionAccepted)
         assertEquals("s-9", (event as RealtimeServerEvent.SessionAccepted).sessionId)
         assertEquals("r-9", event.resumeToken)
+        // Absent means false: an older server could not resume at all, and inferring continuity
+        // from having sent a grant is the mistake this field exists to prevent.
+        assertEquals(false, event.resumed)
+        transport.disconnect()
+    }
+
+    @Test
+    fun `the server decides whether a session was resumed`() = runTest {
+        acceptConnection()
+        val transport = transport()
+        transport.connect(config.copy(resumeToken = "r-8"), listener)
+        val serverSocket = serverSockets.poll(5, TimeUnit.SECONDS)!!
+
+        serverSocket.send(
+            """{"type":"session_accepted","session_id":"s-8","resume_token":"r-9","resumed":true}"""
+        )
+
+        val event = nextEvent() as RealtimeServerEvent.SessionAccepted
+        assertEquals(true, event.resumed)
+        assertEquals("s-8", event.sessionId)
+        transport.disconnect()
+    }
+
+    @Test
+    fun `presenting a grant is not evidence it was honoured`() = runTest {
+        acceptConnection()
+        val transport = transport()
+        transport.connect(config.copy(resumeToken = "r-7"), listener)
+        val serverSocket = serverSockets.poll(5, TimeUnit.SECONDS)!!
+
+        // A grant was sent, and the server declined to resume. The client must report that.
+        serverSocket.send(
+            """{"type":"session_accepted","session_id":"s-7","resume_token":"r-6","resumed":false}"""
+        )
+
+        val event = nextEvent() as RealtimeServerEvent.SessionAccepted
+        assertEquals(false, event.resumed)
         transport.disconnect()
     }
 
