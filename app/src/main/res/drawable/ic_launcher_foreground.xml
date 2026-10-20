@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
+    Superseded as the launcher mark on 2026-10-21 by the supplied brand artwork, which now
+    ships as `@mipmap/ic_launcher_foreground` (a raster, one per density). Kept because
+    `ic_stat_notify.xml` is derived from this path data and cites it.
+
     The launcher mark: the same TALVIORA AI monogram as `ic_brand_monogram.xml`, scaled 3x and
     offset by 18 so the whole glyph sits inside the adaptive icon's 72x72 safe zone. Outside
     that zone a launcher is free to mask the artwork away, which is how a mark ends up with its
