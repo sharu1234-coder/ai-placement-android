@@ -27,7 +27,7 @@ jobs:
       # Verifies gradle-wrapper.jar's checksum against Gradle's own published list before
       # anything in this job executes it -- catches a tampered wrapper (supply-chain risk),
       # not just a broken one.
-      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       # Also sets up Gradle's dependency/build cache via the GitHub Actions cache backend
       # (free for both public and private repos), so repeat runs are much faster.
