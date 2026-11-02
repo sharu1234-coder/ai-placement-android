@@ -31,7 +31,7 @@ jobs:
 
       # Also sets up Gradle's dependency/build cache via the GitHub Actions cache backend
       # (free for both public and private repos), so repeat runs are much faster.
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       # Belt-and-suspenders: the executable bit is now set in the git index (verified via
       # `git ls-files -s gradlew`), but this costs nothing and removes any fragility if that
