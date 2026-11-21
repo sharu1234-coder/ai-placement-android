@@ -20,7 +20,17 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned rather than `ubuntu-latest`. That label rolled from Ubuntu 24.04.5 to 26.04.1
+    # between runs 39513594804 and 44942297166 with nothing in this repository changing, and in
+    # the backend repository the same rollover silently changed two test outcomes. An image
+    # upgrade is a real change to the test environment and belongs in a reviewable commit.
+    #
+    # 26.04 specifically, because that is the image both recent runs actually used, and it
+    # carries what this build needs: the Android SDK at /usr/local/lib/android/sdk with
+    # platform android-36 (compileSdk/targetSdk 36) and build-tools, command-line tools 20.0,
+    # and NDK. The JDK does not come from the image -- actions/setup-java installs Temurin 17
+    # below -- so the toolchain is unaffected by the pin.
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -42,6 +52,16 @@ jobs:
       # `git ls-files -s gradlew`), but this costs nothing and removes any fragility if that
       # ever regresses (e.g. Windows tooling with core.fileMode=false re-committing gradlew).
       - run: chmod +x gradlew
+
+      # Recorded because a silent `ubuntu-latest` rollover changed test outcomes in the backend
+      # repository and the logs carried no way to tell which image had produced them. Cheap, and
+      # it makes "but it passed last week" an answerable question.
+      - name: Record environment diagnostics
+        run: |
+          echo "runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+          . /etc/os-release && echo "os: $PRETTY_NAME"
+          echo "java: $(java -version 2>&1 | head -1)"
+          echo "ANDROID_HOME: ${ANDROID_HOME:-unset}"
 
       # google-services.json is gitignored (item 17) -- the Google Services Gradle plugin
       # requires one per flavor to exist before ANY Gradle task can run (even unit tests),
@@ -113,6 +133,33 @@ jobs:
 
       - name: Unit tests
         run: ./gradlew testDevDebugUnitTest testProdDebugUnitTest
+
+      # The unit-test step above is the one that has actually gone red in CI, and when it does the
+      # log carries a class name and a line number and nothing else. The report holding the failure
+      # message, the stack trace and the per-test timings is written into the build directory and
+      # thrown away with the runner, so run 44942297166 had to be diagnosed from
+      # "AssertionError at CareerPathGenerationLifecycleTest.kt:285" alone.
+      #
+      # always(), because without it this step is skipped in exactly the case it exists for: a step
+      # that fails stops the ones after it. if-no-files-found is `warn` rather than `error` so that
+      # a failure occurring before any XML exists -- a compile error in the test sources, say --
+      # is still reported as itself instead of being replaced by a missing-artifact error from
+      # here, which would hide the real cause.
+      #
+      # JUnit XML only. `binary/` beside it is Gradle's internal format, and the wider build
+      # directory holds the APKs, the release bundle and the generated google-services.json; none
+      # of those belong in a diagnostic artifact, so the paths name *.xml explicitly rather than
+      # uploading a directory.
+      - name: Upload unit-test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: unit-test-results
+          path: |
+            app/build/test-results/testDevDebugUnitTest/*.xml
+            app/build/test-results/testProdDebugUnitTest/*.xml
+          retention-days: 7
+          if-no-files-found: warn
 
       # Compile-only, and deliberately so. The instrumentation suite had been uncompilable for
       # several phases without anything noticing: the androidTest sources are not built by
