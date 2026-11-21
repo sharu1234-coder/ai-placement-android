@@ -32,22 +32,33 @@ import com.aiplacementos.app.ui.theme.Spacing
  * The one screen between "I want a full simulation" and the interview itself.
  *
  * Kept deliberately thin: it explains what the student is about to walk into, lets them attach
- * a job description if they have one, and starts. The interview itself then runs on the
- * existing TextInterviewScreen -- there is no separate simulation interview UI, because a
- * simulation is an ordinary interview with a longer plan.
+ * a job description if they have one, and starts. There is no separate simulation interview UI,
+ * because a simulation is an ordinary interview with a longer plan -- it runs on the spoken
+ * interview screen or the typed one, which is what [onStart]'s `spoken` flag selects.
+ *
+ * This screen owns that choice rather than receiving it, because it is the screen that
+ * actually launches the interview. Routing the flag down from the category list through a nav
+ * argument would put the answer a screen away from the decision, and a stale argument would be
+ * a simulation the student cannot finish. (The KDoc here previously stated the simulation ran
+ * on the typed screen while the graph sent every student to the spoken one -- the comment was
+ * describing a route that did not exist.)
  *
  * The copy describes the conversation the student will have, never the machinery behind it: no
  * stage names, no question budget per section, no mention of how questions are produced.
  */
 @Composable
-fun SimulationSetupScreen(onStart: (jdId: Int) -> Unit) {
+fun SimulationSetupScreen(onStart: (jdId: Int, spoken: Boolean) -> Unit) {
     val network = networkModule()
     val viewModel: SimulationSetupViewModel = viewModel(
         factory = viewModelFactory { initializer { SimulationSetupViewModel(network.jobRepository) } },
     )
+    val speechViewModel: SpeechAvailabilityViewModel = viewModel(
+        factory = viewModelFactory { initializer { SpeechAvailabilityViewModel(network.capabilitiesRepository) } },
+    )
     val jobDescriptions by viewModel.jobDescriptions.collectAsStateWithLifecycle()
     val selectedJdId by viewModel.selectedJdId.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val speech by speechViewModel.availability.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().padding(Spacing.md)) {
         LazyColumn(
@@ -111,7 +122,7 @@ fun SimulationSetupScreen(onStart: (jdId: Int) -> Unit) {
             text = "Start simulation",
             // 0 is this app's existing "no job description" sentinel on the interview route
             // (see textInterviewRoute); the backend receives null for it.
-            onClick = { onStart(selectedJdId ?: 0) },
+            onClick = { onStart(selectedJdId ?: 0, speech.canInterviewByVoice) },
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
         )
     }

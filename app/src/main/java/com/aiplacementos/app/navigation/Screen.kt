@@ -112,9 +112,10 @@ sealed class Screen(val route: String) {
     data object InterviewHistoryDetail : Screen("mock-interview/history/{interviewId}")
 
     // Full Recruiter Simulation's only new screen: a short setup step that picks an optional
-    // job description. The interview itself then runs on the existing TextInterview route with
-    // type "full_simulation" -- a simulation is an ordinary interview with a longer plan, so it
-    // deliberately has no interview screen of its own.
+    // job description. The interview itself then runs on the existing VoiceInterview or
+    // TextInterview route with type "full_simulation" -- see fullSimulationRoute -- because a
+    // simulation is an ordinary interview with a longer plan and deliberately has no interview
+    // screen of its own.
     data object SimulationSetup : Screen("mock-interview/simulation/setup")
 
     // Resume ATS Check -- drawer entry point under CAREER. Deliberately separate from the
@@ -239,6 +240,21 @@ fun testFlowRoute(blueprintId: Int, jdId: Int): String = "prepare-me/test/$bluep
 fun testTakingRoute(assessmentId: Int, jdId: Int): String = "prepare-me/test-taking/$assessmentId/$jdId"
 fun testResultRoute(assessmentId: Int, jdId: Int): String = "prepare-me/test-result/$assessmentId/$jdId"
 fun textInterviewRoute(jdId: Int, type: String = "technical"): String = "prepare-me/text-interview/$jdId/$type"
+
+/** The interview type the engine recognises as a full recruiter simulation. */
+const val FULL_SIMULATION_TYPE = "full_simulation"
+
+/**
+ * Where a full simulation actually runs.
+ *
+ * One builder rather than an `if` at the call site, so the graph and the test that proves this
+ * is reachable cannot drift apart. `spoken` comes from the server's speech capabilities: when
+ * it cannot transcribe, the simulation has to run typed or it cannot be completed at all --
+ * which it previously could not, because this was unconditionally the spoken route and the
+ * full simulation was the one interview in the app with no typed path.
+ */
+fun fullSimulationRoute(jdId: Int, spoken: Boolean): String =
+    if (spoken) voiceInterviewRoute(jdId, FULL_SIMULATION_TYPE) else textInterviewRoute(jdId, FULL_SIMULATION_TYPE)
 fun voiceInterviewRoute(jdId: Int, type: String = "technical"): String = "prepare-me/voice-interview/$jdId/$type"
 fun interviewEvaluationRoute(interviewId: Int, jdId: Int): String =
     "prepare-me/interview-evaluation/$interviewId/$jdId"

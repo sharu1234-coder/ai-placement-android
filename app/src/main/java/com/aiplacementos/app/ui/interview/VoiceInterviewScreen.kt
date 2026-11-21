@@ -67,6 +67,13 @@ fun VoiceInterviewScreen(
      * screens use for their optional destinations.
      */
     onLiveConversation: ((interviewId: Int, questionId: Int) -> Unit)? = null,
+    /**
+     * Leaves for the same interview answered by typing. Called only when the server has
+     * refused speech outright, which is settled until it is reconfigured -- so the recovery is
+     * a different route, not another attempt at this one. Null on a caller with nowhere to
+     * send them, same convention as [onLiveConversation].
+     */
+    onSwitchToTyping: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val network = networkModule()
@@ -150,7 +157,14 @@ fun VoiceInterviewScreen(
         is VoiceInterviewUiState.Error -> ErrorState(
             message = current.message,
             modifier = Modifier.fillMaxSize(),
-            onRetry = viewModel::retry,
+            // No retry when the server has refused speech: the identical request is refused
+            // forever, and a Try Again button there is the settled-answer loop that
+            // ErrorKind.isRetryable exists to prevent. Transient failures keep their retry.
+            onRetry = if (current.speechUnsupported) null else viewModel::retry,
+            secondaryLabel = "Type my answers instead".takeIf {
+                current.speechUnsupported && onSwitchToTyping != null
+            },
+            onSecondary = onSwitchToTyping.takeIf { current.speechUnsupported },
         )
         is VoiceInterviewUiState.Turn -> TurnContent(
             question = current.question,

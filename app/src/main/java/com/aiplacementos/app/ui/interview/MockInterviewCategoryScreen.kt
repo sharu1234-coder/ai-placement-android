@@ -42,6 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aiplacementos.app.data.remote.InterviewHistoryItemDto
+import com.aiplacementos.app.navigation.FULL_SIMULATION_TYPE
 import com.aiplacementos.app.ui.common.AppCard
 import com.aiplacementos.app.ui.common.ConversationIllustration
 import com.aiplacementos.app.ui.common.ScreenHeader
@@ -84,7 +85,6 @@ private val CATEGORIES = listOf(
 // through its own short setup first, and it is a different shape of practice rather than a
 // fifth flavour of the same one. Its label still has to be resolvable for the history list
 // below, which shows past interviews of every type.
-private const val FULL_SIMULATION_TYPE = "full_simulation"
 private const val FULL_SIMULATION_LABEL = "Full Recruiter Simulation"
 
 private fun typeLabel(type: String): String = when (type) {
@@ -122,10 +122,22 @@ fun MockInterviewCategoryScreen(
     val viewModel: MockInterviewCategoryViewModel = viewModel(
         factory = viewModelFactory { initializer { MockInterviewCategoryViewModel(network.interviewRepository) } },
     )
+    val speechViewModel: SpeechAvailabilityViewModel = viewModel(
+        factory = viewModelFactory { initializer { SpeechAvailabilityViewModel(network.capabilitiesRepository) } },
+    )
     val history by viewModel.history.collectAsStateWithLifecycle()
+    val speech by speechViewModel.availability.collectAsStateWithLifecycle()
+
     // rememberSaveable: a student who picked "Type answers", then rotated the phone or took a
     // call, should not silently be put back into a voice interview.
     var mode by rememberSaveable { mutableStateOf(AnswerMode.Speaking) }
+
+    // The server decides whether speaking is on offer at all, so the student's own choice is
+    // only consulted when it is. Not a rewrite of `mode`: the saved preference is kept intact
+    // so that pointing the app at a speech-capable server restores the voice default without
+    // the student having to re-pick it.
+    val canSpeak = speech.canInterviewByVoice
+    val effectiveMode = if (canSpeak) mode else AnswerMode.Writing
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.md),
@@ -135,8 +147,16 @@ fun MockInterviewCategoryScreen(
         item {
             ScreenHeader(
                 title = "Mock Interviews",
-                subtitle = "Practise the way the real thing happens -- out loud. Your answer is " +
-                    "transcribed and graded on what you actually said.",
+                subtitle = if (canSpeak) {
+                    "Practise the way the real thing happens -- out loud. Your answer is " +
+                        "transcribed and graded on what you actually said."
+                } else {
+                    // Promising "out loud" on a server that cannot transcribe is the same
+                    // class of mistake as the test-mode payment copy: a true sentence about
+                    // the product, printed where it is false about this deployment.
+                    "Practise with real interview questions. You type your answers, and " +
+                        "they are graded on what you actually wrote."
+                },
                 illustration = {
                     ConversationIllustration(
                         modifier = Modifier.size(64.dp),
@@ -148,32 +168,41 @@ fun MockInterviewCategoryScreen(
             )
         }
 
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap)) {
-                AnswerMode.entries.forEach { option ->
-                    FilterChip(
-                        selected = mode == option,
-                        onClick = { mode = option },
-                        label = { Text(option.label) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = option.icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                    )
+        if (canSpeak) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.chipGap)) {
+                    AnswerMode.entries.forEach { option ->
+                        FilterChip(
+                            selected = effectiveMode == option,
+                            onClick = { mode = option },
+                            label = { Text(option.label) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = option.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
+                        )
+                    }
                 }
             }
+        } else if (speech.resolved) {
+            // Only once the server has actually answered. Before that this screen is already
+            // rendering the typed path, and announcing "voice is unavailable" on the strength
+            // of a default we have not confirmed would be telling the student something we do
+            // not know -- and it would flash away if the answer turned out to be yes.
+            item { VoiceUnavailableNote() }
         }
 
         item {
             // The hero. Tinted rather than plain so one action on the screen reads as the
             // recommended one -- on a page where every card is the same weight, nothing is.
-            // Always the voice simulation: the written path is a fallback for a single
-            // category, not a way to sit a whole recruiter simulation by typing.
+            // Spoken when the server can hear, typed when it cannot: a simulation the student
+            // cannot finish is worse than one they type, and this was previously the only
+            // path through this screen with no typed alternative.
             PracticeCard(
-                icon = Icons.Filled.RecordVoiceOver,
+                icon = if (canSpeak) Icons.Filled.RecordVoiceOver else Icons.Filled.Keyboard,
                 title = FULL_SIMULATION_LABEL,
                 description = "One continuous recruiter interview -- background, experience, " +
                     "projects, technical and behavioural questions, then your own questions.",
@@ -197,7 +226,7 @@ fun MockInterviewCategoryScreen(
                 title = category.label,
                 description = category.description,
                 onClick = {
-                    when (mode) {
+                    when (effectiveMode) {
                         AnswerMode.Speaking -> onSelectCategory(category.type)
                         AnswerMode.Writing -> onSelectWrittenCategory(category.type)
                     }
@@ -214,6 +243,42 @@ fun MockInterviewCategoryScreen(
                 )
             }
             items(history, key = { it.id }) { item -> PreviousInterviewRow(item, onClick = { onOpenPastInterview(item.id) }) }
+        }
+    }
+}
+
+/**
+ * Why there is no microphone on this screen, said plainly and without blame.
+ *
+ * Shown only when the server has actually told us it cannot transcribe -- never on the way to
+ * finding out. It offers no retry on purpose: this is a property of the server the student is
+ * connected to, so trying again cannot change it, and a button that cannot help is worse than
+ * no button. The typed path is already right there, so the note explains rather than apologises.
+ */
+@Composable
+private fun VoiceUnavailableNote() {
+    AppCard(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            // An icon as well as the words: the note must not depend on colour to be read as
+            // information rather than an error.
+            Icon(
+                imageVector = Icons.Filled.Keyboard,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+            Column(modifier = Modifier.padding(start = Spacing.sm)) {
+                Text(
+                    text = "Typed answers on this server",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = "Spoken answers are not available here, so every interview -- including " +
+                        "the full simulation -- is answered by typing. Same questions, same grading.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

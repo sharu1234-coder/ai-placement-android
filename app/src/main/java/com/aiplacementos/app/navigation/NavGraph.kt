@@ -429,6 +429,16 @@ fun NavGraph(navController: NavHostController) {
                         )
                     )
                 },
+                // The way out when the server has refused speech outright. Carries the same
+                // jdId and type, so the student lands on the same interview they chose rather
+                // than back at a menu, and popUpTo replaces this destination instead of
+                // stacking it -- backing out of the typed interview must not return to a voice
+                // screen that cannot work.
+                onSwitchToTyping = {
+                    navController.navigate(textInterviewRoute(jdId, interviewType)) {
+                        popUpTo(Screen.VoiceInterview.route) { inclusive = true }
+                    }
+                },
                 onFinish = { interviewId ->
                     navController.navigate(interviewEvaluationRoute(interviewId, jdId)) {
                         popUpTo(Screen.VoiceInterview.route) { inclusive = true }
@@ -631,9 +641,11 @@ fun NavGraph(navController: NavHostController) {
         }
         backComposable(navController, Screen.MockInterviewCategory.route) {
             MockInterviewCategoryScreen(
-                // Voice is the default path through the interview engine. The written route
-                // stays wired for a student who picks "Type answers" -- same engine, same
-                // grading, so nothing is lost by preferring voice here.
+                // Both routes stay wired; the screen picks between them. Voice is the
+                // preference, not the assumption -- the screen asks the server whether it can
+                // transcribe at all and falls back to the written route when it cannot, so this
+                // destination is only ever reached when a spoken answer can actually be
+                // submitted. Same engine, same grading either way.
                 onSelectCategory = { type -> navController.navigate(voiceInterviewRoute(0, type)) },
                 onSelectWrittenCategory = { type -> navController.navigate(textInterviewRoute(0, type)) },
                 onStartFullSimulation = { navController.navigate(Screen.SimulationSetup.route) },
@@ -642,12 +654,18 @@ fun NavGraph(navController: NavHostController) {
         }
         backComposable(navController, Screen.SimulationSetup.route) {
             SimulationSetupScreen(
-                onStart = { jdId ->
-                    // Reuses the existing interview route; only the type differs. popUpTo keeps
-                    // setup out of the back stack so backing out of the interview returns to the
-                    // category list rather than re-offering a setup step for a session that has
-                    // already started server-side.
-                    navController.navigate(voiceInterviewRoute(jdId, "full_simulation")) {
+                onStart = { jdId, spoken ->
+                    // Reuses the existing interview routes; only the type differs, and both
+                    // accept "full_simulation" because the type is passed straight through to
+                    // the interview engine. The typed route is what makes the simulation
+                    // completable on a server that cannot transcribe -- it was previously
+                    // unconditionally the spoken one, which is why this was the only interview
+                    // in the app with no typed path at all.
+                    //
+                    // popUpTo keeps setup out of the back stack so backing out of the interview
+                    // returns to the category list rather than re-offering a setup step for a
+                    // session that has already started server-side.
+                    navController.navigate(fullSimulationRoute(jdId, spoken)) {
                         popUpTo(Screen.SimulationSetup.route) { inclusive = true }
                     }
                 },

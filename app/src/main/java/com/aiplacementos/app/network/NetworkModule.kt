@@ -33,6 +33,7 @@ import com.aiplacementos.app.data.remote.RecruiterAttackApi
 import com.aiplacementos.app.data.remote.ResumesApi
 import com.aiplacementos.app.data.remote.RoadmapApi
 import com.aiplacementos.app.data.remote.SkillPassportApi
+import com.aiplacementos.app.data.remote.CapabilitiesApi
 import com.aiplacementos.app.data.remote.SubscriptionsApi
 import com.aiplacementos.app.data.remote.UsersApi
 import com.aiplacementos.app.data.remote.ProfessionalPresenceApi
@@ -67,6 +68,7 @@ import com.aiplacementos.app.data.repository.RecruiterAttackRepositoryImpl
 import com.aiplacementos.app.data.repository.ResumeRepositoryImpl
 import com.aiplacementos.app.data.repository.RoadmapRepositoryImpl
 import com.aiplacementos.app.data.repository.SkillPassportRepositoryImpl
+import com.aiplacementos.app.data.repository.CapabilitiesRepositoryImpl
 import com.aiplacementos.app.data.repository.SubscriptionRepositoryImpl
 import com.aiplacementos.app.data.repository.WeaknessRepositoryImpl
 import com.aiplacementos.app.database.AlarmDatabase
@@ -102,6 +104,7 @@ import com.aiplacementos.app.domain.repository.RecruiterAttackRepository
 import com.aiplacementos.app.domain.repository.ResumeRepository
 import com.aiplacementos.app.domain.repository.RoadmapRepository
 import com.aiplacementos.app.domain.repository.SkillPassportRepository
+import com.aiplacementos.app.domain.repository.CapabilitiesRepository
 import com.aiplacementos.app.domain.repository.SubscriptionRepository
 import com.aiplacementos.app.domain.repository.WeaknessRepository
 import java.util.concurrent.TimeUnit
@@ -196,6 +199,7 @@ class NetworkModule(context: Context) {
     private val careerStrategyApi: CareerStrategyApi = retrofit.create()
     private val skillPassportApi: SkillPassportApi = retrofit.create()
     private val subscriptionsApi: SubscriptionsApi = retrofit.create()
+    private val capabilitiesApi: CapabilitiesApi = retrofit.create()
     private val weaknessesApi: WeaknessesApi = retrofit.create()
     private val professionalPresenceApi: ProfessionalPresenceApi = retrofit.create()
     private val recruiterAttackApi: RecruiterAttackApi = retrofit.create()
@@ -325,6 +329,7 @@ class NetworkModule(context: Context) {
     val skillPassportRepository: SkillPassportRepository = SkillPassportRepositoryImpl(skillPassportApi)
     val notificationRepository: NotificationRepository = NotificationRepositoryImpl(alarmDatabase.notificationDao())
     val subscriptionRepository: SubscriptionRepository = SubscriptionRepositoryImpl(subscriptionsApi)
+    val capabilitiesRepository: CapabilitiesRepository = CapabilitiesRepositoryImpl(capabilitiesApi)
     val weaknessRepository: WeaknessRepository = WeaknessRepositoryImpl(weaknessesApi)
     val professionalPresenceRepository: ProfessionalPresenceRepository =
         ProfessionalPresenceRepositoryImpl(professionalPresenceApi)

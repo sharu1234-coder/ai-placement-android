@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.aiplacementos.app.data.remote.InterviewQuestionDto
 import com.aiplacementos.app.data.remote.OperationKey
 import com.aiplacementos.app.domain.repository.InterviewRepository
-import com.aiplacementos.app.ui.common.toUserMessage
 import com.aiplacementos.app.voice.AudioRecordingException
 import com.aiplacementos.app.voice.VoiceInterviewSession
 import kotlinx.coroutines.CancellationException
@@ -59,7 +58,13 @@ sealed interface VoiceInterviewUiState {
          */
         val audioUnavailable: Boolean = false,
     ) : VoiceInterviewUiState
-    data class Error(val message: String) : VoiceInterviewUiState
+    /**
+     * @param speechUnsupported this server cannot do speech, so the identical request will be
+     *   refused forever. Separate from the message because it changes what the screen may
+     *   offer: a retry here is the settled-answer loop ErrorKind.isRetryable exists to
+     *   prevent, and the real recovery is the typed interview, not another attempt.
+     */
+    data class Error(val message: String, val speechUnsupported: Boolean = false) : VoiceInterviewUiState
     data class Completed(val interviewId: Int) : VoiceInterviewUiState
 }
 
@@ -152,8 +157,10 @@ class VoiceInterviewViewModel(
                 savedStateHandle[START_KEY] = null
                 loadNextTurn()
             } catch (e: Exception) {
+                val failure = e.toInterviewVoiceFailure("start the voice interview")
                 _uiState.value = VoiceInterviewUiState.Error(
-                    e.toUserMessage("start the voice interview")
+                    message = failure.message,
+                    speechUnsupported = failure is InterviewVoiceFailure.SpeechUnsupported,
                 )
             }
         }
@@ -177,8 +184,10 @@ class VoiceInterviewViewModel(
                 _uiState.value = VoiceInterviewUiState.Turn(id, question, VoiceTurnPhase.SPEAKING)
                 speakQuestion(id, question)
             } catch (e: Exception) {
+                val failure = e.toInterviewVoiceFailure("load the next question")
                 _uiState.value = VoiceInterviewUiState.Error(
-                    e.toUserMessage("load the next question")
+                    message = failure.message,
+                    speechUnsupported = failure is InterviewVoiceFailure.SpeechUnsupported,
                 )
             }
         }
@@ -343,8 +352,10 @@ class VoiceInterviewViewModel(
                     "The recording failed partway through -- please try that question again."
                 )
             } catch (e: Exception) {
+                val failure = e.toInterviewVoiceFailure("submit your answer")
                 _uiState.value = VoiceInterviewUiState.Error(
-                    e.toUserMessage("submit your answer")
+                    message = failure.message,
+                    speechUnsupported = failure is InterviewVoiceFailure.SpeechUnsupported,
                 )
             }
         }
