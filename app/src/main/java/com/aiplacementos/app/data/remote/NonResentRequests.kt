@@ -11,8 +11,10 @@ import retrofit2.Retrofit
  * OkHttp sends it again on a new connection without telling anyone. Harmless for a read. For
  * POST /career-path/generate it is a second generation reaching the server while the first is
  * still running -- F12-03's overlap, started by the transport rather than by a tap. Measured, not
- * assumed: with its connection dropped after the request arrived, MockWebServer received the POST
- * twice (CareerPathGenerationLifecycleTest). A lost generation response is handled by
+ * assumed: when the request went out on a reused connection and that connection was dropped after
+ * the request arrived, MockWebServer received the POST twice, and received it once through this
+ * function (GenerationResendControlTest -- which also records that reuse is what makes the
+ * difference, not the disconnect alone). A lost generation response is handled by
  * CareerPathGenerationRecovery instead, which reads the server's state rather than asking again.
  *
  * Only this one request: every other call keeps OkHttp's default. The exception is a clone of

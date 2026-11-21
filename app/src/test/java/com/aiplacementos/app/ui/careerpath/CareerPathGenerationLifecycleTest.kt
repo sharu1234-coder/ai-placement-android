@@ -222,8 +222,6 @@ class CareerPathGenerationLifecycleTest {
         readTimeoutMillis: Long = 10_000,
         timing: GenerationRecoveryTiming = GenerationRecoveryTiming(),
         pause: (suspend (Long) -> Unit)? = null,
-        /** The plain client, without NetworkModule's routing -- only for the control test below. */
-        okHttpDefaults: Boolean = false,
     ) {
         val store: PendingOperationStore = run {
             val scope = CoroutineScope(Dispatchers.IO + SupervisorJob()).also { dataStoreScopes += it }
@@ -239,7 +237,7 @@ class CareerPathGenerationLifecycleTest {
         val repository = CareerPathRepositoryImpl(
             Retrofit.Builder()
                 .baseUrl(server.url("/"))
-                .let { if (okHttpDefaults) it.client(client) else it.clientNotResendingGenerations(client) }
+                .clientNotResendingGenerations(client)
                 .addApiConverters()
                 .build()
                 .create<CareerPathApi>(),
@@ -413,21 +411,11 @@ class CareerPathGenerationLifecycleTest {
         assertEquals("the server received the generation exactly once", 1, backend.generatePosts)
     }
 
-    @Test
-    fun `control - OkHttp's defaults would have sent that generation twice`() {
-        // Why NetworkModule routes the generation through clientNotResendingGenerations: the same
-        // drop, with the client OkHttp builds by default. The request was written on the pooled
-        // connection the pre-send read had just used, so OkHttp retried it on a new one.
-        backend.onGenerate = { MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST) }
-        val app = App(okHttpDefaults = true)
-        val screen = app.screen()
-        screen.awaitCatalog()
-
-        screen.tap("Data Scientist")
-
-        screen.awaitState<CareerPathRoleSelectionUiState.StillFinishing>()
-        assertEquals(2, backend.generatePosts)
-    }
+    // The control for the test above -- what the client OkHttp builds by default would have done
+    // with the same drop -- lives in GenerationResendControlTest. It asserts the POSTs the server
+    // received rather than a view-model state, because the resend only happens when the request
+    // went out on a reused connection, and reuse underneath a ViewModel is not something this
+    // harness can guarantee: asserting it here held locally and failed on CI.
 
     // ==========================================================================================
     // 4. Definite answers stay definite
