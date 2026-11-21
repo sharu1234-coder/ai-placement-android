@@ -20,6 +20,12 @@ data class SubscriptionStatusDto(
     val status: String,
     val plan: String? = null,
     @SerialName("expires_at") val expiresAt: String? = null,
+    /** Which Razorpay mode the SERVER charges in -- "test", "live" or "unknown". A deployment
+     * property rather than a per-profile one, and the only thing that licenses the purchase
+     * flow to say no real money is charged; the client never infers it. Nullable with a null
+     * default so a backend that predates the field decodes cleanly and reads as unknown, which
+     * [com.aiplacementos.app.ui.subscriptions.paymentDisclosure] treats as "promise nothing". */
+    @SerialName("payment_mode") val paymentMode: String? = null,
 )
 
 @Serializable

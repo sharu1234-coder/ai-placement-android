@@ -204,4 +204,50 @@ class NullableWireContractTest {
         assertNull(path.jobReadiness.practicePercent)
         assertNull(path.jobReadiness.interviewPercent)
     }
+
+    // ----------------------------------------------------------------------------------
+    // H1 -- the subscription payment mode
+    // ----------------------------------------------------------------------------------
+
+    /**
+     * An installed app can outlive the backend it was built against, so the field that decides
+     * whether the purchase flow promises a free transaction has to survive its own absence.
+     * Decoded here rather than constructed, because a missing key is a deserialization concern:
+     * building the DTO in Kotlin would silently use the default and prove nothing.
+     */
+    @Test
+    fun `a status body without payment_mode decodes as null rather than failing`() {
+        val body = """
+            {
+              "tier": "free",
+              "status": "never_subscribed",
+              "plan": null,
+              "expires_at": null
+            }
+        """.trimIndent()
+
+        val status = ApiJson.decodeFromString<SubscriptionStatusDto>(body)
+
+        assertEquals("free", status.tier)
+        // Null, never "test" -- an older backend must not end up licensing the no-charge copy.
+        assertNull(status.paymentMode)
+    }
+
+    @Test
+    fun `a status body carrying the live payment mode decodes it`() {
+        val body = """
+            {
+              "tier": "premium",
+              "status": "active",
+              "plan": "1_month",
+              "expires_at": "2027-01-01T00:00:00Z",
+              "payment_mode": "live"
+            }
+        """.trimIndent()
+
+        val status = ApiJson.decodeFromString<SubscriptionStatusDto>(body)
+
+        assertEquals("live", status.paymentMode)
+        assertEquals("2027-01-01T00:00:00Z", status.expiresAt)
+    }
 }

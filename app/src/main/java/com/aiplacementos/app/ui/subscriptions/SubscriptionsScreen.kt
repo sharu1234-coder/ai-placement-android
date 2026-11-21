@@ -142,8 +142,7 @@ private fun SubscriptionsContent(
 
         item {
             Text(
-                text = "All payments are processed securely via Razorpay (TEST MODE -- no real " +
-                    "money is charged).",
+                text = paymentDisclosure(data.status.paymentMode),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = Spacing.xs),
@@ -274,6 +273,24 @@ private fun PurchaseResultDialog(purchaseState: PurchaseState, onDismiss: () -> 
         )
         PurchaseState.Idle, is PurchaseState.Processing -> Unit
     }
+}
+
+/**
+ * The payment-mode disclosure shown in the purchase flow.
+ *
+ * Only an explicit "test" from the server earns the no-real-money sentence. The server is the
+ * only thing that knows the mode -- it owns the Razorpay key -- so this is never inferred
+ * locally: a BuildConfig.DEBUG gate would be wrong in both directions, since a release build
+ * pointed at a test backend would drop the disclosure a tester needs, and a debug build
+ * pointed at a live backend would promise no charge while taking real money.
+ *
+ * Every other value -- "live", "unknown", or null from a backend that predates the field --
+ * gets wording that promises nothing about the charge. "No real money is charged" printed
+ * above a Subscribe button is a promise, and not knowing the mode is not evidence it holds.
+ */
+internal fun paymentDisclosure(paymentMode: String?): String = when (paymentMode) {
+    "test" -> "All payments are processed securely via Razorpay (TEST MODE -- no real money is charged)."
+    else -> "All payments are processed securely via Razorpay."
 }
 
 private fun computeSavingsPercent(plan: PlanDto, baseline: PlanDto?): Int? {
